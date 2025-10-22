@@ -7,14 +7,19 @@ import random
 import torch
 import shutil
 import csv
+import pandas as pd
 
 from omegaconf import OmegaConf
 
-from typing import Union, Optional, Callable
+from typing import Union, Optional, Callable, Dict
+from torch.nn.parameter import Parameter
+from typing import Iterator
 
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.nn as nn
+
+from src.models.losses import discriminator_loss, generator_loss
 
 def load_config(user_path: Path, default_path: Path) -> OmegaConf:
     """
@@ -116,18 +121,11 @@ def setup_loss_function(cfg: OmegaConf = None, loss_type: str = None) -> Callabl
     Returns:
         loss_function (function): The loss function
     """
-    if loss_type is None:
-        loss_type = cfg.training.loss_function
 
-    if loss_type == 'mse':
-        loss_function = F.mse_loss
-    else:
-        raise ValueError(f"Loss function {loss_type} not recognised")
-
-    return loss_function
+    return generator_loss, discriminator_loss
 
 
-def setup_optimiser(cfg: OmegaConf, model: nn.Module) -> optim.Optimizer:
+def setup_optimiser(cfg: OmegaConf, model_parameters: Iterator[Parameter]) -> optim.Optimizer:
     """
     Create optimiser from config file
     """
@@ -138,21 +136,21 @@ def setup_optimiser(cfg: OmegaConf, model: nn.Module) -> optim.Optimizer:
 
     if optimizer_name == 'sgd':
         optimizer = optim.SGD(
-            model.parameters(), 
+            model_parameters, 
             lr=learning_rate, 
             momentum=momentum
         )
         logging.info("Using SGD optimizer")
     elif optimizer_name == 'adam':
         optimizer = optim.Adam(
-            model.parameters(), 
+            model_parameters, 
             lr=learning_rate,
             weight_decay=weight_decay
         )
         logging.info("Using Adam optimizer")
     elif optimizer_name == 'adamw':
         optimizer = optim.Adam(
-            model.parameters(), 
+            model_parameters, 
             lr=learning_rate,
             weight_decay=weight_decay
         )
@@ -163,58 +161,78 @@ def setup_optimiser(cfg: OmegaConf, model: nn.Module) -> optim.Optimizer:
     return optimizer
 
 
-def save_checkpoint(model: nn.Module,
-                    optimizer: optim.Optimizer,
+def save_checkpoint(generator: nn.Module,
+                    discriminator_stft: nn.Module,
+                    discriminator_wave: nn.Module,
+                    optimizer_G: optim.Optimizer,
+                    optimizer_D: optim.Optimizer,
                     epoch: int,
                     val_loss: float,
                     checkpoint_path: Union[str, Path]):
     """
-    Save model and optimizer state as a checkpoint.
+    Save the state of all models (Generator, Discriminators) and optimizers
+    for the SoundStream GAN architecture.
 
     Args:
-        model (torch.nn.Module): The model to save.
-        optimizer (torch.optim.Optimizer): The optimizer to save.
+        generator (nn.Module): The Generator (Encoder, RVQ, Decoder).
+        discriminator_stft (nn.Module): The STFT-based Discriminator.
+        discriminator_wave (nn.Module): The Multi-scale Wave-based Discriminator.
+        optimizer_G (optim.Optimizer): The optimizer for the Generator.
+        optimizer_D (optim.Optimizer): The optimizer for the Discriminators.
         epoch (int): The current epoch number.
-        val_loss (float): The validation loss at this epoch.
-        checkpoint_path (str): Path to save the checkpoint.
+        val_loss (float): The validation loss at this epoch (often L_G total).
+        checkpoint_path (Union[str, Path]): Path to save the checkpoint file.
     """
-    torch.save({
+    
+    # 1. Gather all state dictionaries
+    checkpoint = {
         'epoch': epoch,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
         'val_loss': val_loss,
-    }, Path(checkpoint_path))
-    logging.info(f"Checkpoint saved: {checkpoint_path}")
-
-
-def load_checkpoint(checkpoint_path: Union[str, Path],
-                    model: nn.Module,
-                    optimizer: Optional[optim.Optimizer] = None):
-    """
-    Load a checkpoint from a file.
-
-    Args:
-        checkpoint_path (str): Path to the checkpoint file.
-        model (torch.nn.Module): The model to load the weights into.
-        optimizer (torch.optim.Optimizer, optional): The optimizer to load the state into. Defaults to None.
-
-    Returns:
-        None
-    """
-    checkpoint_path = Path(checkpoint_path)
-
-    if checkpoint_path.is_file():
-        logging.info(f"Loading checkpoint '{checkpoint_path}'")
-        checkpoint = torch.load(checkpoint_path, weights_only=True)
-        model.load_state_dict(checkpoint['model_state_dict'])
         
-        if optimizer is not None:
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            logging.info(f"Loaded optimizer state from '{checkpoint_path}'")
-    else:
-        raise FileNotFoundError(f"No checkpoint found at '{checkpoint_path}'")
+        # Generator components
+        'generator_state_dict': generator.state_dict(),
+        'optimizer_G_state_dict': optimizer_G.state_dict(),
+        
+        # Discriminator components (saved separately for clarity)
+        'discriminator_stft_state_dict': discriminator_stft.state_dict(),
+        'discriminator_wave_state_dict': discriminator_wave.state_dict(),
+        'optimizer_D_state_dict': optimizer_D.state_dict(),
+    }
+
+    path = Path(checkpoint_path)
+    torch.save(checkpoint, path)
+    logging.info(f"Checkpoint saved: {path}")
 
 
+def load_checkpoint(checkpoint_path: Union[str, Path], 
+                     generator: nn.Module,
+                     discriminator_stft: nn.Module,
+                     discriminator_wave: nn.Module,
+                     optimizer_G: optim.Optimizer = None,
+                     optimizer_D: optim.Optimizer = None) -> Dict:
+    """
+    Load model and optimizer states from a checkpoint.
+    """
+    path = Path(checkpoint_path)
+    if not path.exists():
+        logging.warning(f"Checkpoint not found: {path}")
+        return {}
+
+    checkpoint = torch.load(path)
+
+    # Load model states
+    generator.load_state_dict(checkpoint['generator_state_dict'])
+    discriminator_stft.load_state_dict(checkpoint['discriminator_stft_state_dict'])
+    discriminator_wave.load_state_dict(checkpoint['discriminator_wave_state_dict'])
+    
+    # Load optimizer states (optional, needed only to resume training)
+    if optimizer_G and 'optimizer_G_state_dict' in checkpoint:
+        optimizer_G.load_state_dict(checkpoint['optimizer_G_state_dict'])
+    if optimizer_D and 'optimizer_D_state_dict' in checkpoint:
+        optimizer_D.load_state_dict(checkpoint['optimizer_D_state_dict'])
+
+    logging.info(f"Checkpoint loaded successfully from {path} (Epoch {checkpoint['epoch']})")
+    return checkpoint
 def setup_save_dir(cfg: OmegaConf,
                     overwrite: bool = False, 
                     mode: str = "train"):
@@ -270,3 +288,32 @@ def setup_save_dir(cfg: OmegaConf,
             writer.writerow(["epoch", "train_loss", "val_loss", "best_val_loss"])
     
     return save_dir
+
+
+## --------------------------------------------------------------
+## -------------------------- Meta code -------------------------
+## --------------------------------------------------------------
+            
+def get_contiguous_ones(binary_vector: np.ndarray) -> list[tuple[int, int]]:
+    """Get a list of (start_idx, end_idx) for each contiguous block of True values."""
+    if (binary_vector == 0).all():
+        return []
+
+    ones = np.where(binary_vector)[0]
+    boundaries = np.where(np.diff(ones) != 1)[0]
+    return [
+        (ones[i], ones[j])
+        for i, j in zip(
+            np.insert(boundaries + 1, 0, 0), np.append(boundaries, len(ones) - 1)
+        )
+    ]
+
+
+def get_ik_failures_mask(joint_angles: np.ndarray) -> np.ndarray:
+    """Compute mask that is True where there are no ik failures."""
+    zeros = np.zeros_like(joint_angles)  # (..., joint)
+    is_zero = np.isclose(joint_angles, zeros)
+    return ~np.all(is_zero, axis=-1)
+
+
+## --------------------------------------------------------------

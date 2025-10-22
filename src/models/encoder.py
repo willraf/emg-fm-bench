@@ -25,17 +25,14 @@ class EncoderBlock(nn.Module):
         self.layers = nn.Sequential(
             ResidualUnit(
                 in_channels=out_channels // 2,
-                out_channels=out_channels // 2,
                 dilation=1
             ),
             ResidualUnit(
                 in_channels=out_channels // 2,
-                out_channels=out_channels // 2,
                 dilation=3
             ),
             ResidualUnit(
                 in_channels=out_channels // 2,
-                out_channels=out_channels // 2,
                 dilation=9
             ),
             CausalConv1d(
@@ -55,7 +52,7 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
 
         self.layers = nn.Sequential(
-            CausalConv1d(in_channels=16, out_channels=C, kernel_size=7),
+            CausalConv1d(in_channels=1, out_channels=C, kernel_size=7),
             EncoderBlock(out_channels=2*C, stride=strides[0]),
             EncoderBlock(out_channels=4*C, stride=strides[1]),
             EncoderBlock(out_channels=8*C, stride=strides[2]),

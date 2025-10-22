@@ -56,8 +56,7 @@ class CausalConvTranspose1d(nn.Module):
 class ResidualUnit(nn.Module):
     def __init__(
             self,
-            in_channels,
-            out_channels,
+            in_channels,        # potentially must be same as out_channels for residual connection
             dilation,
             pad_mode='reflect'
         ):
@@ -68,7 +67,7 @@ class ResidualUnit(nn.Module):
         self.layers = nn.Sequential(
             CausalConv1d(
                 in_channels=in_channels,
-                out_channels=out_channels,
+                out_channels=in_channels,
                 kernel_size=7,
                 dilation=dilation,
                 pad_mode=pad_mode,
@@ -76,7 +75,7 @@ class ResidualUnit(nn.Module):
             nn.ELU(),
             CausalConv1d(
                 in_channels=in_channels,
-                out_channels=out_channels,
+                out_channels=in_channels,
                 kernel_size=1,
                 pad_mode=pad_mode,
             ),

@@ -4,4 +4,3 @@ To add a custom dataset class called 'dummy', you need to add a file called 'dum
 """
 
 from .setup import setup_data
-from .base_dataset import BaseDataset

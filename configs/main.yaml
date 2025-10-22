@@ -1,32 +1,68 @@
-# Configuration settings
+# configuration file
+
+logging:
+  log_interval: 10
 
 experiment:
-  name: experiment
+  name: "13_10_2025"
   random_seed: 42
   plot_examples: True
+  save: True
 
+to_tensor:
+  _target_: src.data.transforms.ExtractToTensor
+  field: emg
 
 data:
-  name: example
-  num_workers: 4
-
+  num_channels: 1
+  data_dir: data
+  metadata_file: ${data.data_dir}/metadata.csv
+  # Current restrictions on window_length: Must be a multiple of S=strides product (320 here)
+  #   and bottleneck size (window_length / (s1*s2*s3)) must be >= padding ( dilation×(K−1)+(1−stride) ) 
+  #   stride is 1 in residual units
+  window_length: 6400       
+  num_workers: 10
+  subsample: 1.0
+  padding: [0, 0]
+  skip_ik_failures: True
+  batch_size: 64
+  transforms:
+    train:
+      - ${to_tensor}
+      # - _target_: emg2pose.transforms.RotationAugmentation
+    val:
+      - ${to_tensor}
+    test: ${transforms.val}
 
 model:
-  name: example
+  name: soundstream
   checkpoint: null
+  n_quantizers: 16
+  codebook_size: 1024
+  embedding_dim: 256
+  channel_multiplier: 32
+  strides: [2, 4, 5, 8]
+
+discriminator:
+  stft:
+    channel_multiplier: ${model.channel_multiplier}
+    window_length: 1024 # STFT window length
+  wave:
+    num_discs: 3
+    first_dim: 16
+    n_layers: 4
+    downsampling_factor: 4
 
 training:
-  optimizer: "adam"
-  batch_size: 64
-  epochs: 10
-  learning_rate: 0.01
-  patience: 10
-  val_split: 0.2
+  optimizer: adam
+  epochs: 100
+  learning_rate: 0.0001
+  momentum: 0
+  weight_decay: 0
+  patience: 15
+  loss_function: mse
 
 validation:
-  batch_size: 64
-
-
 
 evaluation:
 

@@ -16,34 +16,61 @@ Date:
 """
 
 import importlib
-from omegaconf import OmegaConf
-from src.data.curriculum_scheduler import CurriculumScheduler
+from omegaconf import OmegaConf, DictConfig
+from typing import Sequence, Any
+from hydra.utils import instantiate
+import pandas as pd
+from pathlib import Path
 
-from torch.utils.data import DataLoader, random_split
+from src.data import transforms
+from src.data.transforms import Transform
+
+
+
+from src.data.emg2pose_data import WindowedEmgDataset
+
+from torch.utils.data import ConcatDataset, DataLoader
 
 import logging
 
 
-def find_dataset_using_name(dataset_name: str):
+def load_splits(
+    cfg: OmegaConf,
+) -> dict[str, list[str]]:
+    """Load train, val, and test datasets from metadata csv.
+    
+    Returns:
+        splits (dict): Dictionary with keys "train", "val", "test" and values as lists of filenames.
     """
-    Import the module "[dataset_name]_dataset.py".
-    The class [DatasetName]Dataset must exist inside (future: and inherit from BaseDataset).
-    """
-    module_name = f"src.data.{dataset_name}_dataset"
-    try:
-        datasetlib = importlib.import_module(module_name)
-    except ModuleNotFoundError as e:
-        raise ImportError(f"Could not import module {module_name}") from e
+    metadata_file = cfg.data.metadata_file
+    subsample = cfg.data.subsample
+    random_seed = cfg.experiment.random_seed
+    data_dir = cfg.data.data_dir
 
-    target_class_name = f"{dataset_name.capitalize()}Dataset"
+    # Load dataframe
+    df = pd.read_csv(metadata_file)
 
-    for name in dir(datasetlib):
-        obj = getattr(datasetlib, name)
-        if name.lower() == target_class_name.lower() and isinstance(obj, type): # issubclass(obj, BaseDataset):
-            return obj
+    # Optionally subsample
+    df = df.groupby("split").apply(
+        lambda x: x.sample(frac=subsample, random_state=random_seed),
+    )
+    df.reset_index(drop=True, inplace=True)
 
-    raise ImportError(f"Expected class '{target_class_name}' in '{module_name}'.")
+    base_dir = Path(data_dir).expanduser()
 
+    # Format as dictionary
+    splits = {}
+    for split, df_ in df.groupby("split"):
+        splits[split] = [
+            str(base_dir.joinpath(f'{filename}.hdf5')) 
+            for filename in df_.filename if base_dir.joinpath(f'{filename}.hdf5').is_file()
+        ]
+
+    return splits
+
+# Instantiate transforms
+def _build_transform(configs: Sequence[DictConfig]) -> Transform[Any, Any]:
+    return transforms.Compose([instantiate(cfg) for cfg in configs])
 
 def setup_data(cfg: OmegaConf, mode: str = "train"):
     """
@@ -55,58 +82,60 @@ def setup_data(cfg: OmegaConf, mode: str = "train"):
 
     Returns:
         dataloaders (dict): Dict of DataLoaders (train/val/test) as appropriate
-        scheduler (optional): Curriculum scheduler for training (if applicable)
     """
     num_workers = cfg.data.num_workers
-    dataset_name = cfg.data.name
+    window_length = cfg.data.window_length
+    skip_ik_failures = cfg.data.skip_ik_failures
+    batch_size = cfg.data.batch_size
 
-    dataloaders = {}
-    scheduler = None
-
-    # Dynamically load dataset class
-    dataset_class = find_dataset_using_name(dataset_name)
+    transform_cfgs = cfg.data.transforms.get(mode)
 
     if mode == "train":
-        val_split = cfg.training.val_split
-        train_batch_size = cfg.training.batch_size
-        val_batch_size = cfg.validation.batch_size
-
-        dataset = dataset_class(cfg)
-
-        train_dataset, val_dataset = random_split(dataset, [(1 - val_split), val_split])
-            
-        # Create DataLoaders for training and validation
-        dataloaders['train'] = DataLoader(
-            train_dataset, 
-            batch_size=train_batch_size, 
-            shuffle=True,
-            num_workers=num_workers
-        )
-        dataloaders['val'] = DataLoader(
-            val_dataset, 
-            batch_size=val_batch_size, 
-            shuffle=True,
-            num_workers=num_workers
-        )
-
-        if cfg.data.curriculum.flag:
-            scheduler = CurriculumScheduler(
-                dataset=dataset,
-                milestones=cfg.data.curriculum.milestones,
-                parameters=cfg.data.curriculum.parameters
-            )
-        else:
-            scheduler = None
-
-        logging.info(f"Data setup complete: {len(dataloaders['train'])} training batches, {len(dataloaders['val'])} validation batches.")
-
-        return dataloaders, scheduler
-    
-    elif mode == "test":
-
-        # Placeholder for actual data setup logic
-        # This should return train_loader, val_loader, scheduler
-        raise NotImplementedError("Data setup function is not implemented.")
-
+        jitter = True
+        transform_cfgs = cfg.data.transforms.train
+        padding = cfg.data.padding
     else:
-        raise ValueError(f"Unsupported mode: {mode}. Supported modes are ['train', 'test'].")
+        padding = (0, 0)
+        jitter = False
+
+    if transform_cfgs is not None:
+        transform = _build_transform(transform_cfgs)
+    else:
+        transform = None
+    
+    splits = load_splits(cfg)
+    sessions = splits[mode]
+    for hdf5_path in sessions:
+        dataset = WindowedEmgDataset(
+            hdf5_path,
+            transform=transform,
+            window_length=window_length,
+            padding=padding,
+            jitter=jitter,
+            skip_ik_failures=skip_ik_failures,
+        )
+
+    dataset = ConcatDataset(
+            [
+                WindowedEmgDataset(
+                    hdf5_path,
+                    transform=transform,
+                    window_length=window_length,
+                    padding=padding,
+                    jitter=jitter,
+                    skip_ik_failures=skip_ik_failures,
+                )
+                for hdf5_path in sessions
+            ]
+        )
+    
+
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=(mode == "train"),
+        num_workers=num_workers,
+        pin_memory=True,
+    )
+
+    return dataloader

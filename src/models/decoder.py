@@ -16,17 +16,14 @@ class DecoderBlock(nn.Module):
             ),
             ResidualUnit(
                 in_channels=out_channels,
-                out_channels=out_channels,
                 dilation=1
             ),
             ResidualUnit(
                 in_channels=out_channels,
-                out_channels=out_channels,
                 dilation=3
             ),
             ResidualUnit(
                 in_channels=out_channels,
-                out_channels=out_channels,
                 dilation=9
             ),
         )
@@ -45,7 +42,7 @@ class Decoder(nn.Module):
             DecoderBlock(out_channels=4*C, stride=strides[2]),
             DecoderBlock(out_channels=2*C, stride=strides[1]),
             DecoderBlock(out_channels=C, stride=strides[0]),
-            CausalConv1d(in_channels=C, out_channels=16, kernel_size=7)
+            CausalConv1d(in_channels=C, out_channels=1, kernel_size=7)
         )
 
     def forward(self, x):

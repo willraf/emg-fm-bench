@@ -1,6 +1,7 @@
 """ Module soundstream.py
 
 SoundStream Model
+https://github.com/haydenshively/SoundStream/tree/master
 
 Usage:
 
@@ -23,8 +24,13 @@ from src.models.decoder import Decoder
 
 
 class SoundStream(nn.Module):
-    def __init__(self, n_q, codebook_size, D, C, strides=(2, 4, 5, 8)):
+    def __init__(self, cfg):
         super(SoundStream, self).__init__()
+        n_q = cfg.model.n_quantizers
+        codebook_size = cfg.model.codebook_size
+        D = cfg.model.embedding_dim
+        C = cfg.model.channel_multiplier
+        strides = tuple(cfg.model.strides)
 
         # The temporal resampling ratio between input waveform and embeddings.
         # Not used in here, but helpful for consumers.
@@ -49,7 +55,6 @@ class SoundStream(nn.Module):
         # x: batch_size x 1 x (T / 1)
         # e: batch_size x (T / M) x D --- where M is product of all numbers in `strides` tuple
         # o: batch_size x 1 x (T / 1)
-
         if mode == 'end-to-end':
             e = self.encoder(x)
             quantized, _, _ = self.quantizer(e.permute((0,2,1)))

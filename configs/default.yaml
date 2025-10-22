@@ -11,24 +11,34 @@ experiment:
   plot_examples: True
   save: True
 
+to_tensor:
+  _target_: src.data.transforms.ExtractToTensor
+  field: emg
 
 data:
-  name: null
+  data_dir: data
+  metadata_file: ${data.data_dir}/metadata.csv
+  window_length: 2000
   num_workers: 4
-  curriculum:
-    flag: false
-    milestones: []
-    parameters: {}
-
+  subsample: 1.0
+  padding: [0, 0]
+  skip_ik_failures: True
+  batch_size: 64
+  transforms:
+    train:
+      - ${to_tensor}
+      # - _target_: emg2pose.transforms.RotationAugmentation
+    val:
+      - ${to_tensor}
+    test: ${transforms.val}
 
 model:
-  name: null
+  name: soundstream
   checkpoint: null
 
 training:
-  optimizer: null
-  batch_size: null
-  epochs: null
+  optimizer: adam
+  epochs: 10
   learning_rate: null
   momentum: 0
   weight_decay: 0

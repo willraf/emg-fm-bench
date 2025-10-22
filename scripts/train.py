@@ -17,7 +17,7 @@ Date:
 import argparse
 import logging
 from omegaconf import OmegaConf
-import tqdm
+from tqdm import tqdm 
 import time
 from pathlib import Path
 import csv
@@ -27,7 +27,7 @@ import csv
 from src.utils.utils import *
 import src.utils.visualisation as vis
 from src.data import setup_data
-from src.models import setup_model
+from src.models import setup_model, setup_discriminator
 
 import torch
 
@@ -68,15 +68,16 @@ def main(cfg, overwrite=False):
 
     save_dir = setup_save_dir(cfg, overwrite=overwrite, mode="train")
 
-    dataloaders, scheduler = setup_data(cfg, mode="train")
-    train_loader = dataloaders['train']
-    val_loader = dataloaders['val']
+    train_loader = setup_data(cfg, mode="val")
+    val_loader = setup_data(cfg, mode="val")
 
-    model = setup_model(cfg, device=device)
+    generator = setup_model(cfg, device=device)
+    stft_disc, wave_disc = setup_discriminator(cfg, device=device)
 
-    optimizer = setup_optimiser(cfg, model)
+    optimizer_g = setup_optimiser(cfg, generator.parameters())
+    optimizer_d = setup_optimiser(cfg, list(stft_disc.parameters()) + list(wave_disc.parameters()))
 
-    loss_function = setup_loss_function(cfg)
+    loss_g, loss_d = setup_loss_function(cfg)
 
     results = {
         "epochs": [],   # Each epoch has different data (more like "meta-batches" after which validation is performed)
@@ -92,23 +93,29 @@ def main(cfg, overwrite=False):
     
     # Train-test loop
     for epoch in tqdm(range(num_epochs)):
-        # Curriculum learning: update the dataset parameters
-        if scheduler:
-            scheduler.update(epoch)
         
         start_time = time.time()
 
-        train_loss = train(model, 
+        train_loss = train(cfg, 
+            generator,
+            stft_disc, 
+            wave_disc, 
             train_loader, 
-            optimizer, 
-            loss_function, 
+            optimizer_g,
+            optimizer_d,
+            loss_g,
+            loss_d,
             epoch,
             log_interval=log_interval,
         )
         
-        val_loss = validate(model, 
+        val_loss = validate(cfg,
+            generator,
+            stft_disc, 
+            wave_disc, 
             val_loader, 
-            loss_function,
+            loss_g,
+            loss_d,  
             plot_examples=plot_examples_flag,                
             epoch=epoch,
             save_dir=save_dir,
@@ -118,7 +125,7 @@ def main(cfg, overwrite=False):
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             checkpoint_path = save_dir / "checkpoints" / "best_model.pt"
-            save_checkpoint(model, optimizer, epoch, val_loss, checkpoint_path)
+            save_checkpoint(generator, stft_disc, wave_disc, optimizer_g, optimizer_d, epoch, val_loss, checkpoint_path)
             counter = 0
         else:
             counter += 1
@@ -147,7 +154,7 @@ def main(cfg, overwrite=False):
     return results['best_val_loss'][-1]  # Return the best validation loss from the last epoch
 
 
-def train(model, train_loader, optimizer, loss_function, epoch, log_interval=None):
+def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optimizer_d, loss_g, loss_d, epoch, log_interval=None):
     """
     A utility function that performs a basic training loop.
 
@@ -160,39 +167,66 @@ def train(model, train_loader, optimizer, loss_function, epoch, log_interval=Non
 
     Prints the training loss on the current batch every `log_interval` batches.
     """
-    model.train()
-    total_loss = 0.0
+    generator.train()
+    stft_disc.train()
+    wave_disc.train()
+
+    total_loss_g = 0.0
+    total_loss_d = 0.0
+
     num_batches = len(train_loader)
 
-    for batch_idx, (inputs, targets) in enumerate(train_loader):
-        
-        # Send batch to the device we are using
-        inputs = inputs.to(device)
-        targets = targets.to(device)
+    for batch_idx, data in enumerate(train_loader):
 
-        # Zeroes the gradient used by `optimizer`
-        optimizer.zero_grad()
+        inputs = data['emg'].to(device)
+        inputs = inputs[:, :cfg.data.num_channels, :]  # Use only first channel
+        inputs /= inputs.abs().max()
 
-        outputs = model(inputs)
+        # -----------------
+        # Train Generator
+        # -----------------
+        vis.plot_emg(inputs[0], "figures/emg_input.png")
 
-        # NOTE  Use mean reduction
-        #   Doesnt really matter as long as left consistent for training (loss scaled by constant factor)
-        loss = loss_function(outputs, targets) #, reduction="mean")
+        optimizer_g.zero_grad()
+        print(f'Inputs Shape: {inputs.shape}')
+        reconstruction = generator(inputs)
+        print(f'Reconstruction Shape: {reconstruction.shape}')
+        wave_disc_outputs = wave_disc(reconstruction)
+        print(f"Wave Disc Outputs shape: {[len(out) for out in wave_disc_outputs]}")
+        print(f'Wave Disc Outputs[0][0] Shape: {wave_disc_outputs[0][0].shape}')
+        print(f'Wave Disc Outputs[0][-1] Shape: {wave_disc_outputs[0][-1].shape}')
+        stft_disc_inputs =  torch.stft(inputs.squeeze(), n_fft=1024, hop_length=256, window=torch.hann_window(window_length=1024, device=device), return_complex=False).permute(0, 3, 2, 1)
+        print(f'STFT Inputs Shape: {stft_disc_inputs.shape}')
+        stft_disc_outputs = stft_disc(stft_disc_inputs)
+        print(f"STFT Disc Outputs shape: {[out.shape for out in stft_disc_outputs]}")
+        exit()
+        loss_generator = loss_g()
+        loss_generator.backward()
 
-        loss.backward()
+        optimizer_g.step()
 
-        optimizer.step()
+        total_loss_g += loss_generator.item()
 
-        total_loss += loss.item()
+
+        # ---------------------
+        # Train Discriminator
+        # ---------------------
+        optimizer_d.zero_grad()
+        loss_discriminator = loss_d()
+
+        loss_discriminator.backward()
+        optimizer_d.step()
+        total_loss_d += loss_discriminator.item()
 
         if log_interval is not None:
             # Prints the training loss on the current batch every `log_interval` batches.
             if batch_idx % log_interval == 0:
                 logging.info(
-                    "Train Epoch: {:02d} -- Batch: {:03d} -- Loss: {:.4f}".format(
+                    "Train Epoch: {:02d} -- Batch: {:03d} -- Generator Loss: {:.4f} -- Discriminator Loss: {:.4f}".format(
                         epoch,
                         batch_idx,
-                        loss.item(),
+                        loss_generator.item(),
+                        loss_discriminator.item()
                     )
                 )
         
@@ -200,8 +234,10 @@ def train(model, train_loader, optimizer, loss_function, epoch, log_interval=Non
 
     # Note that the average loss is computed differently to the test funciton, 
     # but they both compute the same thing: the avereage loss over all datapoints in the dataset
-    return total_loss / num_batches
-
+    return{
+        "loss_d": total_loss_d / num_batches,
+        "loss_g": total_loss_g / num_batches
+    } 
 
 def validate(model, test_loader, loss_function, plot_examples=False, epoch=None, save_dir=None):
     """
@@ -215,19 +251,22 @@ def validate(model, test_loader, loss_function, plot_examples=False, epoch=None,
 
     model.eval()
     with torch.no_grad():
-        for (inputs, targets) in test_loader:
-            
-            inputs = inputs.to(device)
-            targets = targets.to(device)
-            
+        for data in test_loader:
+            inputs = data['emg'].to(device)
+            inputs = inputs[:, :1, :]  # Use only first channel
+
+            inputs /= inputs.abs().max()
+
+
             outputs = model(inputs)
 
-            loss = loss_function(outputs, targets) #, reduction="mean")
+            loss = loss_function(outputs, inputs) #, reduction="mean")
             
             val_loss += loss.item()
 
     if plot_examples:
-        vis.plot_emg(targets, outputs, fpath=save_dir / "figures" / f'val_epoch_{epoch}.png')
+        plot_id = torch.randint(0, inputs.shape[0], (1,)).item()
+        vis.plot_reconstruction(inputs[plot_id], outputs[plot_id], fpath=save_dir / "figures" / f'val_epoch_{epoch}.png')
 
     # Divide by total number of samples to get average loss
     val_loss /= num_batches
@@ -243,5 +282,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cfg = load_config(args.config, default_path=args.default)
-    
+        
     main(cfg, overwrite=args.overwrite)

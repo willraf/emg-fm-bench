@@ -14,7 +14,8 @@ Date:
     31/07/2025
 
 """
-
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
@@ -58,7 +59,7 @@ def plot_emg(emg: Union[np.ndarray, torch.Tensor], fpath: Optional[str] = None) 
     time = np.arange(time_steps)
     
     for ch in range(num_channels):
-        ax.plot(time, emg[ch] + ch * 5, label=f'Channel {ch+1}')
+        ax.plot(time, emg[ch] + ch * 1, label=f'Channel {ch+1}')
     
     ax.set_title('EMG Signals')
     ax.set_xlabel('Time')
@@ -66,4 +67,79 @@ def plot_emg(emg: Union[np.ndarray, torch.Tensor], fpath: Optional[str] = None) 
     ax.grid(False)
     
     _save_or_show(fig, fpath)
+
+
+def plot_reconstruction(emg: Union[np.ndarray, torch.Tensor], 
+                        reconstruction: Union[np.ndarray, torch.Tensor], 
+                        fpath: Optional[str] = None) -> None:
+    """Plot EMG signals from multiple channels.
+    
+    Args:
+        emg: EMG signals of shape (num_channels, time_steps)
+        fpath: Optional path to save the plot
+    """
+    emg = _convert_to_numpy(emg)
+    reconstruction = _convert_to_numpy(reconstruction)
+    num_channels, time_steps = emg.shape
+    
+    fig, axes = plt.subplots(2, 1, figsize=(50, 10), sharey=True)
+    time = np.arange(time_steps)
+    
+    # Plot original
+    ax = axes[0]
+    for ch in range(num_channels):
+        ax.plot(time, emg[ch] + ch * 2, label=f'Channel {ch+1}')
+    
+    ax.set_title('EMG Signals')
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Amplitude + Offset')
+    ax.grid(False)
+
+    # Plot reconstruction
+    ax = axes[1]
+    for ch in range(num_channels):
+        ax.plot(time, reconstruction[ch] + ch * 2, label=f'Channel {ch+1}')
+    
+    ax.set_title('Reconstruction')
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Amplitude + Offset')
+    ax.grid(False)
+    
+    _save_or_show(fig, fpath)
+
+
+# Training Metrics Visualization
+def plot_loss_curves(train_loss: np.ndarray, val_loss: np.ndarray, 
+                    epochs: np.ndarray, fpath: Optional[str] = None) -> None:
+    """Plot training and validation loss curves.
+    
+    Args:
+        train_loss: Array of training losses
+        val_loss: Array of validation losses
+        epochs: Array of epoch numbers
+        fpath: Optional path to save the plot
+    """
+    train_loss = _convert_to_numpy(train_loss)
+    val_loss = _convert_to_numpy(val_loss)
+    epochs = _convert_to_numpy(epochs)
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    line_train, = ax.plot([], [], 'r-', label='Train Loss')
+    line_val, = ax.plot([], [], 'b-', label='Validation Loss')
+    ax.legend()
+
+    # Interim plot update
+    line_train.set_xdata(epochs)
+    line_train.set_ydata(train_loss)
+    line_val.set_xdata(epochs)
+    line_val.set_ydata(val_loss)
+    ax.relim()
+    ax.autoscale_view()
+
+
+    
+    _save_or_show(fig, fpath)
+
 
