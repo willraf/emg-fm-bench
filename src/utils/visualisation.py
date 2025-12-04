@@ -55,7 +55,7 @@ def plot_emg(emg: Union[np.ndarray, torch.Tensor], fpath: Optional[str] = None) 
     emg = _convert_to_numpy(emg)
     num_channels, time_steps = emg.shape
     
-    fig, ax = plt.subplots(figsize=(5, 5))
+    fig, ax = plt.subplots(figsize=(50, 5))
     time = np.arange(time_steps)
     
     for ch in range(num_channels):
@@ -82,7 +82,7 @@ def plot_reconstruction(emg: Union[np.ndarray, torch.Tensor],
     reconstruction = _convert_to_numpy(reconstruction)
     num_channels, time_steps = emg.shape
     
-    fig, axes = plt.subplots(2, 1, figsize=(50, 10), sharey=True)
+    fig, axes = plt.subplots(2, 1, figsize=(100, 5), sharey=True)
     time = np.arange(time_steps)
     
     # Plot original

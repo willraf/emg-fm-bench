@@ -28,6 +28,7 @@ from src.utils.utils import *
 import src.utils.visualisation as vis
 from src.data import setup_data
 from src.models import setup_model, setup_discriminator
+from src.models.losses import discriminator_loss, adversarial_loss, feature_loss, spectral_recon_loss
 
 import torch
 
@@ -44,7 +45,6 @@ def save_results(save_dir, epoch, train_loss, val_loss, best_val_loss):
     with open(train_results_fpath, "a", newline="") as f:
         writer = csv.writer(f)
         writer.writerow([epoch, train_loss, val_loss, best_val_loss])
-
 
 def main(cfg, overwrite=False):
 
@@ -68,20 +68,26 @@ def main(cfg, overwrite=False):
 
     save_dir = setup_save_dir(cfg, overwrite=overwrite, mode="train")
 
+    if cfg.data.data_dir == "data":
+        mode = "val"
+    else:
+        mode = "train"
     train_loader = setup_data(cfg, mode="val")
     val_loader = setup_data(cfg, mode="val")
 
     generator = setup_model(cfg, device=device)
     stft_disc, wave_disc = setup_discriminator(cfg, device=device)
 
-    optimizer_g = setup_optimiser(cfg, generator.parameters())
-    optimizer_d = setup_optimiser(cfg, list(stft_disc.parameters()) + list(wave_disc.parameters()))
+    # optimizer_g = setup_optimiser(cfg, generator.parameters())
+    # optimizer_d = setup_optimiser(cfg, list(stft_disc.parameters()) + list(wave_disc.parameters()))
 
-    loss_g, loss_d = setup_loss_function(cfg)
+    optimizer_g = optim.Adam(generator.parameters(), lr=1e-4, betas=(0.5, 0.9))
+    optimizer_d = optim.Adam(list(wave_disc.parameters()) + list(stft_disc.parameters()), lr=1e-4, betas=(0.5, 0.9))
 
     results = {
         "epochs": [],   # Each epoch has different data (more like "meta-batches" after which validation is performed)
-        "train_loss": [],
+        "train_disc_loss": [],
+        "train_gen_loss": [],
         "val_loss": [],
         "best_val_loss": []
     }
@@ -103,19 +109,13 @@ def main(cfg, overwrite=False):
             train_loader, 
             optimizer_g,
             optimizer_d,
-            loss_g,
-            loss_d,
             epoch,
             log_interval=log_interval,
         )
         
         val_loss = validate(cfg,
             generator,
-            stft_disc, 
-            wave_disc, 
-            val_loader, 
-            loss_g,
-            loss_d,  
+            val_loader,  
             plot_examples=plot_examples_flag,                
             epoch=epoch,
             save_dir=save_dir,
@@ -137,24 +137,25 @@ def main(cfg, overwrite=False):
 
         # For plotting
         results["epochs"].append(epoch)
-        results["train_loss"].append(train_loss)
+        results["train_disc_loss"].append(train_loss["loss_d"])
+        results["train_gen_loss"].append(train_loss["loss_g"])
         results["val_loss"].append(val_loss) 
         results["best_val_loss"].append(best_val_loss)
 
         elapsed_time = time.time() - start_time 
 
-        logging.info(f'====> Epoch: {epoch} Average train loss: {train_loss:.4f}, Average val loss: {val_loss:.4f}, Elapsed time: {elapsed_time:.2f} seconds')
+        logging.info(f'====> Epoch: {epoch} Average train generator loss: {train_loss['loss_g']:.4f}, Average train discriminator loss: {train_loss['loss_d']:.4f}, Average val loss: {val_loss:.4f}, Elapsed time: {elapsed_time:.2f} seconds')
         
         # Save results to file
         save_results(save_dir, epoch, train_loss, val_loss, best_val_loss)
         
         if plot_examples_flag:
-            vis.plot_loss_curves(results["train_loss"], results["val_loss"], results["epochs"], fpath= save_dir / "figures" / "loss_curves.png")
+            vis.plot_loss_curves(results["train_gen_loss"], results["val_loss"], results["epochs"], fpath= save_dir / "figures" / "loss_curves.png")
 
     return results['best_val_loss'][-1]  # Return the best validation loss from the last epoch
 
 
-def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optimizer_d, loss_g, loss_d, epoch, log_interval=None):
+def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optimizer_d, epoch, log_interval=None):
     """
     A utility function that performs a basic training loop.
 
@@ -180,40 +181,74 @@ def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optim
 
         inputs = data['emg'].to(device)
         inputs = inputs[:, :cfg.data.num_channels, :]  # Use only first channel
-        inputs /= inputs.abs().max()
 
+        # inputs /= inputs.abs().max()
+        
         # -----------------
         # Train Generator
         # -----------------
-        vis.plot_emg(inputs[0], "figures/emg_input.png")
 
         optimizer_g.zero_grad()
-        print(f'Inputs Shape: {inputs.shape}')
+
         reconstruction = generator(inputs)
-        print(f'Reconstruction Shape: {reconstruction.shape}')
-        wave_disc_outputs = wave_disc(reconstruction)
-        print(f"Wave Disc Outputs shape: {[len(out) for out in wave_disc_outputs]}")
-        print(f'Wave Disc Outputs[0][0] Shape: {wave_disc_outputs[0][0].shape}')
-        print(f'Wave Disc Outputs[0][-1] Shape: {wave_disc_outputs[0][-1].shape}')
-        stft_disc_inputs =  torch.stft(inputs.squeeze(), n_fft=1024, hop_length=256, window=torch.hann_window(window_length=1024, device=device), return_complex=False).permute(0, 3, 2, 1)
-        print(f'STFT Inputs Shape: {stft_disc_inputs.shape}')
-        stft_disc_outputs = stft_disc(stft_disc_inputs)
-        print(f"STFT Disc Outputs shape: {[out.shape for out in stft_disc_outputs]}")
-        exit()
-        loss_generator = loss_g()
-        loss_generator.backward()
+
+        # generator_loss = torch.nn.MSELoss()(reconstruction, inputs) #, reduction="mean")
+        # generator_loss.backward()
+        # optimizer_g.step()
+        # total_loss_g += generator_loss.item()
+        # loss_discriminator = torch.tensor(0.0)  # Placeholder to avoid undefined variable error
+        
+        wave_disc_recon_outputs = wave_disc(reconstruction)
+        wave_disc_real_outputs = wave_disc(inputs)
+
+        # Reshape inputs to B*C for STFT function
+        inputs_reshaped = inputs.view(inputs.size(0) * inputs.size(1), inputs.size(2))
+        reconstruction_reshaped = reconstruction.view(reconstruction.size(0) * reconstruction.size(1), reconstruction.size(2))
+
+        stft_disc_real_inputs = torch.stft(inputs_reshaped, n_fft=1024, hop_length=256, window=torch.hann_window(window_length=1024, device=device), return_complex=False).permute(0, 3, 2, 1)
+        stft_disc_real_outputs = stft_disc(stft_disc_real_inputs)
+
+        stft_disc_recon_inputs =  torch.stft(reconstruction_reshaped, n_fft=1024, hop_length=256, window=torch.hann_window(window_length=1024, device=device), return_complex=False).permute(0, 3, 2, 1)
+        stft_disc_recon_outputs = stft_disc(stft_disc_recon_inputs)
+
+        combined_real_fm = stft_disc_real_outputs + wave_disc_real_outputs
+        combined_recon_fm = stft_disc_recon_outputs + wave_disc_recon_outputs
+
+        disc_real_logits = [fm[-1] for fm in combined_real_fm]
+        disc_recon_logits = [fm[-1] for fm in combined_recon_fm]
+
+        reconstruction_loss = 10 * torch.nn.MSELoss()(reconstruction, inputs)
+        a = adversarial_loss(disc_recon_logits)
+        f = feature_loss(combined_real_fm, combined_recon_fm)
+        s = spectral_recon_loss(inputs, reconstruction)
+        
+        generator_loss = reconstruction_loss + s + 100*a + 1000*f
+
+        generator_loss.backward()
 
         optimizer_g.step()
 
-        total_loss_g += loss_generator.item()
 
+        total_loss_g += generator_loss.item()
 
         # ---------------------
         # Train Discriminator
         # ---------------------
         optimizer_d.zero_grad()
-        loss_discriminator = loss_d()
 
+        wave_disc_real_outputs = wave_disc(inputs)
+        stft_disc_real_outputs = stft_disc(stft_disc_real_inputs)
+
+        wave_disc_recon_outputs = wave_disc(reconstruction.detach())
+        stft_disc_recon_outputs = stft_disc(stft_disc_recon_inputs.detach())
+
+        disc_real_logits_D = [stft_disc_real_outputs[-1]] + [w[-1] for w in wave_disc_real_outputs]
+        disc_recon_logits_D = [stft_disc_recon_outputs[-1]] + [w[-1] for w in wave_disc_recon_outputs]
+
+        # Calculate Discriminator Loss
+        loss_discriminator = discriminator_loss(disc_real_logits_D, disc_recon_logits_D)
+        
+        # Backward pass only through the Discriminator's parameters
         loss_discriminator.backward()
         optimizer_d.step()
         total_loss_d += loss_discriminator.item()
@@ -225,8 +260,16 @@ def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optim
                     "Train Epoch: {:02d} -- Batch: {:03d} -- Generator Loss: {:.4f} -- Discriminator Loss: {:.4f}".format(
                         epoch,
                         batch_idx,
-                        loss_generator.item(),
+                        generator_loss.item(),
                         loss_discriminator.item()
+                    )
+                )
+                logging.info(
+                    "Recon Loss: {:.4f} -- Adv Loss: {:.4f} -- Feature Loss: {:.4f} -- Spectral Loss: {:.4f}".format(
+                        reconstruction_loss.item(),
+                        a.item(),
+                        f.item(),
+                        s.item()
                     )
                 )
         
@@ -239,7 +282,7 @@ def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optim
         "loss_g": total_loss_g / num_batches
     } 
 
-def validate(model, test_loader, loss_function, plot_examples=False, epoch=None, save_dir=None):
+def validate(cfg, model, test_loader, plot_examples=False, epoch=None, save_dir=None):
     """
     A utility function to compute the loss and accuracy on a test set by
     iterating through the test set using the provided `test_loader` and
@@ -253,14 +296,14 @@ def validate(model, test_loader, loss_function, plot_examples=False, epoch=None,
     with torch.no_grad():
         for data in test_loader:
             inputs = data['emg'].to(device)
-            inputs = inputs[:, :1, :]  # Use only first channel
+            inputs = inputs[:, :cfg.data.num_channels, :]  # Use only first channel
 
-            inputs /= inputs.abs().max()
+            # inputs /= inputs.abs().max()
 
 
             outputs = model(inputs)
 
-            loss = loss_function(outputs, inputs) #, reduction="mean")
+            loss = torch.nn.MSELoss()(outputs, inputs) #, reduction="mean")
             
             val_loss += loss.item()
 

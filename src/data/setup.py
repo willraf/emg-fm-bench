@@ -25,8 +25,6 @@ from pathlib import Path
 from src.data import transforms
 from src.data.transforms import Transform
 
-
-
 from src.data.emg2pose_data import WindowedEmgDataset
 
 from torch.utils.data import ConcatDataset, DataLoader
@@ -130,12 +128,20 @@ def setup_data(cfg: OmegaConf, mode: str = "train"):
         )
     
 
+    # dataloader = DataLoader(
+    #     dataset,
+    #     batch_size=batch_size,
+    #     shuffle=(mode == "train"),
+    #     num_workers=num_workers,
+    #     pin_memory=True,
+    # )
+
     dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=(mode == "train"),
+        shuffle=True,
         num_workers=num_workers,
-        pin_memory=True,
+        pin_memory=True, 
     )
 
     return dataloader

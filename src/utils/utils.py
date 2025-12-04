@@ -19,8 +19,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.nn as nn
 
-from src.models.losses import discriminator_loss, generator_loss
-
 def load_config(user_path: Path, default_path: Path) -> OmegaConf:
     """
     Load and merge user and default configuration files.
@@ -107,22 +105,6 @@ def change_log_file(log_fpath: Union[str, Path]):
     logger.addHandler(file_handler)
     
     logging.info(f"Log file changed to: {log_fpath}")
-
-
-def setup_loss_function(cfg: OmegaConf = None, loss_type: str = None) -> Callable:
-    """
-    Create loss function from config file
-
-    TODO: Move to src/losses/setup.py
-
-    Args:
-        config (dict): The configuration dictionary
-
-    Returns:
-        loss_function (function): The loss function
-    """
-
-    return generator_loss, discriminator_loss
 
 
 def setup_optimiser(cfg: OmegaConf, model_parameters: Iterator[Parameter]) -> optim.Optimizer:

@@ -33,7 +33,7 @@ class DecoderBlock(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, C, D, strides=(2, 4, 5, 8)):
+    def __init__(self, out_channels, C, D, strides=(2, 4, 5, 8)):
         super(Decoder, self).__init__()
 
         self.layers = nn.Sequential(
@@ -42,7 +42,7 @@ class Decoder(nn.Module):
             DecoderBlock(out_channels=4*C, stride=strides[2]),
             DecoderBlock(out_channels=2*C, stride=strides[1]),
             DecoderBlock(out_channels=C, stride=strides[0]),
-            CausalConv1d(in_channels=C, out_channels=1, kernel_size=7)
+            CausalConv1d(in_channels=C, out_channels=out_channels, kernel_size=7)
         )
 
     def forward(self, x):

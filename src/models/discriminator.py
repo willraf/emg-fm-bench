@@ -11,14 +11,14 @@ Authors:
 Date:
     13/10/2025
 """
-
+import torch
 import torch.nn as nn
 from torch.nn.utils import weight_norm
 
 
 class STFTDiscriminator(nn.Module):
     """
-    Input: (B, in_channels, T, F)
+    Input: (B, in_channels (2), T, F)
     Output: List of feature maps from each layer 
         - (B, 32, T, F)
         - (B, 32, T, F) ELU
@@ -86,6 +86,19 @@ class STFTDiscriminator(nn.Module):
                 kernel_size=out_kernel_size,
             )
         )
+
+    def features_lengths(self, lengths):
+        return [
+            lengths-6,
+            lengths-6,
+            torch.div(lengths-5, 2, rounding_mode="floor"),
+            torch.div(lengths-5, 2, rounding_mode="floor"),
+            torch.div(lengths-3, 4, rounding_mode="floor"),
+            torch.div(lengths-3, 4, rounding_mode="floor"),
+            torch.div(lengths+1, 8, rounding_mode="floor"),
+            torch.div(lengths+1, 8, rounding_mode="floor")
+        ]
+
 
     def forward(self, x):
         feature_map = []
@@ -161,6 +174,14 @@ def weights_init(m):
 
 
 class WaveDiscriminator(nn.Module):
+    """
+    Input: (B, in_channels, T)
+    Output: List[List[Tensor]] 
+        List of feature maps from each layer for each discriminator. 
+        Each discriminator operates at different resolutions (downsampled)
+        So dimensions will vary.
+    """
+
     def __init__(self, in_channels, num_D, ndf, n_layers, downsampling_factor):
         """
         Args:
@@ -179,6 +200,17 @@ class WaveDiscriminator(nn.Module):
         self.downsample = nn.AvgPool1d(4, stride=2, padding=1, count_include_pad=False)
         self.apply(weights_init)
 
+    def features_lengths(self, lengths):
+        return [
+            lengths,
+            torch.div(lengths+3, 4, rounding_mode="floor"),
+            torch.div(lengths+15, 16, rounding_mode="floor"),
+            torch.div(lengths+63, 64, rounding_mode="floor"),
+            torch.div(lengths+255, 256, rounding_mode="floor"),
+            torch.div(lengths+255, 256, rounding_mode="floor"),
+            torch.div(lengths+255, 256, rounding_mode="floor")
+        ]
+    
     def forward(self, x):
         results = []
         for key, disc in self.model.items():
@@ -188,6 +220,16 @@ class WaveDiscriminator(nn.Module):
 
 
 class DiscriminatorBlock(nn.Module):
+    """
+    Input: (B, in_channels, T)
+    Output: List of feature maps from each layer for the discriminator
+        - Layer 0: (B, ndf, T)
+        - Layer 1: (B, ndf * downsampling_factor, T / downsampling_factor)
+        - Layer 2...n_layers: (B, min(1024, ndf * downsampling_factor^n), T / downsampling_factor^n)
+        - Layer n_layers + 1: (B, min(1024, prev_channels * 2), T / downsampling_factor^n)
+        - Layer n_layers + 2: (B, 1, T / downsampling_factor^n)
+    """
+
     def __init__(self, in_channels, ndf, n_layers, downsampling_factor):
         """
         Args:
@@ -222,7 +264,7 @@ class DiscriminatorBlock(nn.Module):
                 ),
                 nn.LeakyReLU(0.2, True),
             )
-
+        nf_prev = nf
         nf = min(nf * 2, 1024)
         model["layer_%d" % (n_layers + 1)] = nn.Sequential(
             WNConv1d(nf_prev, nf, kernel_size=5, stride=1, padding=2),
@@ -236,6 +278,7 @@ class DiscriminatorBlock(nn.Module):
         self.model = model
 
     def forward(self, x):
+
         results = []
         for key, layer in self.model.items():
             x = layer(x)

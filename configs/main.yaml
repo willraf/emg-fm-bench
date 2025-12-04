@@ -4,7 +4,7 @@ logging:
   log_interval: 10
 
 experiment:
-  name: "13_10_2025"
+  name: "2025_11_25"
   random_seed: 42
   plot_examples: True
   save: True
@@ -16,16 +16,17 @@ to_tensor:
 data:
   num_channels: 1
   data_dir: data
-  metadata_file: ${data.data_dir}/metadata.csv
+  # data_dir: /mnt/data/emg2pose_data
+  # metadata_file: ${data.data_dir}/metadata.csv
   # Current restrictions on window_length: Must be a multiple of S=strides product (320 here)
   #   and bottleneck size (window_length / (s1*s2*s3)) must be >= padding ( dilation×(K−1)+(1−stride) ) 
   #   stride is 1 in residual units
-  window_length: 6400       
+  window_length: 1920  
   num_workers: 10
   subsample: 1.0
   padding: [0, 0]
   skip_ik_failures: True
-  batch_size: 64
+  batch_size: 32
   transforms:
     train:
       - ${to_tensor}
@@ -37,11 +38,11 @@ data:
 model:
   name: soundstream
   checkpoint: null
-  n_quantizers: 16
+  n_quantizers: 57
   codebook_size: 1024
-  embedding_dim: 256
-  channel_multiplier: 32
-  strides: [2, 4, 5, 8]
+  embedding_dim: 32
+  channel_multiplier: 100
+  strides: [2, 4, 4, 6]
 
 discriminator:
   stft:
@@ -59,7 +60,7 @@ training:
   learning_rate: 0.0001
   momentum: 0
   weight_decay: 0
-  patience: 15
+  patience: 50
   loss_function: mse
 
 validation:
