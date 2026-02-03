@@ -284,9 +284,13 @@ def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optim
         loss_discriminator = discriminator_loss(disc_real_logits_D, disc_recon_logits_D)
         
         # Backward pass only through the Discriminator's parameters
+        torch.cuda.reset_peak_memory_stats()
         loss_discriminator.backward()
         optimizer_d.step()
         total_loss_d += loss_discriminator.item()
+        max_mem = torch.cuda.max_memory_allocated() / 1e9
+        logging.info(f'Maximum GPU memory allocated this batch (M_sample): {max_mem:.4f} GB')
+
 
         if log_interval is not None:
             # Prints the training loss on the current batch every `log_interval` batches.
@@ -313,6 +317,9 @@ def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optim
         batch_time = time.time() - batch_start_time
         logging.info(f'----> Batch {batch_idx} processed in {batch_time:.2f} seconds')
         logging.info(f'Number of batches: {num_batches}')
+        logging.info(f'Current GPU memory allocated: {torch.cuda.memory_allocated() / 1e9:.4f} GB')    
+        exit()
+        
 
     # Note that the average loss is computed differently to the test funciton, 
     # but they both compute the same thing: the avereage loss over all datapoints in the dataset

@@ -26,7 +26,7 @@ data:
   subsample: 1.0
   padding: [0, 0]
   skip_ik_failures: True
-  batch_size: 32
+  batch_size: 1
   transforms:
     train:
       - ${to_tensor}
