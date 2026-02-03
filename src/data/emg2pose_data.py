@@ -281,3 +281,163 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
             "window_start_idx": window_start,
             "window_end_idx": window_end,
         }
+    
+
+
+@dataclass
+class SingleChannelEmgDataset(torch.utils.data.Dataset):
+    """A `torch.utils.data.Dataset` corresponding to an instance of
+    `Emg2PoseSessionData` that iterates over EMG windows of configurable
+    length and stride.
+
+    Args:
+        hdf5_path (str): Path to the session file in hdf5 format.
+        window_length (int): Size of each window. Specify None for no windowing
+            in which case this will be a dataset of length 1 containing the
+            entire session. (default: ``None``)
+        stride (int): Stride between consecutive windows. Specify None to set
+            this to window_length, in which case there will be no overlap
+            between consecutive windows. (default: ``window_length``)
+        padding (tuple[int, int]): Left and right contextual padding for
+            windows in terms of number of raw EMG samples.
+        jitter (bool): If True, randomly jitter the offset of each window.
+            Use this for training time variability. (default: ``False``)
+        transform (Callable): A composed sequence of transforms that takes
+            a window/slice of `Emg2PoseSessionData` in the form of a numpy
+            structured array and returns a `torch.Tensor` instance.
+            (default: ``emg2pose.transforms.ExtractToTensor()``)
+        skip_ik_failures (bool): If True, produces only windows with no IK failures.
+    """
+
+    hdf5_path: Path
+    window_length: InitVar[int | None] = 10_000
+    stride: InitVar[int | None] = None
+    padding: InitVar[tuple[int, int]] = (0, 0)
+    jitter: bool = False
+    transform: Transform[np.ndarray, torch.Tensor] = field(
+        default_factory=transforms.ExtractToTensor
+    )
+    skip_ik_failures: bool = False
+
+    def __post_init__(
+        self,
+        window_length: int | None,
+        stride: int | None,
+        padding: tuple[int, int],
+    ) -> None:
+        self.session_length = len(self.session)
+        self.window_length = (
+            window_length if window_length is not None else self.session_length
+        )
+        self.stride = stride if stride is not None else self.window_length
+        assert self.window_length > 0 and self.stride > 0
+
+        (self.left_padding, self.right_padding) = padding
+        assert self.left_padding >= 0 and self.right_padding >= 0
+
+        if window_length is None and self.skip_ik_failures:
+            raise ValueError(
+                "skip_ik_failures=True requires window_length to be specified."
+            )
+
+        # Precompute (start, end) windows based on skip_ik_failures setting
+        self.windows: list[tuple[int, int]] = self.precompute_windows()
+
+    def _num_windows(self) -> int:
+        return sum(self._get_block_len(b) for b in self.blocks)
+
+    def __len__(self) -> int:
+        num_channels = self.session.metadata[self.session.NUM_CHANNELS]
+        return num_channels * self._num_windows()
+
+    def _get_block_len(self, block: tuple[float, float]) -> tuple[int]:
+        """Get number of samples in a (start, end) time block."""
+        return (block[1] - block[0] - self.window_length) // self.stride + 1
+
+    @property
+    def session(self):
+        if not hasattr(self, "_session"):
+            self._session = Emg2PoseSessionData(self.hdf5_path)
+        return self._session
+
+    @property
+    def blocks(self) -> list[tuple[int, int]]:
+        """List of (start, end) times to be included in the dataset."""
+
+        if not hasattr(self, "_blocks"):
+
+            # Include all time
+            if not self.skip_ik_failures:
+                self._blocks = [(0, len(self.session))]
+
+            # Include only time without IK failures
+            else:
+                blocks = get_contiguous_ones(self.session.no_ik_failure)
+                blocks = [
+                    (t0, t1 - 1)
+                    for (t0, t1) in blocks
+                    if (t1 - t0) >= self.window_length
+                ]
+                self._blocks = blocks
+
+        return self._blocks
+
+    def precompute_windows(self) -> list[tuple[int, int]]:
+        """For each dataset idx, precompute the EMG start and times."""
+        windows = []
+        cumsum = np.cumsum([0] + [self._get_block_len(b) for b in self.blocks])
+
+        for idx in range(self._num_windows()):
+            block_idx = np.searchsorted(cumsum, idx, "right") - 1
+            start_idx, end_idx = self.blocks[block_idx]
+            relative_idx = idx - cumsum[block_idx]
+            windows.append((start_idx + relative_idx * self.stride, end_idx))
+
+        return windows
+    
+    def _split_index(self, idx: int) -> tuple[int, int | None]:
+
+        num_channels = self.session.metadata[self.session.NUM_CHANNELS]
+        window_idx = idx // num_channels
+        channel_idx = idx % num_channels
+        
+        return window_idx, channel_idx
+
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
+
+        idx, channel_idx = self._split_index(idx)
+
+        # Randomly jitter the window offset
+        offset, end_idx = self.windows[idx]
+        leftover = end_idx - (offset + self.window_length)
+        if leftover < 0:
+            raise IndexError(f"Index {idx} out of bounds, leftover {leftover}")
+        if leftover > 0 and self.jitter:
+            offset += np.random.randint(0, min(self.stride, leftover))
+
+        # Expand window to include contextual padding and fetch
+        window_start = max(offset - self.left_padding, 0)
+        window_end = offset + self.window_length + self.right_padding
+        window = self.session[window_start:window_end]
+
+        # Extract EMG tensor corresponding to the window
+        emg = self.transform(window)
+        emg = emg.T
+        emg = emg[channel_idx : channel_idx + 1, :]  # CT
+        assert torch.is_tensor(emg)
+
+        # Extract joint angle labels
+        joint_angles = window[Emg2PoseSessionData.JOINT_ANGLES]
+        joint_angles = torch.as_tensor(joint_angles)
+
+        # Mask of samples without IK failures
+        no_ik_failure = torch.as_tensor(
+            self.session.no_ik_failure[window_start:window_end]
+        )
+        return {
+            "emg": emg,  # CT
+            "joint_angles": joint_angles.T,  # CT
+            "no_ik_failure": no_ik_failure,  # T
+            "window_start_idx": window_start,
+            "window_end_idx": window_end,
+        }

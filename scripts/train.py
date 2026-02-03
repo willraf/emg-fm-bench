@@ -65,8 +65,10 @@ def main(cfg, overwrite=False):
 
     # Set the seed for reproducibility
     set_seed(random_seed)
+    logging.info(f"Random seed set to {random_seed}")
 
     save_dir = setup_save_dir(cfg, overwrite=overwrite, mode="train")
+    logging.info(f'Experiment directory set up at: {save_dir}')
 
     if cfg.data.data_dir == "data":
         mode = "val"
@@ -74,6 +76,8 @@ def main(cfg, overwrite=False):
         mode = "train"
     train_loader = setup_data(cfg, mode="val")
     val_loader = setup_data(cfg, mode="val")
+
+    logging.info(f'Data loaders set up. Number of training batches: {len(train_loader)}, Number of validation batches: {len(val_loader)}')
 
     generator = setup_model(cfg, device=device)
     stft_disc, wave_disc = setup_discriminator(cfg, device=device)
@@ -83,6 +87,8 @@ def main(cfg, overwrite=False):
 
     optimizer_g = optim.Adam(generator.parameters(), lr=1e-4, betas=(0.5, 0.9))
     optimizer_d = optim.Adam(list(wave_disc.parameters()) + list(stft_disc.parameters()), lr=1e-4, betas=(0.5, 0.9))
+
+    logging.info("Model and optimizers set up.")
 
     results = {
         "epochs": [],   # Each epoch has different data (more like "meta-batches" after which validation is performed)
@@ -179,9 +185,11 @@ def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optim
 
     for batch_idx, data in enumerate(train_loader):
 
+        batch_start_time = time.time()
+        logging.info(f'Starting batch {batch_idx} of {num_batches}...')
+
         inputs = data['emg'].to(device)
         inputs = inputs[:, :cfg.data.num_channels, :]  # Use only first channel
-
         # inputs /= inputs.abs().max()
         
         # -----------------
@@ -274,6 +282,10 @@ def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optim
                 )
         
         torch.cuda.empty_cache()
+
+        batch_time = time.time() - batch_start_time
+        logging.info(f'----> Batch {batch_idx} processed in {batch_time:.2f} seconds')
+        logging.info(f'Number of batches: {num_batches}')
 
     # Note that the average loss is computed differently to the test funciton, 
     # but they both compute the same thing: the avereage loss over all datapoints in the dataset

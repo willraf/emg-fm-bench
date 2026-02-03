@@ -25,11 +25,30 @@ from pathlib import Path
 from src.data import transforms
 from src.data.transforms import Transform
 
-from src.data.emg2pose_data import WindowedEmgDataset
+from src.data.emg2pose_data import WindowedEmgDataset, SingleChannelEmgDataset
 
 from torch.utils.data import ConcatDataset, DataLoader
 
+
+from torch.utils.data.distributed import DistributedSampler
+
+
 import logging
+import os
+
+def resolve_data_dir(cfg):
+    """
+    Resolve data directory based on TMPDIR environment variable.
+    
+    This is for the HPC as I copy data to a tmpdir for faster access."""
+    tmpdir = os.environ.get("TMPDIR")
+    data_dir = Path(cfg.data.data_dir)
+
+    if tmpdir is not None:
+        tmp_path = Path(tmpdir) / data_dir
+        if tmp_path.exists():
+            cfg.data.data_dir = str(tmp_path)
+            return
 
 
 def load_splits(
@@ -85,8 +104,12 @@ def setup_data(cfg: OmegaConf, mode: str = "train"):
     window_length = cfg.data.window_length
     skip_ik_failures = cfg.data.skip_ik_failures
     batch_size = cfg.data.batch_size
+    
+    num_channels = cfg.data.num_channels
 
     transform_cfgs = cfg.data.transforms.get(mode)
+
+    resolve_data_dir(cfg)
 
     if mode == "train":
         jitter = True
@@ -103,45 +126,56 @@ def setup_data(cfg: OmegaConf, mode: str = "train"):
     
     splits = load_splits(cfg)
     sessions = splits[mode]
-    for hdf5_path in sessions:
-        dataset = WindowedEmgDataset(
-            hdf5_path,
-            transform=transform,
-            window_length=window_length,
-            padding=padding,
-            jitter=jitter,
-            skip_ik_failures=skip_ik_failures,
-        )
-
-    dataset = ConcatDataset(
-            [
-                WindowedEmgDataset(
-                    hdf5_path,
-                    transform=transform,
-                    window_length=window_length,
-                    padding=padding,
-                    jitter=jitter,
-                    skip_ik_failures=skip_ik_failures,
-                )
-                for hdf5_path in sessions
-            ]
-        )
     
-
-    # dataloader = DataLoader(
-    #     dataset,
-    #     batch_size=batch_size,
-    #     shuffle=(mode == "train"),
-    #     num_workers=num_workers,
-    #     pin_memory=True,
-    # )
+    if num_channels == 1:
+        # For separate channels
+        dataset = ConcatDataset(
+                [
+                    SingleChannelEmgDataset(
+                        hdf5_path,
+                        transform=transform,
+                        window_length=window_length,
+                        padding=padding,
+                        jitter=jitter,
+                        skip_ik_failures=skip_ik_failures,
+                    )
+                    for hdf5_path in sessions
+                ]
+            )
+        
+    else:
+        # For training on all channels
+        dataset = ConcatDataset(
+                [
+                    WindowedEmgDataset(
+                        hdf5_path,
+                        transform=transform,
+                        window_length=window_length,
+                        padding=padding,
+                        jitter=jitter,
+                        skip_ik_failures=skip_ik_failures,
+                    )
+                    for hdf5_path in sessions
+                ]
+            )
+        
+    sampler = DistributedSampler(dataset) if mode == "train" else None
 
     dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=False,
         num_workers=num_workers,
-        pin_memory=True, 
+        pin_memory=True,
+        sampler=sampler,
     )
+
+    # dataloader = DataLoader(
+    #     dataset,
+    #     batch_size=batch_size,
+    #     shuffle=True,
+    #     num_workers=num_workers,
+    #     pin_memory=True, 
+    # )
 
     return dataloader
