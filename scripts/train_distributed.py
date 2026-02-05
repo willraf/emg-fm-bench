@@ -312,8 +312,6 @@ def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optim
                     )
                 )
         
-        torch.cuda.empty_cache()
-
         batch_time = time.time() - batch_start_time
         logging.info(f'----> Batch {batch_idx} processed in {batch_time:.2f} seconds')
         logging.info(f'Number of batches: {num_batches}')
