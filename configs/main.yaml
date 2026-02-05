@@ -4,7 +4,7 @@ logging:
   log_interval: 10
 
 experiment:
-  name: "2026-02-03-test"
+  name: "2026-02-05-test"
   random_seed: 42
   plot_examples: True
   save: True

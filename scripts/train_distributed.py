@@ -85,11 +85,7 @@ def main(cfg, overwrite=False):
     save_dir = setup_save_dir(cfg, overwrite=overwrite, mode="train")
     logging.info(f'Experiment directory set up at: {save_dir}')
 
-    if cfg.data.data_dir == "data":
-        mode = "val"
-    else:
-        mode = "train"
-    train_loader = setup_data(cfg, mode="val")
+    train_loader = setup_data(cfg, mode="train")
     val_loader = setup_data(cfg, mode="val")
 
     logging.info(f'Data loaders set up. Number of training batches: {len(train_loader)}, Number of validation batches: {len(val_loader)}')
@@ -311,12 +307,6 @@ def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optim
                         s.item()
                     )
                 )
-        
-        batch_time = time.time() - batch_start_time
-        logging.info(f'----> Batch {batch_idx} processed in {batch_time:.2f} seconds')
-        logging.info(f'Number of batches: {num_batches}')
-        logging.info(f'Current GPU memory allocated: {torch.cuda.memory_allocated() / 1e9:.4f} GB')    
-        exit()
         
 
     # Note that the average loss is computed differently to the test funciton, 

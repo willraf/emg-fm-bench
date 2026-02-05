@@ -19,6 +19,44 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.nn as nn
 
+import os
+from torch.distributed import init_process_group, destroy_process_group
+
+
+def setup_distributed():
+    """
+    Setup distributed training environment.
+
+    Returns:
+        distributed (bool)
+        device (torch.device)
+        rank (int)
+        local_rank (int)
+    """
+
+    rank = int(os.environ.get("RANK", 0))
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+
+    # --- Distributed mode ---
+    if world_size > 1:
+        torch.cuda.set_device(local_rank)
+        init_process_group(backend="nccl")
+
+        device = torch.device(f"cuda:{local_rank}")
+
+        return True, device, rank, local_rank
+
+    # --- Single GPU ---
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+        return False, device, 0, 0
+
+    # --- CPU ---
+    device = torch.device("cpu")
+    return False, device, 0, 0
+
+
 def load_config(user_path: Path, default_path: Path) -> OmegaConf:
     """
     Load and merge user and default configuration files.
@@ -70,10 +108,25 @@ def get_experiment_directory(cfg: OmegaConf) -> Path:
     return experiment_dir
 
 
-def setup_logger(experiment_dir: Union[str, Path]): 
+def setup_logging(experiment_dir: Optional[Union[str, Path]] = None, is_main_process: bool = True): 
     """
     Setup logger for experiment
     """
+
+    if not is_main_process:
+        logging.basicConfig(level=logging.ERROR)
+        return
+
+    if experiment_dir is None:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            handlers=[
+                logging.StreamHandler()
+            ]
+        )
+        return
+    
     log_dir = Path(experiment_dir) / "logs"
     # This line should be redundant
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -105,6 +158,23 @@ def change_log_file(log_fpath: Union[str, Path]):
     logger.addHandler(file_handler)
     
     logging.info(f"Log file changed to: {log_fpath}")
+
+
+def add_log_file(log_fpath: Union[str, Path], is_main_process: bool = True):
+
+    if not is_main_process:
+        return
+    
+    logger = logging.getLogger()  # Get the root logger
+
+    # Add new file handler
+    file_handler = logging.FileHandler(log_fpath)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    
+    logging.info(f"Log file changed to: {log_fpath}")
+
 
 
 def setup_optimiser(cfg: OmegaConf, model_parameters: Iterator[Parameter]) -> optim.Optimizer:
@@ -215,9 +285,12 @@ def load_checkpoint(checkpoint_path: Union[str, Path],
 
     logging.info(f"Checkpoint loaded successfully from {path} (Epoch {checkpoint['epoch']})")
     return checkpoint
+
+
 def setup_save_dir(cfg: OmegaConf,
                     overwrite: bool = False, 
-                    mode: str = "train"):
+                    mode: str = "train",
+                    is_main_process: bool = True) -> Path:
     """
     Setup model and results saving
 
@@ -231,6 +304,9 @@ def setup_save_dir(cfg: OmegaConf,
     Returns:
         save_dir (Path): Path to the directory where results will be saved
     """
+    if not is_main_process:
+        return None
+    
     # Create experiment directory
     experiment_dir = Path(get_experiment_directory(cfg))
     save_dir = experiment_dir / mode 
@@ -255,7 +331,7 @@ def setup_save_dir(cfg: OmegaConf,
     (save_dir / "figures").mkdir(exist_ok=True)
 
     # Save logger to file
-    change_log_file(save_dir / f"{mode}.log")
+    add_log_file(save_dir / f"{mode}.log")
 
     # Save a copy of the config file
     OmegaConf.save(cfg, save_dir / "config.yaml")
@@ -269,6 +345,8 @@ def setup_save_dir(cfg: OmegaConf,
             writer = csv.writer(f)
             writer.writerow(["epoch", "train_loss", "val_loss", "best_val_loss"])
     
+    return save_dir
+
     return save_dir
 
 
