@@ -15,7 +15,7 @@ to_tensor:
 
 data:
   num_channels: 1
-  data_dir: data
+  data_dir: data/emg2pose_dataset_mini
   # data_dir: /mnt/data/emg2pose_data
   # metadata_file: ${data.data_dir}/metadata.csv
   # Current restrictions on window_length: Must be a multiple of S=strides product (320 here)

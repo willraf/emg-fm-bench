@@ -274,6 +274,7 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
         no_ik_failure = torch.as_tensor(
             self.session.no_ik_failure[window_start:window_end]
         )
+
         return {
             "emg": emg.T,  # CT
             "joint_angles": joint_angles.T,  # CT

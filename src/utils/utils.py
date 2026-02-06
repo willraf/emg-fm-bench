@@ -176,7 +176,6 @@ def add_log_file(log_fpath: Union[str, Path], is_main_process: bool = True):
     logging.info(f"Log file changed to: {log_fpath}")
 
 
-
 def setup_optimiser(cfg: OmegaConf, model_parameters: Iterator[Parameter]) -> optim.Optimizer:
     """
     Create optimiser from config file

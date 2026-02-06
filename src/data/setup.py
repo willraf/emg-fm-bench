@@ -109,7 +109,12 @@ def setup_data(cfg: OmegaConf, mode: str = "train", distributed: bool = False) -
 
     transform_cfgs = cfg.data.transforms.get(mode)
 
+    # This is for the HPC as I copy data to a tmpdir for faster access
     resolve_data_dir(cfg)
+
+    # Mini version of dataset only has val (for testing)
+    if "mini" in cfg.data.data_dir:
+        mode = "val"
 
     if mode == "train":
         jitter = True

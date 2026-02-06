@@ -80,7 +80,7 @@ class Trainer:
 
         self.save_dir = setup_save_dir(cfg, overwrite=overwrite, mode='train', is_main_process=self.is_main)
 
-        self.train_loader = setup_data(cfg, mode="val", distributed=self.distributed)
+        self.train_loader = setup_data(cfg, mode="train", distributed=self.distributed)
         self.val_loader = setup_data(cfg, mode="val", distributed=self.distributed)
         
         self.generator = setup_model(cfg, device=self.device)
@@ -256,20 +256,24 @@ class Trainer:
         return generator_loss.item(), loss_discriminator.item()
     
     def _val(self, epoch):
-        self.model.eval()
+        self.generator.eval()
         total_loss = 0.0
         num_batches = len(self.val_loader)
 
         with torch.no_grad():
-            for batch_idx, (inputs, targets) in enumerate(self.val_loader):
-                inputs = inputs.to(self.device)
-                targets = targets.to(self.device)
+            for batch_idx, data in enumerate(self.val_loader):
+                inputs = data['emg'].to(self.device)
+                inputs = inputs[:, :cfg.data.num_channels, :]
 
-                outputs = self.model(inputs)
-                loss = self.loss_fn(outputs, targets)
+                outputs = self.generator(inputs)
+                loss = torch.nn.MSELoss()(outputs, inputs)
 
                 total_loss += loss.item()
         
+        if self.is_main and self.cfg.experiment.plot_examples:
+            plot_id = torch.randint(0, inputs.shape[0], (1,)).item()
+            vis.plot_reconstruction(inputs[plot_id], outputs[plot_id], fpath=self.save_dir / "figures" / f'val_epoch_{epoch}.png')
+
         return total_loss / num_batches
     
 
