@@ -16,10 +16,122 @@ from typing import Any, ClassVar
 import h5py
 import numpy as np
 import torch
+from torch.utils.data import ConcatDataset
 
 from src.data import transforms
 from src.data.transforms import Transform
 from src.utils.utils import get_contiguous_ones, get_ik_failures_mask
+from src.data.base import BaseDataset
+
+from hydra.utils import instantiate
+from omegaconf import OmegaConf, DictConfig
+from typing import Sequence
+
+import pandas as pd
+
+
+class Emg2PoseDataset(BaseDataset):
+
+    def __init__(self, cfg: OmegaConf, mode: str):
+        super().__init__(cfg)
+        self.cfg = cfg
+        self.mode = mode
+
+        self.dataset = self._build_dataset()
+
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        return self.dataset[idx]
+
+
+    def _build_dataset(self):
+
+        cfg = self.cfg
+        mode = self.mode
+
+        window_length = cfg.data.window_length
+        skip_ik_failures = cfg.data.skip_ik_failures
+        num_channels = cfg.data.num_channels
+
+        if "mini" in cfg.data.data_dir:
+            mode = "val"
+
+        jitter = (mode == "train")
+        padding = cfg.data.padding if mode == "train" else (0, 0)
+
+        transform_cfgs = cfg.data.transforms.get(mode)
+        transform = self._build_transform(transform_cfgs) if transform_cfgs else None
+
+        splits = self.load_splits()
+        sessions = splits[mode]
+
+        if num_channels == 1:
+            datasets = [
+                SingleChannelEmgDataset(
+                    hdf5_path,
+                    transform=transform,
+                    window_length=window_length,
+                    padding=padding,
+                    jitter=jitter,
+                    skip_ik_failures=skip_ik_failures,
+                )
+                for hdf5_path in sessions
+            ]
+        else:
+            datasets = [
+                WindowedEmgDataset(
+                    hdf5_path,
+                    transform=transform,
+                    window_length=window_length,
+                    padding=padding,
+                    jitter=jitter,
+                    skip_ik_failures=skip_ik_failures,
+                )
+                for hdf5_path in sessions
+            ]
+
+        return ConcatDataset(datasets)
+
+    def load_splits(self) -> dict[str, list[str]]:
+        """Load train, val, and test datasets from metadata csv.
+        
+        Returns:
+            splits (dict): Dictionary with keys "train", "val", "test" and values as lists of filenames.
+        """
+        metadata_file = self.cfg.data.metadata_file
+        subsample = self.cfg.data.subsample
+        random_seed = self.cfg.experiment.random_seed
+        data_dir = self.cfg.data.data_dir
+
+        # Load dataframe
+        df = pd.read_csv(metadata_file)
+
+        # Optionally subsample
+        df = df.groupby("split").apply(
+            lambda x: x.sample(frac=subsample, random_state=random_seed),
+        )
+        df.reset_index(drop=True, inplace=True)
+
+        base_dir = Path(data_dir).expanduser()
+
+        # Format as dictionary
+        splits = {}
+        for split, df_ in df.groupby("split"):
+            splits[split] = [
+                str(base_dir.joinpath(f'{filename}.hdf5')) 
+                for filename in df_.filename if base_dir.joinpath(f'{filename}.hdf5').is_file()
+            ]
+
+        return splits
+    
+    # Instantiate transforms
+    @staticmethod
+    def _build_transform(configs: Sequence[DictConfig]) -> Transform[Any, Any]:
+        return transforms.Compose([instantiate(cfg) for cfg in configs])
+
 
 
 @dataclass
