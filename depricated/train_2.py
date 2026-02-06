@@ -285,8 +285,6 @@ def train(cfg, generator, stft_disc, wave_disc, train_loader, optimizer_g, optim
                     )
                 )
         
-        torch.cuda.empty_cache()
-
     # Note that the average loss is computed differently to the test funciton, 
     # but they both compute the same thing: the avereage loss over all datapoints in the dataset
     return{

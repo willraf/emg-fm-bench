@@ -89,7 +89,7 @@ def load_splits(
 def _build_transform(configs: Sequence[DictConfig]) -> Transform[Any, Any]:
     return transforms.Compose([instantiate(cfg) for cfg in configs])
 
-def setup_data(cfg: OmegaConf, mode: str = "train"):
+def setup_data(cfg: OmegaConf, mode: str = "train", distributed: bool = False) -> DataLoader:
     """
     Setup data loaders and scheduler based on the configuration.
     
@@ -158,8 +158,9 @@ def setup_data(cfg: OmegaConf, mode: str = "train"):
                     for hdf5_path in sessions
                 ]
             )
-        
-    sampler = DistributedSampler(dataset) if mode == "train" else None
+    
+
+    sampler = DistributedSampler(dataset) if distributed else None
 
     dataloader = DataLoader(
         dataset,
