@@ -8,6 +8,7 @@ venv/
 .DS_Store
 figures/
 .vscode/
+pretrained_models/
 
 !/src/data
 !src/models

@@ -1,7 +1,8 @@
 """ Module soundstream.py
 
-SoundStream Model
-https://github.com/haydenshively/SoundStream/tree/master
+References:
+    Soundstream main model:
+    https://github.com/haydenshively/SoundStream/tree/master
 
 Usage:
 
@@ -19,8 +20,8 @@ from typing import Literal
 import torch.nn as nn
 from vector_quantize_pytorch import ResidualVQ
 
-from src.models.encoder import Encoder
-from src.models.decoder import Decoder
+from src.models.soundstream.encoder import Encoder
+from src.models.soundstream.decoder import Decoder
 
 
 class SoundStream(nn.Module):

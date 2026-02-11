@@ -37,7 +37,7 @@ from src.utils.utils import *
 import src.utils.visualisation as vis
 from src.data import setup_data
 from src.models import setup_model, setup_discriminator
-from src.models.losses import discriminator_loss, adversarial_loss, feature_loss, spectral_recon_loss
+from src.models.soundstream.losses import discriminator_loss, adversarial_loss, feature_loss, spectral_recon_loss
 
 import torch
 

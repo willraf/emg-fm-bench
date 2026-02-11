@@ -7,6 +7,9 @@ class BaseTask:
     def val_step(self, model, batch, device):
         raise NotImplementedError
     
+    def eval_step(self, model, batch, device):
+        raise NotImplementedError
+    
     def wrap_distributed(self, local_rank):
         raise NotImplementedError
 

@@ -86,7 +86,7 @@ class Trainer:
         self.epochs_run = 0
         if cfg.model.checkpoint is not None:
             checkpoint = self.task.load_checkpoint(cfg.model.checkpoint)
-            self.epochs_run = checkpoint['epoch']
+            self.epochs_run = checkpoint.get('epoch', 0)
 
         # Wrap after loading. Checkpointed models are saved in non-DDP format, so we need to load first and then wrap if distributed.
         if self.distributed:

@@ -4,7 +4,7 @@ import torch
 import torch.optim as optim
 
 from src.models import setup_model, setup_discriminator
-from src.models.losses import discriminator_loss, adversarial_loss, feature_loss, spectral_recon_loss
+from src.models.soundstream.losses import discriminator_loss, adversarial_loss, feature_loss, spectral_recon_loss
 import src.utils.visualisation as vis
 
 from torch.nn.parallel import DistributedDataParallel as DDP

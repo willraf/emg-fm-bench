@@ -15,7 +15,7 @@ Date:
 
 import torch.nn as nn
 
-from src.models.units import CausalConv1d, ResidualUnit
+from src.models.soundstream.units import CausalConv1d, ResidualUnit
 
 
 class EncoderBlock(nn.Module):
