@@ -63,7 +63,7 @@ class Emg2PoseDataset(BaseDataset):
         padding = cfg.data.padding if mode == "train" else (0, 0)
 
         transform_cfgs = cfg.data.transforms.get(mode)
-        transform = self._build_transform(transform_cfgs) if transform_cfgs else None
+        window_transform, sample_transform = self._build_transform(transform_cfgs) if transform_cfgs else None
 
         splits = self.load_splits()
         sessions = splits[mode]
@@ -72,7 +72,8 @@ class Emg2PoseDataset(BaseDataset):
             datasets = [
                 SingleChannelEmgDataset(
                     hdf5_path,
-                    transform=transform,
+                    window_transform=window_transform,
+                    sample_transform=sample_transform,
                     window_length=window_length,
                     padding=padding,
                     jitter=jitter,
@@ -84,7 +85,8 @@ class Emg2PoseDataset(BaseDataset):
             datasets = [
                 WindowedEmgDataset(
                     hdf5_path,
-                    transform=transform,
+                    window_transform=window_transform,
+                    sample_transform=sample_transform,
                     window_length=window_length,
                     padding=padding,
                     jitter=jitter,
@@ -130,7 +132,18 @@ class Emg2PoseDataset(BaseDataset):
     # Instantiate transforms
     @staticmethod
     def _build_transform(configs: Sequence[DictConfig]) -> Transform[Any, Any]:
-        return transforms.Compose([instantiate(cfg) for cfg in configs])
+        window_transforms = []
+        sample_transforms = []
+        for cfg in configs:
+            t = instantiate(cfg)
+            if isinstance(t, transforms.DictTransform):
+                sample_transforms.append(t)
+            else:
+                window_transforms.append(t)
+        
+        window_transform = transforms.Compose(window_transforms) if window_transforms else None
+        sample_transform = transforms.Compose(sample_transforms) if sample_transforms else None
+        return window_transform, sample_transform
 
 
 
@@ -282,9 +295,12 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
     stride: InitVar[int | None] = None
     padding: InitVar[tuple[int, int]] = (0, 0)
     jitter: bool = False
-    transform: Transform[np.ndarray, torch.Tensor] = field(
+    # Operates on individual windows of emg
+    window_transform: Transform[np.ndarray, torch.Tensor] = field(
         default_factory=transforms.ExtractToTensor
     )
+    # Operates on the entire sample dict (emg, joint angles, no_ik_failure mask) after windowing and before returning
+    sample_transform: Transform[dict, dict] = None
     skip_ik_failures: bool = False
 
     def __post_init__(
@@ -376,7 +392,7 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
         window = self.session[window_start:window_end]
 
         # Extract EMG tensor corresponding to the window
-        emg = self.transform(window)
+        emg = self.window_transform(window)
         assert torch.is_tensor(emg)
 
         # Extract joint angle labels
@@ -390,7 +406,7 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
 
         # Convert stage to index
 
-        return {
+        sample = {
             "emg": emg.T,  # CT
             "joint_angles": joint_angles.T,  # CT
             "no_ik_failure": no_ik_failure,  # T
@@ -398,6 +414,10 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
             "window_end_idx": window_end,
             "stage": self._stage,
         }
+
+        if self.sample_transform is not None:
+            sample = self.sample_transform(sample) 
+        return sample
     
 
 

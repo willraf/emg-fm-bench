@@ -196,6 +196,10 @@ class NeuroRVQEvalTask(BaseTask):
         self.channel_names = np.array([c.lower().encode() for c in ch_names])
 
         self.fm = setup_model(cfg.model.fm, model_name="neuro_rvq_fm", device=device)
+
+        fm_path = cfg.model.fm.checkpoint
+        # self.load_from_checkpoint(fm_path, self.fm)
+
         n_outputs = 29 # Number of stages
         self.fm.reset_classifier(n_outputs)
 
@@ -229,15 +233,11 @@ class NeuroRVQEvalTask(BaseTask):
                 weight_decay=cfg.training.weight_decay
             )
 
-        fm_path = cfg.model.fm.checkpoint
-        # self.load_from_checkpoint(fm_path, self.fm)
-
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
 
 
     def train_step(self, batch, batch_idx=None, epoch=None):
-        batch = self.preprocess_batch(batch)
         temporal_ix = batch["temporal_ix"].int().to(self.device)
         spatial_ix = batch["spatial_ix"].int().to(self.device)
         emg = batch["emg"].to(self.device)  # (B, C, T)
@@ -268,11 +268,8 @@ class NeuroRVQEvalTask(BaseTask):
         }        
 
 
-
     @torch.no_grad()
     def val_step(self, batch, batch_idx=None, epoch=None):
-
-        batch = self.preprocess_batch(batch)
 
         emg = batch["emg"].to(self.device)  # (B, C, T)
         temporal_ix = batch["temporal_ix"].int().to(self.device)
@@ -335,68 +332,3 @@ class NeuroRVQEvalTask(BaseTask):
     def wrap_distributed(self, local_rank):
         self.tokeniser = DDP(self.tokeniser, device_ids=[local_rank], output_device=local_rank)
         self.fm = DDP(self.fm, device_ids=[local_rank], output_device=local_rank)
-
-
-    def _encode_stage(self, batch):
-        return torch.tensor(
-            [self.stage_to_idx[s] for s in batch["stage"]],
-            device=self.device,
-            dtype=torch.long
-        )
-
-
-    def preprocess_batch(self, batch):
-        emg = batch["emg"]  # (B, C, T)
-
-        processed = []
-        temporal_ix_list = []
-        spatial_ix_list = []
-
-        for x in emg:
-
-            C, _ = x.shape
-            n_time = self.cfg.model.fm.n_patches // C
-
-            temp_ix, spat_ix = self.embed_builder.build(
-                n_time,
-                sample_channels=self.channel_names
-            )
-
-            # --- NeuroRVQ signal preprocessing ---
-            target_fs = 1000
-            highpass = 20
-            lowpass = 400
-            fs = 2000
-
-            x_np = x.cpu().numpy()
-
-            lowpass_applied = min(lowpass, fs/2) - 0.5
-            b, a = signal.butter(
-                N=3,
-                Wn=[highpass, lowpass_applied],
-                btype='bandpass',
-                fs=fs
-            )
-
-            x_np = signal.filtfilt(b, a, x_np, axis=-1)
-
-            if target_fs != fs:
-                x_np = signal.resample(
-                    x_np,
-                    num=int(x_np.shape[-1] / fs * target_fs),
-                    axis=-1
-                )
-
-            x_np = x_np.astype("float32")
-            x_np = x_np[:, :3200]
-
-            processed.append(torch.from_numpy(x_np))
-            temporal_ix_list.append(temp_ix.squeeze(0))
-            spatial_ix_list.append(spat_ix.squeeze(0))
-
-        batch["stage"] = self._encode_stage(batch)
-        batch["emg"] = torch.stack(processed)
-        batch["temporal_ix"] = torch.stack(temporal_ix_list)
-        batch["spatial_ix"] = torch.stack(spatial_ix_list)
-
-        return batch

@@ -28,7 +28,6 @@ def find_model_using_name(model_name: str):
 
     for name in dir(modellib):
         obj = getattr(modellib, name)
-        print(name.lower(), target_class_name.lower(), isinstance(obj, type))
         if name.lower() == target_class_name.lower() and isinstance(obj, type): # issubclass(obj, BaseDataset):
             return obj
 

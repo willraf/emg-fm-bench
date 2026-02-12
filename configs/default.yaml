@@ -24,12 +24,17 @@ data:
   padding: [0, 0]
   skip_ik_failures: True
   batch_size: 64
+  # Window transforms are applied to each window of emg. Sample transforms are applied to the whole sample dict
   transforms:
     train:
       - ${to_tensor}
-      # - _target_: emg2pose.transforms.RotationAugmentation
+      - ${band_pass}
+      # - _target_: src.data.transforms.RotationAugmentation
+      
     val:
       - ${to_tensor}
+      - ${band_pass}
+      # - _target_: src.data.transforms.RotationAugmentation
     test: ${transforms.val}
 
 model:

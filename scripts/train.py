@@ -304,8 +304,8 @@ class Trainer:
 def main(cfg, overwrite=False):
     
     trainer = Trainer(cfg, overwrite=overwrite)
-    trainer.find_max_batch_size()
-    # trainer.train()
+    # trainer.find_max_batch_size()
+    trainer.train()
     if trainer.distributed:
         destroy_process_group()
     

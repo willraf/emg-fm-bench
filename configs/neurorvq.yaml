@@ -8,9 +8,36 @@ experiment:
   plot_examples: True
   save: True
 
+# Define transforms here
 to_tensor:
   _target_: src.data.transforms.ExtractToTensor
   field: emg
+
+band_pass:
+  _target_: src.data.transforms.BandPassFilter 
+  lowpass: 500 
+  highpass: 20 
+  order: 3 
+  fs: 2000
+
+resample:
+  _target_: src.data.transforms.Resample 
+  target_fs: 1000
+  orig_fs: 2000
+
+
+neurorvq_embed:
+  _target_: src.data.transforms.NeuroRVQEmbeddings
+  n_patches: ${model.fm.n_patches}
+  global_channels: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8',
+        'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16']
+  # sample_channels: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16']
+  sample_channels: ${neurorvq_embed.global_channels}
+
+encode_stage:
+  _target_: src.data.transforms.EncodeStage
+
+
 
 data:
   name: emg2pose
@@ -30,9 +57,19 @@ data:
   transforms:
     train:
       - ${to_tensor}
-      # - _target_: emg2pose.transforms.RotationAugmentation
+      - ${band_pass}
+      - ${resample}
+      - ${neurorvq_embed}
+      - ${encode_stage}
+      # - _target_: src.data.transforms.RotationAugmentation
+      
     val:
       - ${to_tensor}
+      - ${band_pass}
+      - ${resample}
+      - ${neurorvq_embed}
+      - ${encode_stage}
+      # - _target_: src.data.transforms.RotationAugmentation
     test: ${transforms.val}
 
 task:
