@@ -17,6 +17,40 @@ import os
 from scipy import signal
 
 
+STAGE_TO_IDX = {
+    'ThumbsUpDownThumbRotationsCWCCWP': 0,
+    'HandClawGraspFlicks': 1,
+    'ShakaVulcanPeace': 2,
+    'HookEmHornsOKScissors': 3,
+    'TwoHandedFreeStyle': 4,
+    'unconstrained': 5,
+    'OneHandedFreeStyle': 6,
+    'CountingUpDownFaceSideAway': 7,
+    'ThumbsSwipesWholeHand': 8,
+    'FingerWigglingSpreading': 9,
+    'FingerAbductionSeries': 10,
+    'FingerPinchesSingleFingerPinchesMultiple': 11,
+    'FingerFreeform': 12,
+    'IndividualFingerPointingSnap': 13,
+    'GraspPunchCloseFar': 14,
+    'PokeDrawPinchRotateclosefar': 15,
+    'AllFingerPinchesThumbSwipeThumbRotate': 16,
+    'CountingUpDownFingerWigglingSpreading': 17,
+    'IndexPinchesMiddlePinchesThumbswipes': 18,
+    'DoorknobFingerGraspFistGrab': 19,
+    'FastPongFronthandBackhandThrowing': 20,
+    'HandDeskSeparateClaspedChest': 21,
+    'PokePinchCloseFar': 22,
+    'FingerTouchPalmClapmrburns': 23,
+    'WristFlexionAbduction': 24,
+    'PlayBlocksChess': 25,
+    'CoffeePanicPete': 26,
+    'HandOverHandAllFingerPinchesThumbSwipeThumbRotate': 27,
+    'HandOverHandCountingUpDownFingerWigglingSpreading': 28
+
+}
+
+
 
 # Bandpass filter function
 def bandpass_filter(data, lowcut, highcut, fs, order=2):
@@ -149,11 +183,7 @@ class NeuroRVQEvalTask(BaseTask):
         self.is_main = is_main
         self.save_dir = save_dir
 
-        self.tokeniser = setup_model(cfg.model.tokeniser, device=device, model_name="neuro_rvq_tokenizer")
-        self.tokeniser.to(device)
-        tokeniser_path = cfg.model.tokeniser.checkpoint
-        self.load_from_checkpoint(tokeniser_path, self.tokeniser)
-        self.loss_fn = torch.nn.MSELoss()
+        self.stage_to_idx = STAGE_TO_IDX
 
         self.embed_builder = NeuroRVQEmbeddingBuilder(
             max_patches=cfg.model.fm.n_patches
@@ -162,18 +192,81 @@ class NeuroRVQEvalTask(BaseTask):
         ch_names = np.array([
             'c1','c2','c3','c4','c5','c6','c7','c8',
             'c9','c10','c11','c12','c13','c14','c15','c16'
-        ])
+        ]) 
         self.channel_names = np.array([c.lower().encode() for c in ch_names])
 
-        # self.fm = setup_model(cfg.model.fm, model_name="neuro_rvq_fm")
-        # self.fm.to(device)
-        # fm_path = cfg.finetuning.fm_checkpoint
+        self.fm = setup_model(cfg.model.fm, model_name="neuro_rvq_fm", device=device)
+        n_outputs = 29 # Number of stages
+        self.fm.reset_classifier(n_outputs)
+
+        self.fm.to(device)
+
+        if cfg.training.freeze_backbone:
+            # Freeze everything
+            for p in self.fm.parameters():
+                p.requires_grad = False
+
+            # Unfreeze classifier head
+            for p in self.fm.head.parameters():
+                p.requires_grad = True
+
+            for p in self.fm.fc_norm.parameters():
+                p.requires_grad = True
+
+
+            head_params = list(self.fm.head.parameters()) + \
+                list(self.fm.fc_norm.parameters())
+
+            self.optimiser = torch.optim.AdamW(
+                head_params,
+                lr=cfg.training.learning_rate,
+                weight_decay=cfg.training.weight_decay
+            )
+        else:
+            self.optimiser = torch.optim.AdamW(
+                self.fm.parameters(),
+                lr=cfg.training.learning_rate,
+                weight_decay=cfg.training.weight_decay
+            )
+
+        fm_path = cfg.model.fm.checkpoint
         # self.load_from_checkpoint(fm_path, self.fm)
 
+        self.loss_fn = torch.nn.CrossEntropyLoss()
 
-    def train_step(self, model, batch_idx=None, epoch=None):
-        return {"loss": 0.0}
+
+
+    def train_step(self, batch, batch_idx=None, epoch=None):
+        batch = self.preprocess_batch(batch)
+        temporal_ix = batch["temporal_ix"].int().to(self.device)
+        spatial_ix = batch["spatial_ix"].int().to(self.device)
+        emg = batch["emg"].to(self.device)  # (B, C, T)
+        stage = batch["stage"].to(self.device)  # (B,)
+
+        B, C, T = emg.shape
+        emg = emg.reshape(B, C, 16, 200)
+
+        logits, _ = self.fm(
+            emg,
+            temporal_embedding_ix=temporal_ix,
+            spatial_embedding_ix=spatial_ix
+        )
+
+        loss = self.loss_fn(logits, stage)
         
+        self.optimiser.zero_grad(set_to_none=True)
+        loss.backward()
+        self.optimiser.step()
+
+        with torch.no_grad():
+            preds = logits.argmax(dim=1)
+            acc = (preds == stage).float().mean()
+
+        return {
+            "loss": loss.item(),
+            "acc": acc.item()
+        }        
+
 
 
     @torch.no_grad()
@@ -184,29 +277,26 @@ class NeuroRVQEvalTask(BaseTask):
         emg = batch["emg"].to(self.device)  # (B, C, T)
         temporal_ix = batch["temporal_ix"].int().to(self.device)
         spatial_ix = batch["spatial_ix"].int().to(self.device)
-
-        std_x, std_xrec = self.tokeniser(
+        stage = batch["stage"].to(self.device)  # (B,)
+        B, C, T = emg.shape
+        emg = emg.reshape(B, C, 16, 200)
+        logits, _ = self.fm(
             emg,
             temporal_embedding_ix=temporal_ix,
             spatial_embedding_ix=spatial_ix
         )
-
-        if self.is_main and self.cfg.experiment.plot_examples and batch_idx == 0:
-            plot_id = torch.randint(0, emg.shape[0], (1,)).item()
-            process_and_plot(std_x, std_xrec, fs=1000, mode='EMG')
-
-            for i in range(10):
-                vis.plot_reconstruction(std_x[plot_id, i:i+1], std_xrec[plot_id, i:i+1], fpath=self.save_dir / "figures" / f'val_batch_{batch_idx}_epoch_{epoch}_{i}.png')
-        
-        loss = self.loss_fn(std_xrec, std_x).item()
+        loss = self.loss_fn(logits, stage)
+        preds = logits.argmax(dim=1)
+        acc = (preds == stage).float().mean()
 
         return {
-            "loss": loss,
+            "loss": loss.item(),
+            "acc": acc.item()
         }
 
 
     def eval_step(self, model, batch, device):
-        return super().eval_step(model, batch, device)
+        return 
 
 
     def load_from_checkpoint(self, checkpoint_path, model):
@@ -218,6 +308,17 @@ class NeuroRVQEvalTask(BaseTask):
         checkpoint = torch.load(path)
         model.load_state_dict(checkpoint)
         return checkpoint
+
+
+    def save_checkpoint(self, checkpoint_path, epoch, val_loss):
+        checkpoint = {
+            'epoch': epoch,
+            'val_loss': val_loss,
+            'model_state_dict': self.fm.state_dict(),
+            'optimizer_state_dict': self.optimiser.state_dict(),
+        }
+        torch.save(checkpoint, checkpoint_path)
+        logging.info(f"Checkpoint saved: {checkpoint_path}")
 
 
     def load_checkpoint(self, checkpoint_path):
@@ -235,6 +336,13 @@ class NeuroRVQEvalTask(BaseTask):
         self.tokeniser = DDP(self.tokeniser, device_ids=[local_rank], output_device=local_rank)
         self.fm = DDP(self.fm, device_ids=[local_rank], output_device=local_rank)
 
+
+    def _encode_stage(self, batch):
+        return torch.tensor(
+            [self.stage_to_idx[s] for s in batch["stage"]],
+            device=self.device,
+            dtype=torch.long
+        )
 
 
     def preprocess_batch(self, batch):
@@ -286,6 +394,7 @@ class NeuroRVQEvalTask(BaseTask):
             temporal_ix_list.append(temp_ix.squeeze(0))
             spatial_ix_list.append(spat_ix.squeeze(0))
 
+        batch["stage"] = self._encode_stage(batch)
         batch["emg"] = torch.stack(processed)
         batch["temporal_ix"] = torch.stack(temporal_ix_list)
         batch["spatial_ix"] = torch.stack(spatial_ix_list)

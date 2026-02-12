@@ -1,13 +1,13 @@
 from torch.nn.parallel import DistributedDataParallel as DDP 
 
 class BaseTask:
-    def train_step(self, model, batch, device):
+    def train_step(self, batch):
         raise NotImplementedError
     
-    def val_step(self, model, batch, device):
+    def val_step(self, batch):
         raise NotImplementedError
     
-    def eval_step(self, model, batch, device):
+    def eval_step(self, batch):
         raise NotImplementedError
     
     def wrap_distributed(self, local_rank):

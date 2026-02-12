@@ -322,6 +322,7 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
     def session(self):
         if not hasattr(self, "_session"):
             self._session = Emg2PoseSessionData(self.hdf5_path)
+            self._stage = self._session.metadata[Emg2PoseSessionData.STAGE]
         return self._session
 
     @property
@@ -387,12 +388,15 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
             self.session.no_ik_failure[window_start:window_end]
         )
 
+        # Convert stage to index
+
         return {
             "emg": emg.T,  # CT
             "joint_angles": joint_angles.T,  # CT
             "no_ik_failure": no_ik_failure,  # T
             "window_start_idx": window_start,
             "window_end_idx": window_end,
+            "stage": self._stage,
         }
     
 

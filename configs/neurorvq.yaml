@@ -17,7 +17,7 @@ data:
   num_channels: 16
   data_dir: data/emg2pose_dataset_mini
   # data_dir: /mnt/data/emg2pose_data
-  # metadata_file: ${data.data_dir}/metadata.csv
+  metadata_file: ${data.data_dir}/metadata.csv
   # Current restrictions on window_length: Must be a multiple of S=strides product (320 here)
   #   and bottleneck size (window_length / (s1*s2*s3)) must be >= padding ( dilation×(K−1)+(1−stride) ) 
   #   stride is 1 in residual units
@@ -26,7 +26,7 @@ data:
   subsample: 1.0
   padding: [0, 0]
   skip_ik_failures: True
-  batch_size: 1
+  batch_size: 8
   transforms:
     train:
       - ${to_tensor}
@@ -38,24 +38,37 @@ data:
 task:
   name: neuro_rvq_eval
 
+
+training:
+  freeze_backbone: False
+  optimizer: adam
+  epochs: 100
+  learning_rate: 0.0001
+  momentum: 0
+  weight_decay: 0
+  patience: 50
+  loss_function: mse
+
+
 model:
   name: neurorvq
   fm:
+    checkpoint: pretrained_models/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt
     n_patches: 256
     patch_size: 200
     in_chans: 1
     out_chans: 8
-    num_classes: 5
+    num_classes: 0
     embed_dim: 200
     depth: 12
     num_heads: 10
     mlp_ratio: 4.
-    qkv_bias: False
+    qkv_bias: True
     qk_norm: null
     drop_rate: 0.
     attn_drop_rate: 0.
     drop_path_rate: 0.
-    init_values: null
+    init_values: 1.e-5
     init_scale: 0.001
     n_global_electrodes: 16
     vocab_size: 8192

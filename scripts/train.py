@@ -279,7 +279,7 @@ class Trainer:
                 torch.cuda.empty_cache()
                 torch.cuda.reset_peak_memory_stats()
 
-                self.task.training_step(batch)
+                self.task.train_step(batch)
 
                 peak = torch.cuda.max_memory_allocated() / 1e9
                 logging.info(f"Success | Peak memory {peak:.2f} GB")
@@ -304,8 +304,8 @@ class Trainer:
 def main(cfg, overwrite=False):
     
     trainer = Trainer(cfg, overwrite=overwrite)
-    # trainer.find_max_batch_size()
-    trainer.train()
+    trainer.find_max_batch_size()
+    # trainer.train()
     if trainer.distributed:
         destroy_process_group()
     
