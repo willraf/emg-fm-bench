@@ -44,8 +44,6 @@ class PadCropToLength(TensorTransform):
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         current_length = x.shape[0]
-        print("--------PadCropToLength--------")
-        print(f"Start shape: {x.shape}")
 
         if current_length < self.target_length:
             padding = self.target_length - current_length
@@ -54,7 +52,6 @@ class PadCropToLength(TensorTransform):
             crop_start = (current_length - self.target_length) // 2
             x = x[crop_start:crop_start + self.target_length]
 
-        print(f"End shape: {x.shape}")
         return x
 
 
@@ -193,8 +190,6 @@ class BandPassFilter(TensorTransform):
         self.a = torch.tensor(a, dtype=torch.float32)
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        print("--------BandPassFilter--------")
-        print(f"Start shape: {x.shape}")
         # x shape (time, channels)
         x = x.T.unsqueeze(0)  # (1, channels, time)
 
@@ -203,7 +198,6 @@ class BandPassFilter(TensorTransform):
             self.a.to(x.device),
             self.b.to(x.device),
         )
-        print(f"End shape: {y.squeeze(0).T.shape}")
 
         return y.squeeze(0).T
 
@@ -220,8 +214,6 @@ class Resample(TensorTransform):
         Returns:
             Tensor with resampled time dimension
         """
-        print("--------Resample--------")
-        print(f"Start shape: {x.shape}")
 
         x = x.T
 
@@ -246,8 +238,6 @@ class Resample(TensorTransform):
 
         if squeeze:
             x = x.squeeze(0)
-
-        print(f"End shape: {x.T.shape}")
 
         return x.T
 

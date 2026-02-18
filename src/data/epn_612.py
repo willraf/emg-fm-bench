@@ -194,7 +194,7 @@ class EPN612SessionData:
             key = slice(key, key + 1)
         
         # 1. Fetch EMG (200Hz)
-        emg_slice = self.emg[:, key]
+        emg_slice = self.emg[key]
 
         # 2. Fetch IMU (50Hz) - Scale the slice by 1/4
         # Note: This is an approximation. For exact windows, 
@@ -316,9 +316,8 @@ class WindowedEmgDataset(torch.utils.data.Dataset):
 
         start_idx, end_idx = self.windows[idx]
         window = self.session[start_idx:end_idx]
-        print(f'emg shape before window transform: {window["emg"].shape}')
+
         emg = self.window_transform(window)
-        print(f'emg shape after window transform: {emg.shape}')
         assert torch.is_tensor(emg)
 
         sample = {

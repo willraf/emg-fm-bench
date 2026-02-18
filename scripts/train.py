@@ -133,7 +133,7 @@ class Trainer:
             val_loss = val_metrics[self.task.monitor_metric]
 
             # Early stopping and best model saving
-            if self.is_main:
+            if self.is_main and patience is not None:
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
                     epochs_no_improve = 0

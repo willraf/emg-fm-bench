@@ -54,7 +54,7 @@ data:
   #   stride is 1 in residual units
   # For finetuning, window length must be before resampling
   window_length: 980
-  num_workers: 10
+  num_workers: 1
   subsample: 1.0
   padding: [0, 0]
   skip_ik_failures: True
@@ -98,6 +98,9 @@ finetuning:
   n_outputs: 6 # Number of gestures in epn dataset
   target_field: gesture_id
 
+training:
+  patience: 20
+  epochs: 100
 
 
 model:

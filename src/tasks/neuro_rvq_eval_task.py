@@ -82,14 +82,12 @@ class NeuroRVQEvalTask(BaseTask):
 
 
     def train_step(self, batch, batch_idx=None, epoch=None):
-        temporal_ix = batch["temporal_ix"].int().to(self.device)    
-        spatial_ix = batch["spatial_ix"].int().to(self.device)
+        temporal_ix = batch["temporal_ix"].int().to(self.device)   # B, n_patches  
+        spatial_ix = batch["spatial_ix"].int().to(self.device)      # B, n_patches
         emg = batch["emg"].to(self.device)  # (B, C, T)
         targets = batch[self.target_field].to(self.device)  # (B,)
 
         B, C, T = emg.shape
-        print(f"EMG shape before reshape: {emg.shape}")
-        print(f"Temporal indices shape: {temporal_ix.shape}, Spatial indices shape: {spatial_ix.shape}")
         time_patches = self.n_patches // C
 
         emg = emg.reshape(B, C, time_patches, self.patch_len)
@@ -122,17 +120,18 @@ class NeuroRVQEvalTask(BaseTask):
         emg = batch["emg"].to(self.device)  # (B, C, T)
         temporal_ix = batch["temporal_ix"].int().to(self.device)
         spatial_ix = batch["spatial_ix"].int().to(self.device)
-        stage = batch["stage"].to(self.device)  # (B,)
+        targets = batch[self.target_field].to(self.device)  # (B,)
         B, C, T = emg.shape
-        emg = emg.reshape(B, C, 16, 200)
+        time_patches = self.n_patches // C
+        emg = emg.reshape(B, C, time_patches, self.patch_len)
         logits, _ = self.fm(
             emg,
             temporal_embedding_ix=temporal_ix,
             spatial_embedding_ix=spatial_ix
         )
-        loss = self.loss_fn(logits, stage)
+        loss = self.loss_fn(logits, targets)
         preds = logits.argmax(dim=1)
-        acc = (preds == stage).float().mean()
+        acc = (preds == targets).float().mean()
 
         return {
             "loss": loss.item(),

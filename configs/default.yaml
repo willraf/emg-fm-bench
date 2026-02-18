@@ -118,14 +118,9 @@ model:
 
 
 training:
-  optimizer: adam
   epochs: 10
-  learning_rate: null
-  momentum: 0
-  weight_decay: 0
   patience: null
-  val_split: null
-  loss_function: null
+
 
 validation:
   batch_size: null
