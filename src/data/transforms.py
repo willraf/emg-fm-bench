@@ -26,8 +26,36 @@ Transform = Callable[[TTransformIn], TTransformOut]
 class DictTransform:
     pass
 
+
 class TensorTransform:
     pass
+
+
+@dataclass
+class PadCropToLength(TensorTransform):
+    """
+    Pad or crop the input tensor along the time dimension to a target length.
+
+    Padding is done on the left side, and cropping is done symmetrically from both sides to preserve the center of the signal.
+    """
+
+    target_length: int
+    pad_value: float = 0.0
+
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        current_length = x.shape[0]
+        print("--------PadCropToLength--------")
+        print(f"Start shape: {x.shape}")
+
+        if current_length < self.target_length:
+            padding = self.target_length - current_length
+            x = torch.nn.functional.pad(x, (0, 0, padding, 0), value=self.pad_value)
+        elif current_length > self.target_length:
+            crop_start = (current_length - self.target_length) // 2
+            x = x[crop_start:crop_start + self.target_length]
+
+        print(f"End shape: {x.shape}")
+        return x
 
 
 @dataclass
@@ -73,6 +101,7 @@ class EncodeStage(DictTransform):
         )
         return data
 
+
 @dataclass
 class NeuroRVQEmbeddings(DictTransform):
     """Adds spacial and temporal embeddings to the data dict, using neuroRVQ method
@@ -104,12 +133,6 @@ class NeuroRVQEmbeddings(DictTransform):
                 c.encode() if isinstance(c, str) else c 
                 for c in self.sample_channels
             ])
-
-        ch_names = np.array([
-            'c1','c2','c3','c4','c5','c6','c7','c8',
-            'c9','c10','c11','c12','c13','c14','c15','c16'
-        ]) 
-        self.channel_names = np.array([c.lower().encode() for c in ch_names])
     
     def __call__(self, data: dict) -> dict:
         if self.sample_channels is not None:
@@ -170,6 +193,8 @@ class BandPassFilter(TensorTransform):
         self.a = torch.tensor(a, dtype=torch.float32)
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        print("--------BandPassFilter--------")
+        print(f"Start shape: {x.shape}")
         # x shape (time, channels)
         x = x.T.unsqueeze(0)  # (1, channels, time)
 
@@ -178,6 +203,7 @@ class BandPassFilter(TensorTransform):
             self.a.to(x.device),
             self.b.to(x.device),
         )
+        print(f"End shape: {y.squeeze(0).T.shape}")
 
         return y.squeeze(0).T
 
@@ -190,10 +216,12 @@ class Resample(TensorTransform):
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x: Tensor of shape (C, T) or (B, C, T)
+            x: Tensor of shape (T, C) or (B, T, C)
         Returns:
             Tensor with resampled time dimension
         """
+        print("--------Resample--------")
+        print(f"Start shape: {x.shape}")
 
         x = x.T
 
@@ -218,6 +246,8 @@ class Resample(TensorTransform):
 
         if squeeze:
             x = x.squeeze(0)
+
+        print(f"End shape: {x.T.shape}")
 
         return x.T
 

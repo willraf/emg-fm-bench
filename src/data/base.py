@@ -19,6 +19,12 @@ from abc import ABC, abstractmethod
 from omegaconf import OmegaConf
 
 from torch.utils.data import Dataset
+from src.data import transforms
+from src.data.transforms import Transform
+
+from hydra.utils import instantiate
+from omegaconf import OmegaConf, DictConfig
+from typing import Sequence, Any
 
 class BaseDataset(Dataset, ABC):
     """This class is an abstract base class (ABC) for datasets.
@@ -62,3 +68,21 @@ class BaseDataset(Dataset, ABC):
                 setattr(self, key, value)
             else:
                 raise ValueError(f"Dataset does not have attribute '{key}' to update.")
+
+
+    # Instantiate transforms
+    @staticmethod
+    def _build_transform(configs: Sequence[DictConfig]) -> Transform[Any, Any]:
+        window_transforms = []
+        sample_transforms = []
+        for cfg in configs:
+            t = instantiate(cfg)
+            if isinstance(t, transforms.DictTransform):
+                sample_transforms.append(t)
+            else:
+                window_transforms.append(t)
+        
+        window_transform = transforms.Compose(window_transforms) if window_transforms else None
+        sample_transform = transforms.Compose(sample_transforms) if sample_transforms else None
+        return window_transform, sample_transform
+

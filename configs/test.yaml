@@ -1,0 +1,48 @@
+---
+type: dataset
+name:
+modalities:
+  - 
+emg:
+  channels:
+  placement:
+  configuration:     # Options: monopolar, single_differential, double_differential
+  reference_placement: 
+  sampling_rate:
+  bit_depth:
+  device:
+  electrode_type:   # Options: dry, wet
+imu:
+  sensors:       # Options: accelerometer, gyroscope, magnetometer  
+  sampling_rate:
+  axes:
+eeg:
+  channels:
+  placement:
+  sampling_rate:
+kinematics:
+  type:
+  axes:
+  device:
+subjects:
+  total:
+  demographics:
+  split_strategy:
+tasks:
+  - 
+area/limb:
+labels:
+  type:
+  n_classes:
+metadata:
+  - 
+recording_duration:
+license:
+year:
+size_gb:
+size_hours:
+paper:
+url:
+pros:
+cons:
+---

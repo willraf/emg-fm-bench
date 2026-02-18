@@ -56,7 +56,8 @@ def find_dataset_using_name(dataset_name):
             dataset = cls
 
     if dataset is None:
-        raise NotImplementedError('In {0}.py, there should be a subclass of BaseDataset with class name that matches {1} in lowercase.'.format(dataset_filename, target_dataset_name))
+        print(f"Could not find a class that matches {target_dataset_name} in {dataset_filename}.py.")
+        raise NotImplementedError(f'In {dataset_filename}.py, there should be a subclass of BaseDataset with class name that matches {target_dataset_name} in lowercase.')
 
     return dataset
 

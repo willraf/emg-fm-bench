@@ -3,7 +3,7 @@ logging:
   log_interval: 10
 
 experiment:
-  name: "2026-02-11"
+  name: "2026-02-16"
   random_seed: 42
   plot_examples: True
   save: True
@@ -87,6 +87,14 @@ training:
   loss_function: mse
 
 
+finetuning:
+  freeze_backbone: True
+  learning_rate: 0.0001
+  weight_decay: 0
+  n_outputs: 29 # Number of stages in emg2pose dataset
+  target_field: stage
+
+
 model:
   name: neurorvq
   fm:
@@ -110,7 +118,7 @@ model:
     n_global_electrodes: 16
     vocab_size: 8192
     use_as_encoder: True
-    use_for_pretraining: False
+    use_for_pretraining: True
   
   tokeniser:
     checkpoint: pretrained_models/tokenizers/NeuroRVQ_EMG_tokenizer_v1.pt

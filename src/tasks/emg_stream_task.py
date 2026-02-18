@@ -171,7 +171,7 @@ class EMGStreamTask(BaseTask):
         return checkpoint
 
 
-    def save_checkpoint(self, epoch, val_loss, checkpoint_path):
+    def save_checkpoint(self, checkpoint_path, epoch, val_loss):
         checkpoint = {
             'epoch': epoch,
             'val_loss': val_loss,

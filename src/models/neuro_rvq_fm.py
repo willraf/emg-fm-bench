@@ -501,7 +501,7 @@ class NeuroRVQFM(nn.Module):
                 for blk in self.blocks:
                     x = blk(x)
                     
-                if (use_for_pretraining or bool_masked_pos is not None):
+                if (self.use_for_pretraining or bool_masked_pos is not None):
                     x = self.norm_pre(x)
                 else:
                     x = self.norm(x)
@@ -518,7 +518,7 @@ class NeuroRVQFM(nn.Module):
             # Pass the transformer blocks
             for blk in self.blocks:
                 x = blk(x)
-            if (use_for_pretraining or bool_masked_pos is not None):
+            if (self.use_for_pretraining or bool_masked_pos is not None):
                 x = self.norm_pre(x)
             else:
                 x = self.norm(x)

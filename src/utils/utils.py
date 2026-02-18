@@ -1,21 +1,21 @@
+"""
+Contains utility functions for setting up distributed training, logging, and experiment management.
+"""
+
+
 from pathlib import Path
 import logging
 from datetime import datetime
-import matplotlib.pyplot as plt
 import numpy as np
 import random
 import torch
 import shutil
 import csv
-import pandas as pd
 
 from omegaconf import OmegaConf
 
 from typing import Union, Optional, Callable, Dict
-from torch.nn.parameter import Parameter
-from typing import Iterator
 
-import torch.nn.functional as F
 import torch.optim as optim
 import torch.nn as nn
 
@@ -176,116 +176,6 @@ def add_log_file(log_fpath: Union[str, Path], is_main_process: bool = True):
     logging.info(f"Log file changed to: {log_fpath}")
 
 
-def setup_optimiser(cfg: OmegaConf, model_parameters: Iterator[Parameter]) -> optim.Optimizer:
-    """
-    Create optimiser from config file
-    """
-    optimizer_name = cfg.training.optimizer
-    learning_rate = cfg.training.learning_rate
-    momentum = cfg.training.momentum
-    weight_decay = cfg.training.weight_decay
-
-    if optimizer_name == 'sgd':
-        optimizer = optim.SGD(
-            model_parameters, 
-            lr=learning_rate, 
-            momentum=momentum
-        )
-        logging.info("Using SGD optimizer")
-    elif optimizer_name == 'adam':
-        optimizer = optim.Adam(
-            model_parameters, 
-            lr=learning_rate,
-            weight_decay=weight_decay
-        )
-        logging.info("Using Adam optimizer")
-    elif optimizer_name == 'adamw':
-        optimizer = optim.Adam(
-            model_parameters, 
-            lr=learning_rate,
-            weight_decay=weight_decay
-        )
-        logging.info("Using Adam optimizer")
-    else:
-        raise ValueError("Optimizer not recognised")
-
-    return optimizer
-
-
-def save_checkpoint(generator: nn.Module,
-                    discriminator_stft: nn.Module,
-                    discriminator_wave: nn.Module,
-                    optimizer_G: optim.Optimizer,
-                    optimizer_D: optim.Optimizer,
-                    epoch: int,
-                    val_loss: float,
-                    checkpoint_path: Union[str, Path]):
-    """
-    Save the state of all models (Generator, Discriminators) and optimizers
-    for the SoundStream GAN architecture.
-
-    Args:
-        generator (nn.Module): The Generator (Encoder, RVQ, Decoder).
-        discriminator_stft (nn.Module): The STFT-based Discriminator.
-        discriminator_wave (nn.Module): The Multi-scale Wave-based Discriminator.
-        optimizer_G (optim.Optimizer): The optimizer for the Generator.
-        optimizer_D (optim.Optimizer): The optimizer for the Discriminators.
-        epoch (int): The current epoch number.
-        val_loss (float): The validation loss at this epoch (often L_G total).
-        checkpoint_path (Union[str, Path]): Path to save the checkpoint file.
-    """
-    
-    # 1. Gather all state dictionaries
-    checkpoint = {
-        'epoch': epoch,
-        'val_loss': val_loss,
-        
-        # Generator components
-        'generator_state_dict': generator.state_dict(),
-        'optimizer_G_state_dict': optimizer_G.state_dict(),
-        
-        # Discriminator components (saved separately for clarity)
-        'discriminator_stft_state_dict': discriminator_stft.state_dict(),
-        'discriminator_wave_state_dict': discriminator_wave.state_dict(),
-        'optimizer_D_state_dict': optimizer_D.state_dict(),
-    }
-
-    path = Path(checkpoint_path)
-    torch.save(checkpoint, path)
-    logging.info(f"Checkpoint saved: {path}")
-
-
-def load_checkpoint(checkpoint_path: Union[str, Path], 
-                     generator: nn.Module,
-                     discriminator_stft: nn.Module,
-                     discriminator_wave: nn.Module,
-                     optimizer_G: optim.Optimizer = None,
-                     optimizer_D: optim.Optimizer = None) -> Dict:
-    """
-    Load model and optimizer states from a checkpoint.
-    """
-    path = Path(checkpoint_path)
-    if not path.exists():
-        logging.warning(f"Checkpoint not found: {path}")
-        return {}
-
-    checkpoint = torch.load(path)
-
-    # Load model states
-    generator.load_state_dict(checkpoint['generator_state_dict'])
-    discriminator_stft.load_state_dict(checkpoint['discriminator_stft_state_dict'])
-    discriminator_wave.load_state_dict(checkpoint['discriminator_wave_state_dict'])
-    
-    # Load optimizer states (optional, needed only to resume training)
-    if optimizer_G and 'optimizer_G_state_dict' in checkpoint:
-        optimizer_G.load_state_dict(checkpoint['optimizer_G_state_dict'])
-    if optimizer_D and 'optimizer_D_state_dict' in checkpoint:
-        optimizer_D.load_state_dict(checkpoint['optimizer_D_state_dict'])
-
-    logging.info(f"Checkpoint loaded successfully from {path} (Epoch {checkpoint['epoch']})")
-    return checkpoint
-
-
 def setup_save_dir(cfg: OmegaConf,
                     overwrite: bool = False, 
                     mode: str = "train",
@@ -346,33 +236,3 @@ def setup_save_dir(cfg: OmegaConf,
     
     return save_dir
 
-    return save_dir
-
-
-## --------------------------------------------------------------
-## -------------------------- Meta code -------------------------
-## --------------------------------------------------------------
-            
-def get_contiguous_ones(binary_vector: np.ndarray) -> list[tuple[int, int]]:
-    """Get a list of (start_idx, end_idx) for each contiguous block of True values."""
-    if (binary_vector == 0).all():
-        return []
-
-    ones = np.where(binary_vector)[0]
-    boundaries = np.where(np.diff(ones) != 1)[0]
-    return [
-        (ones[i], ones[j])
-        for i, j in zip(
-            np.insert(boundaries + 1, 0, 0), np.append(boundaries, len(ones) - 1)
-        )
-    ]
-
-
-def get_ik_failures_mask(joint_angles: np.ndarray) -> np.ndarray:
-    """Compute mask that is True where there are no ik failures."""
-    zeros = np.zeros_like(joint_angles)  # (..., joint)
-    is_zero = np.isclose(joint_angles, zeros)
-    return ~np.all(is_zero, axis=-1)
-
-
-## --------------------------------------------------------------
