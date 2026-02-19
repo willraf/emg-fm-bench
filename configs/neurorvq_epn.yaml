@@ -3,7 +3,7 @@ logging:
   log_interval: 10
 
 experiment:
-  name: "2026-02-18"
+  name: "2026-02-18-test_big_epn_neurorvq"
   random_seed: 42
   plot_examples: True
   save: True
@@ -43,7 +43,7 @@ pad_length:
 
 
 data:
-  name: epn_612
+  name: epn_big
   num_channels: 8
   data_dir: data/epn612
   # data_dir: data/emg2pose_dataset_mini
@@ -53,8 +53,8 @@ data:
   #   and bottleneck size (window_length / (s1*s2*s3)) must be >= padding ( dilation×(K−1)+(1−stride) ) 
   #   stride is 1 in residual units
   # For finetuning, window length must be before resampling
-  window_length: 980
-  num_workers: 1
+  window_length: 980      # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
+  num_workers: 10
   subsample: 1.0
   padding: [0, 0]
   skip_ik_failures: True

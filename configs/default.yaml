@@ -18,7 +18,8 @@ to_tensor:
 data:
   data_dir: data
   metadata_file: ${data.data_dir}/metadata.csv
-  window_length: 2000
+  window_length: null
+  stride: null
   num_workers: 4
   subsample: 1.0
   padding: [0, 0]

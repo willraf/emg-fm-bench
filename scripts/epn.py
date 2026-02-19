@@ -90,9 +90,8 @@ Each HDF5 file contains the following structure
                 repetitionsForSynchronizationGesture, gesture_name, start_point, session
     - emg (dataset): shape (8, T), dtype float32
     - imu (group)
-        - accelerometer (dataset): shape (3, T), dtype float32
-        - gyroscope (dataset): shape (3, T), dtype float32
-        - quaternion (dataset): shape (4, T), dtype float32
+        - emg (dataset): shape (T, 8), dtype float32
+        - imu (dataset): shape (T, 10) with compound dtype for accel, gyro, quat
 """
 
 from pathlib import Path

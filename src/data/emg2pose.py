@@ -766,7 +766,6 @@ class SingleChannelEmgDataset(torch.utils.data.Dataset):
             "window_start_idx": window_start,
             "window_end_idx": window_end,
         }
-
         if self.sample_transform is not None:
             sample = self.sample_transform(sample) 
         return sample

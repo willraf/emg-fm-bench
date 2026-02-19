@@ -42,11 +42,8 @@ class NeuroRVQEvalTask(BaseTask):
 
 
         self.fm = setup_model(cfg.model.fm, model_name="neuro_rvq_fm", device=device)
-
         self.load_from_checkpoint(fm_path, self.fm)
-
         self.fm.reset_classifier(n_outputs)
-
         self.fm.to(device)
 
         if freeze_backbone:

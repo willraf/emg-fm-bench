@@ -159,32 +159,35 @@ class EPN612SessionData:
 
 
     def __post_init__(self) -> None:
-        self._file = h5py.File(self.hdf5_path, "r")
-        epn612_group: h5py.Group = self._file[self.HDF5_GROUP]
+        # Just load the metadata and length
+        with h5py.File(self.hdf5_path, "r") as f:
+            epn612_group: h5py.Group = f[self.HDF5_GROUP]
+            self.length = len(epn612_group[self.EMG]) # Assumes (T, C) shape from conversion script
 
-        self.emg: h5py.Dataset = epn612_group[self.EMG]
-        self.imu: h5py.Dataset = epn612_group[self.IMU]
+            # Load the metadata entirely into memory
+            self.metadata: dict[str, Any] = {}
+            for key, val in epn612_group.attrs.items():
+                self.metadata[key] = val
 
-        assert self.imu.dtype.fields is not None
-        assert self.ACCELEROMETER in self.imu.dtype.fields
-        assert self.GYROSCOPE in self.imu.dtype.fields
-        assert self.QUATERNION in self.imu.dtype.fields
+        self._file = None
 
-        # Load the metadata entirely into memory
-        self.metadata: dict[str, Any] = {}
-        for key, val in epn612_group.attrs.items():
-            self.metadata[key] = val
+    # Lazy load the EMG and IMU datasets when first accessed
+    @property
+    def file(self) -> h5py.File:
+        if self._file is None:
+            self._file = h5py.File(self.hdf5_path, "r")
+        return self._file
 
 
     def __enter__(self) -> EPN612SessionData:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        self._file.close()
-
+        if hasattr(self, "_file"):
+            self._file.close()
 
     def __len__(self) -> int:
-        return len(self.emg) # Assumes (T, C) shape from our conversion script
+        return self.length
     
 
     def __getitem__(self, key: slice) -> np.ndarray:
@@ -194,7 +197,10 @@ class EPN612SessionData:
             key = slice(key, key + 1)
         
         # 1. Fetch EMG (200Hz)
-        emg_slice = self.emg[key]
+        emg = self.file[self.HDF5_GROUP][self.EMG]  # h5py.Dataset
+        emg_slice = emg[key]
+
+        imu = self.file[self.HDF5_GROUP][self.IMU]  # h5py.Dataset with compound dtype
 
         # 2. Fetch IMU (50Hz) - Scale the slice by 1/4
         # Note: This is an approximation. For exact windows, 
@@ -205,9 +211,9 @@ class EPN612SessionData:
 
         return {
             "emg": emg_slice,
-            # "accel": self.imu[self.ACCELEROMETER][:, imu_slice],
-            # "gyro": self.imu[self.GYROSCOPE][:, imu_slice],
-            # "quat": self.imu[self.QUATERNION][:, imu_slice]
+            # "accel": imu[self.ACCELEROMETER][:, imu_slice],
+            # "gyro": imu[self.GYROSCOPE][:, imu_slice],
+            # "quat": imu[self.QUATERNION][:, imu_slice]
         }
     
 
