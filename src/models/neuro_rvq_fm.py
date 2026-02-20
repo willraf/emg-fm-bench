@@ -410,7 +410,7 @@ class NeuroRVQFM(nn.Module):
     def no_weight_decay(self):
         return {'pos_embed', 'cls_token', 'time_embed'}
 
-    def forward(self, x, temporal_embedding_ix, spatial_embedding_ix, return_patch_tokens=False, bool_masked_pos=None, use_for_pretraining=False, branch_idx=0):
+    def forward(self, x, temporal_embedding_ix, spatial_embedding_ix, return_patch_tokens=False, return_patch_embeddings=False, bool_masked_pos=None, use_for_pretraining=False, branch_idx=0):
         '''
         x: [batch size, number of electrodes, number of patches, patch size]
         For example, for an EEG sample of 4 seconds with 64 electrodes, x will be [batch size, 64, 4, 200]
@@ -646,6 +646,10 @@ class NeuroRVQFM(nn.Module):
                         return self.head_3(self.fc_norm_3(x)), _
                     elif (branch_idx==3):
                         return self.head_4(self.fc_norm_4(x)), _
+                    
+            elif return_patch_embeddings:
+                x = torch.concat([x1,x2,x3,x4], dim=-1)
+                return x, _
             else:
                 # ONLY in Fine-Tune
                 x = torch.concat([x1,x2,x3,x4], dim=-1)

@@ -3,15 +3,17 @@ from src.models.neuro_rvq_fm import NeuroRVQFM
 import torch 
 
 class NeuroRVQClassifierWrapper(nn.Module):
-    def __init__(self, cfg):
+    def __init__(self, cfg, fm):
         super().__init__()
-        self.fm = NeuroRVQFM(cfg.model.fm)
+        self.fm = fm
 
         
         self.embed_dim = cfg.model.fm.embed_dim
-        self.n_classes = cfg.finetuning.n_classes
-        self.n_patches = cfg.n_patches
+        self.num_classes = cfg.finetuning.n_classes
+        self.n_patches = cfg.model.fm.n_patches
         self.pooling_type = cfg.finetuning.pooling_type
+
+        self.embed_dim = self.embed_dim * 4 if self.fm.use_as_encoder else self.embed_dim
         
         # We need to know how many channels are in your EPN data
         # Based on your previous context, this is 8
@@ -32,12 +34,12 @@ class NeuroRVQClassifierWrapper(nn.Module):
             self.fc_norm = nn.LayerNorm(self.embed_dim)
             self.head = nn.Linear(self.embed_dim, self.num_classes)
 
-    def forward(self, x, temporal_ix, spatial_ix):
+    def forward(self, x, temporal_embedding_ix, spatial_embedding_ix):
         # 1. Get raw tokens from FM (Batch, 256, Embed_Dim)
         # We set return_patch_tokens=True to avoid the hardcoded mean(1) in their forward
         # Using branch_idx=0 as EPN uses the first branch logic
-        tokens, _ = self.fm(x, temporal_ix, spatial_ix, 
-                            return_patch_tokens=True, branch_idx=0)
+        tokens, _ = self.fm(x, temporal_embedding_ix, spatial_embedding_ix, 
+                            return_patch_embeddings=True, branch_idx=0)
         
         # tokens shape: (B, 256, 200)
         B, N, E = tokens.shape
@@ -65,5 +67,16 @@ class NeuroRVQClassifierWrapper(nn.Module):
             q = self.query.expand(B, -1, -1)
             feat, _ = self.attn(q, flat_tokens, flat_tokens)
             feat = feat.squeeze(1) # (B, 200)
+        else:
+            raise ValueError(f"Unknown pooling type: {self.pooling_type}")
 
         return self.head(self.fc_norm(feat))
+    
+
+    def get_fine_tuning_parameters(self):
+        
+        head_params = list(self.head.parameters()) + list(self.fc_norm.parameters())
+        if self.pooling_type == "attention_pool":
+            head_params += [self.query] + list(self.attn.parameters())
+
+        return head_params

@@ -28,7 +28,7 @@ class NeuroRVQEvalTask(BaseTask):
         freeze_backbone = cfg.finetuning.freeze_backbone
         lr = cfg.finetuning.learning_rate
         wd = cfg.finetuning.weight_decay
-        n_outputs = cfg.finetuning.n_outputs
+        n_outputs = cfg.finetuning.n_classes
         self.target_field = cfg.finetuning.target_field
 
         self.patch_len = cfg.model.fm.patch_size

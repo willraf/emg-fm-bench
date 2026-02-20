@@ -1,0 +1,181 @@
+
+logging:
+  log_interval: 10
+
+experiment:
+  name: "2026-02-19"
+  random_seed: 42
+  plot_examples: True
+  save: True
+
+# Define transforms here
+to_tensor:
+  _target_: src.data.transforms.ExtractToTensor
+  field: emg
+
+band_pass:
+  _target_: src.data.transforms.BandPassFilter 
+  lowpass: 90 
+  highpass: 20 
+  order: 3 
+  fs: 200
+
+resample:
+  _target_: src.data.transforms.Resample 
+  target_fs: 1000
+  orig_fs: 200
+
+
+neurorvq_embed:
+  _target_: src.data.transforms.NeuroRVQEmbeddings
+  n_patches: ${model.fm.n_patches}
+  global_channels: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8',
+        'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16']
+  sample_channels: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8',
+        'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16']
+
+encode_stage:
+  _target_: src.data.transforms.EncodeStage
+
+
+pad_length:
+  _target_: src.data.transforms.PadCropToLength
+  target_length: 3200
+
+
+data:
+  name: ninapro_db5
+  num_channels: 16
+  data_dir: data/${data.name}
+  # data_dir: data/emg2pose_dataset_mini
+  # data_dir: /mnt/data/emg2pose_data
+  metadata_file: ${data.data_dir}/metadata.csv
+  # Current restrictions on window_length: Must be a multiple of S=strides product (320 here)
+  #   and bottleneck size (window_length / (s1*s2*s3)) must be >= padding ( dilation×(K−1)+(1−stride) ) 
+  #   stride is 1 in residual units
+  # For finetuning, window length must be before resampling
+  window_length: 1000      # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
+  num_workers: 10
+  subsample: 1.0
+  padding: [0, 0]
+  skip_ik_failures: True
+  batch_size: 8
+  transforms:
+    train:
+      - ${to_tensor}
+      - ${band_pass}
+      - ${resample}
+      - ${pad_length}
+      - ${neurorvq_embed}
+      # - _target_: src.data.transforms.RotationAugmentation
+      
+    val:
+      - ${to_tensor}
+      - ${band_pass}
+      - ${resample}
+      - ${pad_length}
+      - ${neurorvq_embed}
+      # - _target_: src.data.transforms.RotationAugmentation
+    test: ${transforms.val}
+
+task:
+  name: neuro_rvq_epn
+
+
+# training:
+#   freeze_backbone: False
+#   optimizer: adam
+#   epochs: 100
+#   learning_rate: 0.0001
+#   momentum: 0
+#   weight_decay: 0
+#   patience: 50
+#   loss_function: mse
+
+finetuning:
+  freeze_backbone: True
+  learning_rate: 0.0001
+  weight_decay: 0
+  n_classes: 53
+  target_field: gesture_id
+  pooling_type: mean
+
+training:
+  patience: 20
+  epochs: 100
+
+
+model:
+  name: neurorvq
+  fm:
+    checkpoint: pretrained_models/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt
+    n_patches: 256
+    patch_size: 200
+    in_chans: 1
+    out_chans: 8
+    num_classes: 0
+    embed_dim: 200
+    depth: 12
+    num_heads: 10
+    mlp_ratio: 4.
+    qkv_bias: True
+    qk_norm: null
+    drop_rate: 0.
+    attn_drop_rate: 0.
+    drop_path_rate: 0.
+    init_values: 1.e-5
+    init_scale: 0.001
+    n_global_electrodes: 16
+    vocab_size: 8192
+    use_as_encoder: True
+    use_for_pretraining: True
+  
+  tokeniser:
+    checkpoint: pretrained_models/tokenizers/NeuroRVQ_EMG_tokenizer_v1.pt
+    n_code: 8192
+    code_dim: 128
+    decoder_out_dim: 200
+    
+    encoder:
+      n_patches: 256
+      patch_size: 200
+      in_chans: 1
+      out_chans: 8
+      num_classes: 0
+      embed_dim: 200
+      depth: 12
+      num_heads: 10
+      mlp_ratio: 4.
+      qkv_bias: True
+      qk_norm: null
+      drop_rate: 0.
+      attn_drop_rate: 0.
+      drop_path_rate: 0.
+      init_values: 0
+      init_scale: 0.001
+      n_global_electrodes: 16
+      vocab_size: 8192
+      use_as_encoder: True
+      use_for_pretraining: False
+
+    decoder:
+      n_patches: 256
+      patch_size: 200
+      in_chans: 128  #code_dim
+      out_chans: 0
+      num_classes: 0
+      embed_dim: 200
+      depth: 3
+      num_heads: 10
+      mlp_ratio: 4.
+      qkv_bias: True
+      qk_norm: null
+      drop_rate: 0.
+      attn_drop_rate: 0.
+      drop_path_rate: 0.
+      init_values: 0
+      init_scale: 0.001
+      n_global_electrodes: 16
+      vocab_size: 8192
+      use_as_encoder: False
+      use_for_pretraining: False

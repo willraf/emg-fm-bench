@@ -3,15 +3,17 @@ This is an experimental file for testing out a new approach to loading the EPN d
 
 The idea it to store the whole dataset (or each split) in a single HDF5 file, with the following structure:
 
-- epn_612
-    - user1
-        - .attrs (user metadata)
-        - session1
-            - .attrs (session metadata)
-            - emg (dataset of shape (T, C))
-            - imu (dataset of shape (T, 10) with compound dtype for accel, gyro, quat)
-        - session2
-    - user2
+- ninapro_db5 (root group)
+    - S1
+        - .attrs (user metadata) ['age', 'circumference_cm', 'gender', 'height_cm', 'laterality', 'weight_kg']>
+        - E1_R1_G1 (exercise 1, repetition 1, gesture 1)
+            - .attrs (session metadata) ['gesture_id', 'repetition_id']
+            - emg (dataset of shape (T, 16))
+            - accel (dataset of shape (T, 3))
+            - glove (dataset of shape (T, 22))
+        - E1_R1_G2
+        - ...
+    - S2
 
 This allows us to load the whole dataset for a split with a single file handle.
 
@@ -25,8 +27,7 @@ import h5py
 import torch
 from pathlib import Path
 
-
-class EPNBigDataset(BaseDataset):
+class NinaProDB5Dataset(BaseDataset):
     def __init__(self, cfg, mode="train"):
         super().__init__(cfg)
 
@@ -36,11 +37,9 @@ class EPNBigDataset(BaseDataset):
         self.stride = stride if stride is not None else self.window_length  # Default to non-overlapping windows
 
         if mode == "train":
-            self.h5_path = data_dir / "training" / "training.hdf5"
-        elif mode == "val":
-            self.h5_path = data_dir / "training" / "testing.hdf5"
-        elif mode == "test":
-            self.h5_path = data_dir / "testing" / "testing.hdf5"
+            Warning("The current NinaPro DB5 is used only for validation/testing")
+        
+        self.h5_path = data_dir / f"ninapro_db5.hdf5"
 
         transform_cfgs = cfg.data.transforms.get(mode)
         self.window_transform, self.sample_transform = self._build_transform(transform_cfgs) if transform_cfgs else None
@@ -50,8 +49,6 @@ class EPNBigDataset(BaseDataset):
         
         # Keep file handle None for now to be worker-safe
         self._file = None
-
-        self.gesture_to_id = {'noGesture': 0, 'fist': 1, 'waveIn': 2, 'waveOut': 3, 'open': 4, 'pinch': 5}
 
     def _build_global_index(self) -> list[tuple[str, int]]:
         """
@@ -93,17 +90,12 @@ class EPNBigDataset(BaseDataset):
         # HDF5 is very fast at random-access slicing
         emg_window = self.file[internal_path][start_idx : start_idx + self.window_length]
 
-        # 3. Fetch IMU (50Hz) - Scale the slice by 1/4
-        # Note: This is an approximation. For exact windows, 
-        # use start = key.start // 4, stop = key.stop // 4
-        imu_start = start_idx // 4  # Assuming IMU is at 50Hz and EMG is at 200Hz
-        imu_stop = (start_idx + self.window_length) // 4
-        imu_window = self.file[parent_path]['imu'][imu_start : imu_stop]  # h5py.Dataset with compound dtype
+        # 3. Kinematic data
+        # accel_window = self.file[parent_path]['accel'][start_idx : start_idx + self.window_length]
+        # glove_window = self.file[parent_path]['glove'][start_idx : start_idx + self.window_length]
         
         # 4. Get metadata from the parent group of the emg dataset
-        gesture_name = self.file[parent_path].attrs["gesture_name"]
-
-        gesture_id = self.gesture_to_id.get(gesture_name, -1)  # Map to ID, default to -1 if not found
+        gesture_id = self.file[parent_path].attrs["gesture_id"]
 
         window = {"emg": emg_window}
         if self.window_transform is not None:

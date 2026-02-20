@@ -3,7 +3,7 @@ logging:
   log_interval: 10
 
 experiment:
-  name: "2026-02-18-test_big_epn_neurorvq"
+  name: "2026-02-19"
   random_seed: 42
   plot_examples: True
   save: True
@@ -43,7 +43,7 @@ pad_length:
 
 
 data:
-  name: epn_big
+  name: epn_612
   num_channels: 8
   data_dir: data/epn612
   # data_dir: data/emg2pose_dataset_mini
@@ -78,7 +78,7 @@ data:
     test: ${transforms.val}
 
 task:
-  name: neuro_rvq_eval
+  name: neuro_rvq_epn
 
 
 # training:
@@ -95,8 +95,9 @@ finetuning:
   freeze_backbone: True
   learning_rate: 0.0001
   weight_decay: 0
-  n_outputs: 6 # Number of gestures in epn dataset
+  n_classes: 6
   target_field: gesture_id
+  pooling_type: mean
 
 training:
   patience: 20
