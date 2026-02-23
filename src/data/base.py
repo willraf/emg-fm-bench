@@ -73,16 +73,5 @@ class BaseDataset(Dataset, ABC):
     # Instantiate transforms
     @staticmethod
     def _build_transform(configs: Sequence[DictConfig]) -> Transform[Any, Any]:
-        window_transforms = []
-        sample_transforms = []
-        for cfg in configs:
-            t = instantiate(cfg)
-            if isinstance(t, transforms.DictTransform):
-                sample_transforms.append(t)
-            else:
-                window_transforms.append(t)
-        
-        window_transform = transforms.Compose(window_transforms) if window_transforms else None
-        sample_transform = transforms.Compose(sample_transforms) if sample_transforms else None
-        return window_transform, sample_transform
+        return transforms.Compose([instantiate(cfg) for cfg in configs]) if configs else None
 

@@ -3,14 +3,14 @@ logging:
   log_interval: 10
 
 experiment:
-  name: "2026-02-19"
+  name: "2026-02-23"
   random_seed: 42
   plot_examples: True
   save: True
 
 # Define transforms here
-to_tensor:
-  _target_: src.data.transforms.ExtractToTensor
+standardise:
+  _target_: src.data.transforms.StandardiseSignal
   field: emg
 
 band_pass:
@@ -22,6 +22,7 @@ band_pass:
 
 resample:
   _target_: src.data.transforms.Resample 
+  field: emg
   target_fs: 1000
   orig_fs: 200
 
@@ -35,15 +36,20 @@ neurorvq_embed:
 
 encode_stage:
   _target_: src.data.transforms.EncodeStage
+  field: stage
 
 
 pad_length:
   _target_: src.data.transforms.PadCropToLength
+  field: emg
   target_length: 6400
 
 
 data:
-  name: epn_612
+  name: hdf5_windowed
+  primary_data_key: emg
+  timeseries_keys: null
+  hdf5_path: data/epn612/epn612.hdf5
   num_channels: 8
   data_dir: data/epn612
   # data_dir: data/emg2pose_dataset_mini
@@ -61,7 +67,7 @@ data:
   batch_size: 8
   transforms:
     train:
-      - ${to_tensor}
+      - ${standardise}
       - ${band_pass}
       - ${resample}
       - ${pad_length}
@@ -69,7 +75,7 @@ data:
       # - _target_: src.data.transforms.RotationAugmentation
       
     val:
-      - ${to_tensor}
+      - ${standardise}
       - ${band_pass}
       - ${resample}
       - ${pad_length}

@@ -1,3 +1,25 @@
+""" Module neuro_rvq_eval_task.py
+
+Finetune neuroRVQ on different datasets
+
+Usage:
+
+
+Authors:
+    Will Raftery
+
+Date:
+    23/02/2026
+"""
+
+
+
+def main():
+    pass
+
+if __name__ == '__main__':
+    main()
+
 from src.tasks.base_task import BaseTask
 from src.models import setup_model
 import src.utils.visualisation as vis
@@ -7,16 +29,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import torch
 import logging
 from pathlib import Path
-
-
-
-import numpy as np
-from scipy.signal import butter, filtfilt
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-import os
-from scipy import signal
-
 
 
 class NeuroRVQEPNTask(BaseTask):
@@ -39,9 +51,8 @@ class NeuroRVQEPNTask(BaseTask):
         self.is_main = is_main
         self.save_dir = save_dir
 
-
         fm = setup_model(cfg.model.fm, model_name="neuro_rvq_fm", device=device)
-        self.load_from_checkpoint(fm_path, fm)
+        self.load_fm_checkpoint(fm_path, fm)
         fm.to(device)
 
         # Freeze everything
@@ -79,7 +90,6 @@ class NeuroRVQEPNTask(BaseTask):
             temporal_embedding_ix=temporal_ix,
             spatial_embedding_ix=spatial_ix
         )  
-
 
         loss = self.loss_fn(logits, targets)
         
@@ -122,11 +132,41 @@ class NeuroRVQEPNTask(BaseTask):
         }
 
 
-    def eval_step(self, model, batch, device):
-        return 
+    @torch.no_grad()
+    def eval_step(self, batch):
+        """
+        Standardized evaluation step. Returns raw outputs and targets.
+        """
+        emg = batch["emg"].to(self.device)
+        targets = batch[self.target_field].to(self.device)
+        
+        # ... (same reshaping logic as val_step) ...
+        temporal_ix = batch["temporal_ix"].int().to(self.device)
+        spatial_ix = batch["spatial_ix"].int().to(self.device)
+        B, C, T = emg.shape
+        time_patches = self.n_patches // C
+        emg = emg.reshape(B, C, time_patches, self.patch_len)
 
+        logits = self.model(
+            emg,
+            temporal_embedding_ix=temporal_ix,
+            spatial_embedding_ix=spatial_ix
+        )
+        preds = logits.argmax(dim=1)
 
-    def load_from_checkpoint(self, checkpoint_path, model):
+        loss = self.loss_fn(logits, targets)
+        acc = (preds == targets).float().mean()
+
+        
+        return {
+            "loss": loss.item(),
+            "acc": acc.item(),
+        }
+
+    def load_fm_checkpoint(self, checkpoint_path, model):
+        """
+        Load the pretrained foundation model weights.
+        """
         path = Path(checkpoint_path)
         if not path.exists():
             logging.warning(f"Checkpoint not found: {path}")
@@ -155,7 +195,8 @@ class NeuroRVQEPNTask(BaseTask):
             return {}
         
         checkpoint = torch.load(path)
-        self.tokeniser.load_state_dict(checkpoint)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimiser.load_state_dict(checkpoint['optimizer_state_dict'])
         return checkpoint
 
 

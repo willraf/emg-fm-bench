@@ -7,7 +7,7 @@
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any, TypeVar, Dict, List, Union
 
 import numpy as np
 import torch
@@ -17,47 +17,73 @@ from scipy import signal
 import torchaudio
 from dataclasses import field
 
-
 TTransformIn = TypeVar("TTransformIn")
 TTransformOut = TypeVar("TTransformOut")
 Transform = Callable[[TTransformIn], TTransformOut]
 
 
 class DictTransform:
-    pass
+    """
+    A base class for transforms that operate on a dictionary of data. The transform is applied to the specified fields in the dictionary.
+    """
+    def __init__(self, field: Union[str, List[str]] = "emg"):
+        self.fields = [field] if isinstance(field, str) else field
 
+    def __call__(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        for f in self.fields:
+            if f in data:
+                data[f] = self.transform(data[f])
+        return data
 
-class TensorTransform:
-    pass
+    def transform(self, x: Any) -> Any:
+        raise NotImplementedError
 
 
 @dataclass
-class PadCropToLength(TensorTransform):
+class StandardiseSignal(DictTransform):
+    """Ensures signal is (C, T) and float32"""
+    field: str = "emg"
+
+    def __post_init__(self):
+        super().__init__(self.field)
+
+    def transform(self, x: Union[torch.tensor, np.ndarray]) -> torch.Tensor:
+        if not torch.is_tensor(x):
+            x = torch.from_numpy(x).float()
+        if x.shape[0] > x.shape[1]:
+            x = x.T
+        return x
+
+
+@dataclass
+class PadCropToLength(DictTransform):
     """
     Pad or crop the input tensor along the time dimension to a target length.
 
     Padding is done on the left side, and cropping is done symmetrically from both sides to preserve the center of the signal.
     """
-
+    field: Union[str, List[str]]
     target_length: int
     pad_value: float = 0.0
 
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        current_length = x.shape[0]
+    def __post_init__(self):
+        super().__init__(self.field)
+
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        current_length = x.shape[1]
 
         if current_length < self.target_length:
             padding = self.target_length - current_length
-            x = torch.nn.functional.pad(x, (0, 0, padding, 0), value=self.pad_value)
+            x = torch.nn.functional.pad(x, (padding, 0), value=self.pad_value)
         elif current_length > self.target_length:
             crop_start = (current_length - self.target_length) // 2
-            x = x[crop_start:crop_start + self.target_length]
+            x = x[:, crop_start:crop_start + self.target_length]
 
         return x
 
 
 @dataclass
 class EncodeStage(DictTransform):
-    stage_field: str = "stage"
     stage_to_idx: dict = field(default_factory=lambda: {
         'ThumbsUpDownThumbRotationsCWCCWP': 0,
         'HandClawGraspFlicks': 1,
@@ -89,24 +115,136 @@ class EncodeStage(DictTransform):
         'HandOverHandAllFingerPinchesThumbSwipeThumbRotate': 27,
         'HandOverHandCountingUpDownFingerWigglingSpreading': 28
     })
+    field: str = "stage"
 
-    def __call__(self, data: dict) -> dict:
-        stage = data[self.stage_field]
-        data[self.stage_field] = torch.tensor(
-            self.stage_to_idx[stage],
+    def __post_init__(self):
+        super().__init__(self.field)
+
+    def transform(self, x: torch.Tensor | str) -> torch.Tensor:
+        if isinstance(x, torch.Tensor):
+            x = x.item()  # Convert single-element tensor to Python scalar
+        
+        if x not in self.stage_to_idx:
+            raise ValueError(f"Unknown stage: {x}")
+
+        return torch.tensor(
+            self.stage_to_idx[x],
             dtype=torch.long
         )
-        return data
+
 
 
 @dataclass
-class NeuroRVQEmbeddings(DictTransform):
+class BandPassFilter(DictTransform):
+    lowpass: float
+    highpass: float
+    order: int
+    fs: int
+    field: str = "emg"
+
+    def __post_init__(self):
+        super().__init__(self.field)
+        b, a = signal.butter(
+            self.order,
+            [self.highpass, self.lowpass],
+            btype="bandpass",
+            fs=self.fs,
+        )
+
+        self.b = torch.tensor(b, dtype=torch.float32)
+        self.a = torch.tensor(a, dtype=torch.float32)
+
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        # x shape (time, channels)
+        squeeze = False
+        if len(x.shape) == 2:
+            x = x.unsqueeze(0)  # (1, channels, time)
+            squeeze = True
+
+
+        y = torchaudio.functional.lfilter(
+            x,
+            self.a.to(x.device),
+            self.b.to(x.device),
+        )
+
+        return y.squeeze(0) if squeeze else y
+
+
+@dataclass
+class Resample(DictTransform):
+    orig_fs: int
+    target_fs: int
+    field: str
+
+    def __post_init__(self):
+        super().__init__(self.field)
+
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Tensor of shape C, T OR (B, C, T)
+        Returns:
+            Tensor with resampled time dimension
+        """
+        if self.orig_fs == self.target_fs:
+            return x
+
+        squeeze = False
+        if x.ndim == 2:  # (C, T)
+            x = x.unsqueeze(0)
+            squeeze = True
+
+        B, C, T = x.shape
+        x = x.reshape(B * C, T)
+
+        x = torchaudio.functional.resample(
+            x,
+            orig_freq=self.orig_fs,
+            new_freq=self.target_fs
+        )
+
+        x = x.reshape(B, C, -1)
+
+        if squeeze:
+            x = x.squeeze(0)
+
+        return x
+    
+
+@dataclass
+class RotationAugmentation(DictTransform):
+    """Rotate EMG along the channel dimension by a random integer."""
+    field: str = "emg"
+
+    def __post_init__(self):
+        super().__init__(self.field)
+
+    def transform(self, data: torch.Tensor) -> torch.Tensor:
+        rotation = np.random.choice([-1, 0, 1])
+        return torch.roll(data, rotation, dims=-1)
+
+
+@dataclass
+class ChannelDownsampling(DictTransform):
+    """Downsample number of emg channels."""
+
+    downsampling: int = 2
+
+    def __post_init__(self):
+        super().__init__("emg")
+
+    def transform(self, data: torch.Tensor) -> torch.Tensor:
+        return data[:, :: self.downsampling]
+
+
+@dataclass
+class NeuroRVQEmbeddings:
     """Adds spacial and temporal embeddings to the data dict, using neuroRVQ method
 
     Args:
         n_patches (int): The maximum number of patches to be extracted from the data. This is determined by the max number the model can process
 
-    
     """
 
     n_patches: int
@@ -169,117 +307,6 @@ class NeuroRVQEmbeddings(DictTransform):
         data['temporal_ix'] = temp_ix
         data['spatial_ix'] = spat_ix
         return data
-
-
-@dataclass
-class BandPassFilter(TensorTransform):
-    lowpass: float
-    highpass: float
-    order: int
-    fs: int
-
-    def __post_init__(self):
-        b, a = signal.butter(
-            self.order,
-            [self.highpass, self.lowpass],
-            btype="bandpass",
-            fs=self.fs,
-        )
-
-        self.b = torch.tensor(b, dtype=torch.float32)
-        self.a = torch.tensor(a, dtype=torch.float32)
-
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        # x shape (time, channels)
-        x = x.T.unsqueeze(0)  # (1, channels, time)
-
-        y = torchaudio.functional.lfilter(
-            x,
-            self.a.to(x.device),
-            self.b.to(x.device),
-        )
-
-        return y.squeeze(0).T
-
-
-@dataclass
-class Resample(TensorTransform):
-    orig_fs: int
-    target_fs: int
-
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            x: Tensor of shape (T, C) or (B, T, C)
-        Returns:
-            Tensor with resampled time dimension
-        """
-
-        x = x.T
-
-        if self.orig_fs == self.target_fs:
-            return x
-
-        squeeze = False
-        if x.ndim == 2:  # (C, T)
-            x = x.unsqueeze(0)
-            squeeze = True
-
-        B, C, T = x.shape
-        x = x.reshape(B * C, T)
-
-        x = torchaudio.functional.resample(
-            x,
-            orig_freq=self.orig_fs,
-            new_freq=self.target_fs
-        )
-
-        x = x.reshape(B, C, -1)
-
-        if squeeze:
-            x = x.squeeze(0)
-
-        return x.T
-
-
-@dataclass
-class ExtractToTensor(TensorTransform):
-    """Extracts the specified ``fields`` from a numpy structured array
-    and stacks them into a ``torch.Tensor``.
-
-    Following TNC convention as a default, the returned tensor is of shape
-    (time, field/batch, electrode_channel).
-
-    Args:
-        fields (list): List of field names to be extracted from the passed in
-            structured numpy ndarray.
-        stack_dim (int): The new dimension to insert while stacking
-            ``fields``. (default: 1)
-    """
-
-    field: str = "emg"
-
-    def __call__(self, data: np.ndarray) -> torch.Tensor:
-        return torch.as_tensor(data[self.field])
-
-
-@dataclass
-class RotationAugmentation(TensorTransform):
-    """Rotate EMG along the channel dimension by a random integer."""
-
-    def __call__(self, data: torch.Tensor) -> torch.Tensor:
-        rotation = np.random.choice([-1, 0, 1])
-        return torch.roll(data, rotation, dims=-1)
-
-
-@dataclass
-class ChannelDownsampling(TensorTransform):
-    """Downsample number of emg channels."""
-
-    downsampling: int = 2
-
-    def __call__(self, data: torch.Tensor) -> torch.Tensor:
-        return data[:, :: self.downsampling]
 
 
 @dataclass

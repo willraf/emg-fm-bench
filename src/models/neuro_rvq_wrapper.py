@@ -22,7 +22,7 @@ class NeuroRVQClassifierWrapper(nn.Module):
 
         # Head Definition
         if self.pooling_type == "tiny_myo_concat":
-            # Concat across channels: dim = embed_dim * 8
+            # Concat across channels: dim = embed_dim * n_channels
             self.fc_norm = nn.LayerNorm(self.embed_dim * self.n_channels)
             self.head = nn.Linear(self.embed_dim * self.n_channels, self.num_classes)
         elif self.pooling_type == "attention_pool":

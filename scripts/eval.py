@@ -23,115 +23,113 @@ from omegaconf import OmegaConf
 
 from typing import Union, Optional, Callable
 
+from torch import dist
+
 from src.utils.utils import *
 import src.utils.visualisation as vis
 from src.data import setup_data
-from src.models import setup_model
+from src.tasks import setup_task
 
 use_cuda = torch.cuda.is_available()
 device = torch.device('cuda' if use_cuda else 'cpu')
 
 
-def save_results(save_dir, results_dict):
-    """
-    Save test results (dict of metrics) to a CSV file
-    """
-    test_results_fpath = Path(save_dir) / "results.csv"
+class Evaluator:
+    
+    def __init__(self, cfg, overwrite=False):
+        self.cfg = cfg
+        
+        self.overwrite = overwrite        
+        # Setup GPU device and distributed training
+        self.distributed, self.device, self.rank, self.local_rank = setup_distributed()
+        print(f"Process {self.rank} using device {self.device}, distributed={self.distributed}, local_rank={self.local_rank}")
+        world_size = dist.get_world_size() if self.distributed else 1
+        print(f"World size: {world_size}")
+        self.is_main = (self.rank == 0)
 
-    with open(test_results_fpath, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=results_dict.keys())
+        self.save_dir = setup_save_dir(cfg, overwrite=overwrite, mode='test', is_main_process=self.is_main)
 
-        if not test_results_fpath.exists():
-            writer.writeheader()
-        writer.writerow(results_dict)
+        self.test_loader = setup_data(cfg, mode="test", distributed=self.distributed)
+
+        self.task = setup_task(cfg, device=self.device, distributed=self.distributed, is_main=self.is_main, save_dir=self.save_dir)
+
+        if cfg.model.checkpoint is not None:
+            checkpoint = self.task.load_checkpoint(cfg.model.checkpoint)
+        else: 
+            raise ValueError("No checkpoint specified for evaluation. Please provide a checkpoint path in the config file.")
+
+        # Wrap after loading. Checkpointed models are saved in non-DDP format, so we need to load first and then wrap if distributed.
+        if self.distributed:
+            self.task.wrap_distributed(self.local_rank)
+
+        self.metrics = []
+
+    def evaluate(self):
+        
+        self.task.eval()
+
+        for batch_idx, batch in enumerate(self.test_loader):
+            metrics = self.task.eval_step(batch, batch_idx=batch_idx)
+        
+        metrics = self._reduce_metrics(metrics)
+        logging.info(f"Test Metrics: " +
+                " | ".join([f"{k}: {v:.4f}" for k, v in metrics.items()])
+        )
+
+        self._record_metrics(metrics)
+
+    def _reduce_metrics(self, metrics: dict):
+        """Reduce a dict of metrics across all processes by averaging. Only call this on the main process after reduction."""
+        if not self.distributed:
+            return metrics
+
+        reduced = {}
+        for k, v in metrics.items():
+            t = torch.tensor(v, device=self.device)
+            dist.all_reduce(t, op=dist.ReduceOp.SUM)
+            reduced[k] = (t / dist.get_world_size()).item()
+        return reduced
+
+
+    def _record_metrics(self, metrics):
+        record = {
+            **{f"test_{k}": v for k, v in metrics.items()}
+        }
+        self.metrics.append(record)
+
+        if self.is_main:
+            fpath = self.save_dir / "results.csv"
+
+            write_header = not fpath.exists()
+            with open(fpath, "a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=record.keys())
+                if write_header:
+                    writer.writeheader()
+                writer.writerow(record)
+
+            if self.cfg.experiment.plot_examples:
+                # Add plotting here
+                pass
 
 
 def main(cfg, overwrite=False):
 
-    random_seed = cfg.experiment.random_seed
-    checkpoint_path = cfg.model.checkpoint
-    plot_examples_flag = cfg.experiment.plot_examples
-
-    # setup basic logger
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler()
-        ]
-    )
-
-    # Set the seed for reproducibility
-    set_seed(random_seed)
-
-    save_dir = setup_save_dir(cfg, overwrite=overwrite, mode="eval")
-
-    dataloaders = setup_data(cfg)
-    test_loader = dataloaders['test']
-
-    model = setup_model(cfg, device=device, mode='eval')
-    load_checkpoint(checkpoint_path, model)
-
-    loss_function = setup_loss_function(cfg)
+    evaluator = Evaluator(cfg, overwrite=overwrite)
+    evaluator.evaluate()
+    if evaluator.distributed:
+        dist.barrier()  # Ensure all processes have finished writing results before any process exits
+        dist.destroy_process_group()
     
-    # Test model
-    results = test(
-        model, test_loader, loss_function, plot_examples=plot_examples_flag, save_dir=save_dir
-    )
-    logging.info(f"Test Loss: {results['loss']:.6f}")
-    save_results(save_dir, results)
-
-    return results
-
-
-def test(model, test_loader, loss_function, plot_examples=False, eval_dir=None, n_sources=8):
-    """
-    Perform inference on a test set using the trained model.
-    """
-    totals = dict(loss=0.0, accuracy=0.0, precision=0.0, recall=0.0, f1=0.0, roa=0.0)
-    
-    model.eval()
-    with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(test_loader):
-        
-            inputs = inputs.to(device)
-            targets = targets.to(device)
-          
-            output = model(inputs)
-            loss = loss_function(output, targets)
-
-            accuracy, precision, recall, f1, roa = metrics.get_metrics(output, targets) 
-            
-
-            totals['loss'] += loss.item()
-            totals['accuracy'] += accuracy
-            totals['precision'] += precision
-            totals['recall'] += recall
-            totals['f1'] += f1
-            totals['roa'] += roa
-
-            if plot_examples:
-                vis.plot_eval(inputs, targets, output, fpath=eval_dir/f'test_{sample_num}.png')
-                sample_num += 1
-    
-    num_batches = len(test_loader)
-    results = {k: v / num_batches for k, v in totals.items()}
-
-    logging.info(
-        "\nTest set: " +
-        " | ".join([f"{k.capitalize()}: {v:.4f}" for k, v in results.items()])
-    )
-    
-    return results
-
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate a model with a YAML config file")
+    parser = argparse.ArgumentParser(description="Train a model with a YAML config file")
     parser.add_argument('--config', type=str, required=True)
     parser.add_argument('--default', type=str, required=False, default="configs/default.yaml")
     parser.add_argument('--overwrite', action='store_true')
     args = parser.parse_args()
 
     cfg = load_config(args.config, default_path=args.default)
-
+    setup_logging()
+    
     main(cfg, overwrite=args.overwrite)
+

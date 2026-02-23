@@ -116,7 +116,7 @@ class Trainer:
             val_metrics = self._val(epoch)
 
             train_metrics = self._reduce_metrics(train_metrics)
-            val_metrics = self._reduce_metrics(val_metrics)
+            val_metrics = self._reduce_emtrics(val_metrics)
 
 
             logging.info(f"Epoch {epoch} Train| " +
@@ -307,6 +307,7 @@ def main(cfg, overwrite=False):
     # trainer.find_max_batch_size()
     trainer.train()
     if trainer.distributed:
+        dist.barrier()  # Ensure all processes have finished writing results before any process exits
         destroy_process_group()
     
 

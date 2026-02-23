@@ -109,11 +109,11 @@ def get_global_gesture_id(gesture_id):
     """Maps local (datset specific) gesture IDs to global for multi-dataset training"""
     return gesture_id
 
-def process_samples(sample_dict, user_group, session_info):
+def process_samples(sample_dict, user_group, session_info, split="train"):
     """Processes a dictionary of samples and adds them to the user_group."""
     for session_idx, session_data in sample_dict.items():
         # 1. Basic Metadata
-        session_group = user_group.create_group(f'session_{session_idx}')
+        session_group = user_group.create_group(f'{split}_session_{session_idx}')
         session_group.attrs['gesture_name'] = session_data.get('gestureName', 'unknown')
         session_group.attrs['gesture_id'] = get_global_gesture_id(get_gesture_id(session_group.attrs['gesture_name']))
         session_group.attrs['start_point'] = session_data.get('startPointforGestureExecution', 0)
@@ -121,6 +121,7 @@ def process_samples(sample_dict, user_group, session_info):
 
         for k, v in session_info.items():
             session_group.attrs[k] = v
+        session_group.attrs['split'] = split
 
         # 2. EMG Dataset (T, 8)
         emg_dict = session_data.get('emg', {})
@@ -212,27 +213,19 @@ def process_metadata(user_info, general_info):
     return standardised_user_info, standadised_session_info
 
 
-def main(dataset_dir, output_dir=None):
+def main(dataset_dir, output_path=None):
     dataset_dir = Path(dataset_dir)
-    output_dir = Path(output_dir) if output_dir else dataset_dir
+    output_path = Path(output_path) if output_path else dataset_dir / "epn612.hdf5"
     
     # EPN612 splits: 'trainingJSON' (train users) and 'testingJSON' (test users)
-    for mode in ["training", "testing"]:
-        data_dir = dataset_dir / f"{mode}JSON"
-        if not data_dir.exists(): continue
-        
-        save_dir = output_dir / mode 
-        save_dir.mkdir(exist_ok=True, parents=True)
+    with h5py.File(output_path, "w") as f:
+        root = f.create_group("epn612")
 
-        # Paths for the two sub-files per user-split
-        train_h5_path = save_dir / "training.hdf5"
-        test_h5_path = save_dir / "testing.hdf5"
+        for mode in ["training", "testing"]:
+            subj_split = "train" if mode == "training" else "test"
 
-
-        with h5py.File(train_h5_path, 'w') as f_train, h5py.File(test_h5_path, 'w') as f_test:
-            # Create root groups
-            root_train = f_train.create_group("epn612")
-            root_test = f_test.create_group("epn612")
+            data_dir = dataset_dir / f"{mode}JSON"
+            if not data_dir.exists(): continue
 
             user_dirs = list(data_dir.iterdir())
             for user_dir in tqdm(user_dirs, desc=f"Processing {mode} users"):
@@ -250,21 +243,19 @@ def main(dataset_dir, output_dir=None):
                 # Get standardized metadata for user and session
                 user_std, session_std = process_metadata(u_info, gen_info)
                 
+                unique_subj_id = f'{subj_split}_{user_std['subject_id']}'
+                subj_group = root.create_group(unique_subj_id)
 
-                # Create user groups in both split-files
-                u_train = root_train.create_group(user_std['subject_id'])
-                u_test = root_test.create_group(user_std['subject_id'])
-
-                # Store attributes
-                for group in [u_train, u_test]:
-                    for k, v in user_std.items():
-                        group.attrs[k] = v
+                # Store metadata as attributes
+                for k, v in user_std.items():
+                    subj_group.attrs[k] = v
+                subj_group.attrs['split'] = subj_split
 
                 # Process the internal splits
                 # user_data['trainingSamples'] goes to training.hdf5
-                process_samples(user_data.get('trainingSamples', {}), u_train, session_std)
+                process_samples(user_data.get('trainingSamples', {}), subj_group, session_std, split="train")
                 # user_data['testingSamples'] goes to testing.hdf5
-                process_samples(user_data.get('testingSamples', {}), u_test, session_std)
+                process_samples(user_data.get('testingSamples', {}), subj_group, session_std, split="test")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
