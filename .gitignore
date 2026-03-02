@@ -11,6 +11,7 @@ figures/
 pretrained_models/
 multirun/
 outputs/
+pbs/
 
 !/src/data
 !src/models

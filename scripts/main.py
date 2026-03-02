@@ -9,6 +9,7 @@ Usage:
     % python -m torch.distributed.run --nproc_per_node=1 -m scripts.main --config configs/main.yaml
     With Hydra:
     % python -m scripts.main --config-name other_config
+    % python -m torch.distributed.run   --nproc_per_node=4 -m scripts.main --config-name other_config
 
 Authors:
     Will Raftery

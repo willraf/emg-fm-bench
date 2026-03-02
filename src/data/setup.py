@@ -30,12 +30,12 @@ def resolve_data_dir(cfg):
     
     This is for the HPC as I copy data to a tmpdir for faster access."""
     tmpdir = os.environ.get("TMPDIR")
-    data_dir = Path(cfg.data.data_dir)
+    hdf5_path = Path(cfg.data.hdf5_path)
 
     if tmpdir is not None:
-        tmp_path = Path(tmpdir) / data_dir
+        tmp_path = Path(tmpdir) / hdf5_path
         if tmp_path.exists():
-            cfg.data.data_dir = str(tmp_path)
+            cfg.data.hdf5_path = str(tmp_path)
             return
 
 
