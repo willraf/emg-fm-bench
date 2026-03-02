@@ -9,6 +9,8 @@ venv/
 figures/
 .vscode/
 pretrained_models/
+multirun/
+outputs/
 
 !/src/data
 !src/models

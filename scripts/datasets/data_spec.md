@@ -11,10 +11,11 @@ Datasets are stored as single HDF5 files per dataset or split. The hierarchy fol
 ```text
 / [dataset_name] (Root)
 └── [subject_id] (Group)             # e.g., "S1", "u01", "d3870"
-    ├── .attrs (Subject Metadata)    # Demographic and physical data
-    └── [session_id] (Group)         # e.g., "E1_RR1_RG1", "session_01"
+    ├── .attrs (Subject Metadata)    # Demographic and physical data, user split
+    └── [session_id] (Group)         # e.g., "E1_RR1_RG1", "session1"
         ├── .attrs (Session Metadata)# Trial-specific data (gesture, split)
         ├── emg (Dataset)            # shape: (T, C), dtype: float32
+            ├── .attrs               # Sample rate for the modality
         ├── imu (Dataset)            # shape: (T, D), dtype: float32 or Compound
         └── kinematics (Dataset)     # shape: (T, K), dtype: float32 (Glove/Joints)
 
@@ -46,8 +47,14 @@ To enable automated manifest generation, the following keys are **Reserved**. Du
 | `sample_rate` | Int | Sampling frequency in Hz (standardized to EMG). |
 | `split` | String | `train`, `val`, or `test`. |
 | `exercise_id` | Int | NinaPro-specific exercise category (1, 2, or 3). |
-
 ---
+
+### 2.3 Modality Level (`[modality_name].attrs`)
+| Key | Type | Description |
+| --- | --- | --- |
+| `sample_rate` | Int | Sample rate used for this modality |
+| `sensor_type` | String | Name of the sensor used for recordings|
+| `units` | String | Units if knows, or "normalised" |
 
 ## 3. Data Modality Standards
 

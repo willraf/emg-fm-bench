@@ -33,7 +33,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 TRAIN_SUBJS = [1, 3, 4, 6, 8, 9, 10]
-VAL_SUBJS = [2]
+VAL_SUBJS = [11]
 TEST_SUBJS = [5, 7]
 
 
@@ -156,6 +156,13 @@ def convert_ninapro_db5(dataset_dir, output_file):
                 # Per-sample Metadata
                 sample_group.attrs['gesture_id'] = gesture_id
                 sample_group.attrs['repetition_id'] = rep_idx
+
+                if rep_idx == 2:  # Validation repetition
+                    sample_group.attrs['split'] = 'val'
+                elif rep_idx == 5:  # Test repetition
+                    sample_group.attrs['split'] = 'test'
+                else:
+                    sample_group.attrs['split'] = 'train'
                 
                 for k, v in sess_std.items():
                     sample_group.attrs[k] = v
@@ -166,12 +173,14 @@ def convert_ninapro_db5(dataset_dir, output_file):
                 sample_group.create_dataset("emg", data=emg[mask], compression="lzf")
                 sample_group["emg"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
                 sample_group["emg"].attrs['units'] = 'normalized'
-                sample_group["emg"].attrs['sensor_type'] = mat.get('sensor', ['unknown'])[0]
+                sensor_val = mat.get('sensor', ['unknown'])[0]
+                # Use np.string_ to ensure it's HDF5-compatible (fixed-width)
+                sample_group["emg"].attrs['sensor_type'] = np.string_(str(sensor_val))
                 
                 # 2. Accel (T, 3)
                 sample_group.create_dataset("accel", data=acc[mask], compression="lzf")
                 sample_group["accel"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
-                sample_group["accel"].attrs['sensor_type'] = mat.get('sensor', ['unknown'])[0]
+                sample_group["accel"].attrs['sensor_type'] = np.string_(str(sensor_val))
                 
                 # 3. Glove (T, 22) - Kinematic ground truth
                 sample_group.create_dataset("glove", data=glove[mask], compression="lzf")

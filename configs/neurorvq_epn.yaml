@@ -1,9 +1,21 @@
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      data.window_length: 200, 1000
+      finetuning.split_type: user,session
+      # finetuning.freeze_backbone: True,False
+      finetuning.pooling_type: mean,concat
+
 
 logging:
   log_interval: 10
+  use_wandb: True
+  wandb_project: "neurorvq_epn612"
+
 
 experiment:
-  name: "2026-02-23"
+  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${data.window_length}_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
   random_seed: 42
   plot_examples: True
   save: True
@@ -18,13 +30,13 @@ band_pass:
   lowpass: 90 
   highpass: 20 
   order: 3 
-  fs: 200
+  fs: ${data.sample_rate}
 
 resample:
   _target_: src.data.transforms.Resample 
   field: emg
   target_fs: 1000
-  orig_fs: 200
+  orig_fs: ${data.sample_rate}
 
 
 neurorvq_embed:
@@ -47,6 +59,7 @@ pad_length:
 
 data:
   name: hdf5_windowed
+  root_key: epn612
   primary_data_key: emg
   timeseries_keys: null
   hdf5_path: data/epn612/epn612.hdf5
@@ -59,7 +72,9 @@ data:
   #   and bottleneck size (window_length / (s1*s2*s3)) must be >= padding ( dilation×(K−1)+(1−stride) ) 
   #   stride is 1 in residual units
   # For finetuning, window length must be before resampling
-  window_length: 980      # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
+  window_length: 1000      # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
+  sample_rate: 200        # Original sample rate of the data
+  stride: null
   num_workers: 10
   subsample: 1.0
   padding: [0, 0]
@@ -81,29 +96,22 @@ data:
       - ${pad_length}
       - ${neurorvq_embed}
       # - _target_: src.data.transforms.RotationAugmentation
-    test: ${transforms.val}
+    test: ${data.transforms.val}
 
 task:
-  name: neuro_rvq_epn
+  name: neuro_rvq_classification
 
-
-# training:
-#   freeze_backbone: False
-#   optimizer: adam
-#   epochs: 100
-#   learning_rate: 0.0001
-#   momentum: 0
-#   weight_decay: 0
-#   patience: 50
-#   loss_function: mse
 
 finetuning:
+  split_type: user
   freeze_backbone: True
+  finetune_spacial_embedding: False
+  pooling_type: mean
   learning_rate: 0.0001
   weight_decay: 0
   n_classes: 6
   target_field: gesture_id
-  pooling_type: mean
+  
 
 training:
   patience: 20
@@ -112,6 +120,7 @@ training:
 
 model:
   name: neurorvq
+  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
   fm:
     checkpoint: pretrained_models/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt
     n_patches: 256
@@ -134,53 +143,3 @@ model:
     vocab_size: 8192
     use_as_encoder: True
     use_for_pretraining: True
-  
-  tokeniser:
-    checkpoint: pretrained_models/tokenizers/NeuroRVQ_EMG_tokenizer_v1.pt
-    n_code: 8192
-    code_dim: 128
-    decoder_out_dim: 200
-    
-    encoder:
-      n_patches: 256
-      patch_size: 200
-      in_chans: 1
-      out_chans: 8
-      num_classes: 0
-      embed_dim: 200
-      depth: 12
-      num_heads: 10
-      mlp_ratio: 4.
-      qkv_bias: True
-      qk_norm: null
-      drop_rate: 0.
-      attn_drop_rate: 0.
-      drop_path_rate: 0.
-      init_values: 0
-      init_scale: 0.001
-      n_global_electrodes: 16
-      vocab_size: 8192
-      use_as_encoder: True
-      use_for_pretraining: False
-
-    decoder:
-      n_patches: 256
-      patch_size: 200
-      in_chans: 128  #code_dim
-      out_chans: 0
-      num_classes: 0
-      embed_dim: 200
-      depth: 3
-      num_heads: 10
-      mlp_ratio: 4.
-      qkv_bias: True
-      qk_norm: null
-      drop_rate: 0.
-      attn_drop_rate: 0.
-      drop_path_rate: 0.
-      init_values: 0
-      init_scale: 0.001
-      n_global_electrodes: 16
-      vocab_size: 8192
-      use_as_encoder: False
-      use_for_pretraining: False

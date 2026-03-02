@@ -22,6 +22,7 @@ from pathlib import Path
 
 import numpy as np
 from omegaconf import DictConfig
+import logging
 
 # @dataclass
 # class HDF5WindowedDataset(BaseDataset):
@@ -60,10 +61,16 @@ class HDF5WindowedDataset(BaseDataset):
         
         self.hdf5_path = Path(self.cfg.data.hdf5_path)
         self.window_length = self.cfg.data.window_length
+
+        # The type of split/generalisation we are evaluating
+        self.split_type = self.cfg.finetuning.split_type            # Should be either "user" or "session"
+        assert self.split_type in ["user", "session"], "split_type must be either 'user' or 'session'"
+
         stride = self.cfg.data.stride
         self.stride = stride if stride is not None else self.window_length  # Default to non-overlapping windows
 
         self.primary_data_key = self.cfg.data.primary_data_key
+        self.root_key = self.cfg.data.root_key
         self.timeseries_keys = self.cfg.data.timeseries_keys if self.cfg.data.timeseries_keys is not None else []
         
         transform_cfgs = self.cfg.data.transforms.get(self.mode)
@@ -75,57 +82,96 @@ class HDF5WindowedDataset(BaseDataset):
         # Keep file handle None for now to be worker-safe
         self._file = None
 
-    def _build_global_index(self) -> list[tuple[str, int]]:
+        logging.info(f'{self.mode} dataset initialized with {len(self.global_index)} windows from {self.hdf5_path}')
+
+    # def _build_global_index(self) -> list[tuple[str, int]]:
+    #     """
+    #     Scan the master H5 file once and create a list of (internal_path, start_idx)
+    #     """
+    #     index = []
+    #     # Open temporarily just to scan metadata
+    #     with h5py.File(self.hdf5_path, 'r') as f:
+    #         # Recursively find all datasets that match our primary data key and check their session/user splits
+    #         def scanner(name, obj):
+    #             if isinstance(obj, h5py.Dataset) and name.endswith(self.primary_data_key):
+    #                 group_path = "/".join(name.split("/")[:-1])
+    #                 session_group = f[group_path]
+    #                 subject_group = session_group.parent
+                    
+    #                 # 1. Check Subject-Level Split
+    #                 # For EPN612: 'train_user1' -> subject_split: 'train'
+    #                 subj_split = subject_group.attrs.get('split', 'train')
+                    
+    #                 # 2. Check Session-Level Split (for EPN intra-user cases)
+    #                 sess_split = session_group.attrs.get('split', 'train')
+
+    #                 # LOGIC: 
+    #                 # If the Subject is 'test', the whole subject belongs to the test set.
+    #                 # If the Subject is 'train', we check if this specific session is 'test' (for val) or 'train' (for train).
+    #                 # If the Subject is 'val', the whole subject belongs to the val set.
+
+    #                 is_match = False
+    #                 if self.split_type == "user":
+    #                     if self.mode == subj_split:
+    #                         is_match = True
+    #                 elif self.split_type == "session":
+    #                     if self.mode == sess_split:
+    #                         is_match = True
+
+    #                 num_windows = 0
+    #                 if is_match:
+    #                     # Get length without loading data
+    #                     T = obj.shape[0] 
+    #                     # Calculate how many windows fit here
+    #                     num_windows = (T - self.window_length) // self.stride + 1
+                    
+    #                 for w in range(num_windows):
+    #                     start_time = w * self.stride
+    #                     index.append((group_path, start_time))
+            
+    #         f.visititems(scanner)
+    #     return index
+    
+    
+    def _build_global_index(self):
         """
-        Scan the master H5 file once and create a list of (internal_path, start_idx)
+        Version using loops which may be faster
         """
         index = []
-        # Open temporarily just to scan metadata
+        i = 0
         with h5py.File(self.hdf5_path, 'r') as f:
-            # Recursively find all datasets that match our primary data key and check their session/user splits
-            def scanner(name, obj):
-                if isinstance(obj, h5py.Dataset) and name.endswith(self.primary_data_key):
-                    group_path = "/".join(name.split("/")[:-1])
-                    session_group = f[group_path]
-                    subject_group = session_group.parent
-                    
-                    # 1. Check Subject-Level Split
-                    # For EPN612: 'train_user1' -> subject_split: 'train'
-                    subj_split = subject_group.attrs.get('split', 'train')
-                    
-                    # 2. Check Session-Level Split (for EPN intra-user cases)
+            root = f[self.root_key] # e.g., "epn612"
+            for user_name in root:
+                user_group = root[user_name]
+                subj_split = user_group.attrs.get('split', 'train')
+                
+                for sess_name in user_group:
+                    session_group = user_group[sess_name]
                     sess_split = session_group.attrs.get('split', 'train')
-
-                    # LOGIC: 
-                    # If the Subject is 'test', the whole subject belongs to the test set.
-                    # If the Subject is 'train', we check if this specific session is 'test' (for val) or 'train' (for train).
-                    # If the Subject is 'val', the whole subject belongs to the val set.
                     
+                    # Train/val/test split logic:
+                    if sess_split == "unlabelled":
+                        continue  # Skip unlabelled sessions for now, or we could add an "unlabelled" mode
+
                     is_match = False
-                    if self.mode == "train":
-                        if subj_split == "train" and sess_split == "train":
-                            is_match = True
-                    elif self.mode == "test":
-                        if subj_split == "test" and sess_split == "train":
-                            is_match = True
-                    elif self.mode == "val":
-                        if subj_split == "val":
-                            is_match = True
-                        if subj_split == "train" and sess_split == "test":
-                            is_match = True
-
-                    num_windows = 0
-                    if is_match:
-                        # Get length without loading data
-                        T = obj.shape[0] 
-                        # Calculate how many windows fit here
-                        num_windows = (T - self.window_length) // self.stride + 1
+                    if self.split_type == "user":
+                        is_match = (self.mode == subj_split)
+                        i += 1
+                    else:
+                        is_match = (self.mode == sess_split)
                     
-                    for w in range(num_windows):
-                        start_time = w * self.stride
-                        index.append((group_path, start_time))
-            
-            f.visititems(scanner)
+                    if is_match:
+                        obj = session_group[self.primary_data_key]
+                        T = obj.shape[0]
+
+                        # If the signal is shorter than the window length, we can still include it as one window (with padding applied in __getitem__)
+                        if T < self.window_length:
+                            num_windows = 1 
+                        else:
+                            num_windows = (T - self.window_length) // self.stride + 1
+
+                        for w in range(num_windows):
+                            index.append((f"{root.name}/{user_name}/{sess_name}", w * self.stride))
         return index
 
     @property
@@ -148,8 +194,13 @@ class HDF5WindowedDataset(BaseDataset):
         # 2. Slice the data directly from the master file
         # HDF5 is very fast at random-access slicing
         primary_data = session_group[self.primary_data_key]
+
+        T = primary_data.shape[0]
+        actual_end_idx = min(end_idx, T)  # Handle case where window extends beyond signal length
+
         primary_fs = primary_data.attrs.get("sample_rate")
-        primary_window = primary_data[start_idx : end_idx]
+        primary_window = primary_data[start_idx : actual_end_idx]
+
         output = {self.primary_data_key: primary_window}
 
         # Go through other timeseries keys and slice them as well, applying scaling if sample rates differ
@@ -170,9 +221,36 @@ class HDF5WindowedDataset(BaseDataset):
         # Could specifiy which keys to return in the config if we want to be more selective
         for k, v in session_group.attrs.items():
             output[k] = v
-        for k, v in session_group.parent.attrs.items():
+        for k, v in user_group.attrs.items():
             output[k] = v
+
+        for key, value in output.items():
+            output[key] = self._auto_convert_type(key, value)
 
         if self.transform:
             output = self.transform(output)
         return output
+
+    def _auto_convert_type(self, key: str, value):
+        """
+        Heuristic-based type conversion for a general-purpose dataset.
+        """
+        # Handle NumPy arrays (Signals, coordinates, etc.)
+        if isinstance(value, np.ndarray):
+            tensor = torch.from_numpy(value)
+            # If it's a floating point array, it's likely a signal -> Float32
+            if torch.is_floating_point(tensor) or value.dtype == np.float16:
+                return tensor.float()
+            # If it's an integer array, it's likely labels or indices -> Long
+            return tensor.long()
+
+        # Handle Scalars (Metadata, Labels)
+        if isinstance(value, (int, np.integer)):
+            # Force everything that looks like an ID/Label to Long (int64)
+            return torch.tensor(value, dtype=torch.long)
+            
+        if isinstance(value, (float, np.floating)):
+            return torch.tensor(value, dtype=torch.float32)
+
+        # Leave Strings/None/Booleans as they are (Dataloader will handle strings)
+        return value

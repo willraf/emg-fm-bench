@@ -78,7 +78,7 @@ def setup_data(cfg: OmegaConf, mode: str = "train", distributed: bool = False) -
     batch_size = cfg.data.batch_size
 
     # This is a bit of a hack, as I copy data to a tmpdir for faster access on the HPC
-    resolve_data_dir(cfg)
+    # resolve_data_dir(cfg)
 
     dataset_class = find_dataset_using_name(cfg.data.name)
     dataset = dataset_class(cfg, mode=mode)

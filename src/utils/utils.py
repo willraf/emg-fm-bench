@@ -228,11 +228,6 @@ def setup_save_dir(cfg: OmegaConf,
     if mode == "train":
 
         (save_dir / "checkpoints").mkdir(exist_ok=True)
-
-        # Create file to save training results
-        with (save_dir / "results.csv").open("w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(["epoch", "train_loss", "val_loss", "best_val_loss"])
     
     return save_dir
 

@@ -12,6 +12,7 @@ class NeuroRVQClassifierWrapper(nn.Module):
         self.num_classes = cfg.finetuning.n_classes
         self.n_patches = cfg.model.fm.n_patches
         self.pooling_type = cfg.finetuning.pooling_type
+        self.finetune_spacial_embedding = cfg.finetuning.finetune_spacial_embedding
 
         self.embed_dim = self.embed_dim * 4 if self.fm.use_as_encoder else self.embed_dim
         
@@ -21,7 +22,7 @@ class NeuroRVQClassifierWrapper(nn.Module):
         self.n_time_steps = self.n_patches // self.n_channels
 
         # Head Definition
-        if self.pooling_type == "tiny_myo_concat":
+        if self.pooling_type == "concat":
             # Concat across channels: dim = embed_dim * n_channels
             self.fc_norm = nn.LayerNorm(self.embed_dim * self.n_channels)
             self.head = nn.Linear(self.embed_dim * self.n_channels, self.num_classes)
@@ -55,7 +56,7 @@ class NeuroRVQClassifierWrapper(nn.Module):
             # Mean across channels, then mean across time
             feat = tokens.mean(dim=1).mean(dim=1) # (B, 200)
             
-        elif self.pooling_type == "tiny_myo_concat":
+        elif self.pooling_type == "concat":
             # Concat channels: (B, Time, Chan*Embed) -> (B, 32, 1600)
             feat = tokens.permute(0, 2, 1, 3).reshape(B, self.n_time_steps, -1)
             feat = feat.mean(dim=1) # Average over time -> (B, 1600)
@@ -78,5 +79,8 @@ class NeuroRVQClassifierWrapper(nn.Module):
         head_params = list(self.head.parameters()) + list(self.fc_norm.parameters())
         if self.pooling_type == "attention_pool":
             head_params += [self.query] + list(self.attn.parameters())
+
+        if self.finetune_spacial_embedding:
+            head_params += list(self.fm.pos_embed.parameters())
 
         return head_params

@@ -13,25 +13,21 @@ Date:
 """
 
 
-
-def main():
-    pass
-
-if __name__ == '__main__':
-    main()
-
 from src.tasks.base_task import BaseTask
 from src.models import setup_model
 import src.utils.visualisation as vis
+from src.utils.metrics import Metrics
 from src.models.neuro_rvq_wrapper import NeuroRVQClassifierWrapper 
 
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch
 import logging
 from pathlib import Path
+import torch.distributed as dist
+import numpy as np
 
 
-class NeuroRVQEPNTask(BaseTask):
+class NeuroRVQClassificationTask(BaseTask):
     def __init__(self, cfg, device, distributed=False, is_main=False, save_dir=None):
 
 
@@ -72,13 +68,16 @@ class NeuroRVQEPNTask(BaseTask):
 
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
+        self.train_metrics = Metrics(device, distributed, is_main)
+        self.val_metrics = Metrics(device, distributed, is_main)
+        self.test_metrics = Metrics(device, distributed, is_main)
 
 
     def train_step(self, batch, batch_idx=None, epoch=None):
         temporal_ix = batch["temporal_ix"].int().to(self.device)   # B, n_patches  
         spatial_ix = batch["spatial_ix"].int().to(self.device)      # B, n_patches
         emg = batch["emg"].to(self.device)  # (B, C, T)
-        targets = batch[self.target_field].to(self.device)  # (B,)
+        targets = batch[self.target_field].long().to(self.device)  # (B,)
 
         B, C, T = emg.shape
         time_patches = self.n_patches // C
@@ -90,7 +89,7 @@ class NeuroRVQEPNTask(BaseTask):
             temporal_embedding_ix=temporal_ix,
             spatial_embedding_ix=spatial_ix
         )  
-
+        
         loss = self.loss_fn(logits, targets)
         
         self.optimiser.zero_grad(set_to_none=True)
@@ -99,12 +98,10 @@ class NeuroRVQEPNTask(BaseTask):
 
         with torch.no_grad():
             preds = logits.argmax(dim=1)
-            acc = (preds == targets).float().mean()
 
-        return {
-            "loss": loss.item(),
-            "acc": acc.item()
-        }        
+        self.train_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
+
+        return loss.item()     
 
 
     @torch.no_grad()
@@ -113,7 +110,7 @@ class NeuroRVQEPNTask(BaseTask):
         emg = batch["emg"].to(self.device)  # (B, C, T)
         temporal_ix = batch["temporal_ix"].int().to(self.device)
         spatial_ix = batch["spatial_ix"].int().to(self.device)
-        targets = batch[self.target_field].to(self.device)  # (B,)
+        targets = batch[self.target_field].long().to(self.device)  # (B,)
         B, C, T = emg.shape
         time_patches = self.n_patches // C
         emg = emg.reshape(B, C, time_patches, self.patch_len)
@@ -124,12 +121,10 @@ class NeuroRVQEPNTask(BaseTask):
         )
         loss = self.loss_fn(logits, targets)
         preds = logits.argmax(dim=1)
-        acc = (preds == targets).float().mean()
+        
+        self.val_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
 
-        return {
-            "loss": loss.item(),
-            "acc": acc.item()
-        }
+        return loss.item()     
 
 
     @torch.no_grad()
@@ -155,13 +150,10 @@ class NeuroRVQEPNTask(BaseTask):
         preds = logits.argmax(dim=1)
 
         loss = self.loss_fn(logits, targets)
-        acc = (preds == targets).float().mean()
-
         
-        return {
-            "loss": loss.item(),
-            "acc": acc.item(),
-        }
+        self.test_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
+        
+        return loss.item()
 
     def load_fm_checkpoint(self, checkpoint_path, model):
         """

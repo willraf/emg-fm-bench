@@ -83,9 +83,4 @@ class BaseTask:
         """
         return model.module if isinstance(model, DDP) else model
     
-    # TODO
-    @property
-    def monitor_metric(self):
-        return "loss"
-    
 

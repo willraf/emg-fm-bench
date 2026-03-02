@@ -143,3 +143,43 @@ def plot_loss_curves(train_loss: np.ndarray, val_loss: np.ndarray,
     _save_or_show(fig, fpath)
 
 
+def plot_confusion_matrix(cm: Union[np.ndarray, torch.Tensor], 
+                          class_names: Optional[list] = None, 
+                          fpath: Optional[str] = None) -> None:
+    """Plot confusion matrix.
+    
+    Args:
+        cm: Confusion matrix of shape (num_classes, num_classes)
+        class_names: Optional list of class names for axes labels
+        fpath: Optional path to save the plot
+    """
+    cm = _convert_to_numpy(cm)
+
+    num_classes = cm.shape[0]
+
+    if class_names is None:
+        class_names = [f'Class {i}' for i in range(num_classes)]
+    
+    fig, ax = plt.subplots()
+    im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    ax.figure.colorbar(im, ax=ax)
+    
+    if class_names is not None:
+        ax.set(xticks=np.arange(num_classes), yticks=np.arange(num_classes),
+               xticklabels=class_names, yticklabels=class_names,
+               title='Confusion Matrix', ylabel='True label', xlabel='Predicted label')
+    else:
+        ax.set(title='Confusion Matrix', ylabel='True label', xlabel='Predicted label')
+    
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+    
+    # Loop over data dimensions and create text annotations.
+    fmt = 'd'
+    thresh = cm.max() / 2.
+    for i in range(num_classes):
+        for j in range(num_classes):
+            ax.text(j, i, format(cm[i, j], fmt),
+                    ha="center", va="center",
+                    color="white" if cm[i, j] > thresh else "black")
+    
+    _save_or_show(fig, fpath)

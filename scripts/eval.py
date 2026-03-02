@@ -30,6 +30,8 @@ import src.utils.visualisation as vis
 from src.data import setup_data
 from src.tasks import setup_task
 
+import wandb
+
 use_cuda = torch.cuda.is_available()
 device = torch.device('cuda' if use_cuda else 'cpu')
 
@@ -64,58 +66,88 @@ class Evaluator:
 
         self.metrics = []
 
+        # Initialise weights and biases
+        if self.is_main and cfg.logging.get("use_wandb", False):
+            wandb.init(
+                project=cfg.logging.get("wandb_project", "emg-foundation-model"),
+                name=cfg.experiment.name,
+                config=OmegaConf.to_container(cfg, resolve=True), # Log full config
+                dir=self.save_dir # Keep W&B local logs in your experiment folder
+            )
+            self.use_wandb = True
+        else:
+            self.use_wandb = False
+   
+
     def evaluate(self):
-        
+
+        if self.distributed:
+            dist.barrier()  # Ensure all processes have finished training before validation
+
+            if hasattr(self.test_loader.sampler, "set_epoch"):
+                self.test_loader.dataset.set_epoch(0)  # If using a distributed sampler, set epoch for shuffling
+
+
         self.task.eval()
 
-        for batch_idx, batch in enumerate(self.test_loader):
-            metrics = self.task.eval_step(batch, batch_idx=batch_idx)
+        total_loss = 0.0
+        num_batches = len(self.test_loader)
+
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(self.test_loader):
+                total_loss += self.task.eval_step(batch)
+            
+        avg_loss = total_loss / num_batches
+
+        test_metrics = self.task.test_metrics.compute()
+        self.task.test_metrics.reset()
+
+        self._record_metrics(test_metrics)
         
-        metrics = self._reduce_metrics(metrics)
-        logging.info(f"Test Metrics: " +
-                " | ".join([f"{k}: {v:.4f}" for k, v in metrics.items()])
-        )
-
-        self._record_metrics(metrics)
-
-    def _reduce_metrics(self, metrics: dict):
-        """Reduce a dict of metrics across all processes by averaging. Only call this on the main process after reduction."""
-        if not self.distributed:
-            return metrics
-
-        reduced = {}
-        for k, v in metrics.items():
-            t = torch.tensor(v, device=self.device)
-            dist.all_reduce(t, op=dist.ReduceOp.SUM)
-            reduced[k] = (t / dist.get_world_size()).item()
-        return reduced
-
 
     def _record_metrics(self, metrics):
-        record = {
-            **{f"test_{k}": v for k, v in metrics.items()}
-        }
-        self.metrics.append(record)
+        scalar_record = {}
+        for k, v in metrics.items():
+            if np.isscalar(v): # Only add numbers (loss, acc, f1)
+                scalar_record[f"test_{k}"] = v
 
+        self.metrics.append(scalar_record)
+            
         if self.is_main:
             fpath = self.save_dir / "results.csv"
 
             write_header = not fpath.exists()
             with open(fpath, "a", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=record.keys())
+                writer = csv.DictWriter(f, fieldnames=scalar_record.keys())
                 if write_header:
                     writer.writeheader()
-                writer.writerow(record)
+                writer.writerow(scalar_record)
 
-            if self.cfg.experiment.plot_examples:
-                # Add plotting here
-                pass
+            if self.use_wandb:
+                wandb_data = {**scalar_record}
+
+                # if "confusion_matrix" in metrics:
+                #     wandb_data["test/confusion_matrix"] = wandb.plot.confusion_matrix(
+                #         probs=None,
+                #         y_true=metrics["targets"],
+                #         preds=metrics["preds"],
+                #         class_names=self.cfg.data.get("class_names", None)
+                #     )
+                wandb.log(wandb_data)
+
+            if self.cfg.experiment.plot_examples and "confusion_matrix" in metrics:
+                vis.plot_confusion_matrix(metrics["confusion_matrix"], class_names=self.cfg.data.get("class_names", None), fpath=self.save_dir / "figures" / "confusion_matrix.png")
+
 
 
 def main(cfg, overwrite=False):
 
     evaluator = Evaluator(cfg, overwrite=overwrite)
     evaluator.evaluate()
+
+    if evaluator.is_main and evaluator.use_wandb:
+        wandb.finish()
+
     if evaluator.distributed:
         dist.barrier()  # Ensure all processes have finished writing results before any process exits
         dist.destroy_process_group()

@@ -1,0 +1,75 @@
+model:
+  name: neurorvq
+  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
+  fm:
+    checkpoint: pretrained_models/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt
+    n_patches: 256
+    patch_size: 200
+    in_chans: 1
+    out_chans: 8
+    num_classes: 0
+    embed_dim: 200
+    depth: 12
+    num_heads: 10
+    mlp_ratio: 4.
+    qkv_bias: True
+    qk_norm: null
+    drop_rate: 0.
+    attn_drop_rate: 0.
+    drop_path_rate: 0.
+    init_values: 1.e-5
+    init_scale: 0.001
+    n_global_electrodes: 16
+    vocab_size: 8192
+    use_as_encoder: True
+    use_for_pretraining: True
+  
+  tokeniser:
+    checkpoint: pretrained_models/tokenizers/NeuroRVQ_EMG_tokenizer_v1.pt
+    n_code: 8192
+    code_dim: 128
+    decoder_out_dim: 200
+    
+    encoder:
+      n_patches: 256
+      patch_size: 200
+      in_chans: 1
+      out_chans: 8
+      num_classes: 0
+      embed_dim: 200
+      depth: 12
+      num_heads: 10
+      mlp_ratio: 4.
+      qkv_bias: True
+      qk_norm: null
+      drop_rate: 0.
+      attn_drop_rate: 0.
+      drop_path_rate: 0.
+      init_values: 0
+      init_scale: 0.001
+      n_global_electrodes: 16
+      vocab_size: 8192
+      use_as_encoder: True
+      use_for_pretraining: False
+
+    decoder:
+      n_patches: 256
+      patch_size: 200
+      in_chans: 128  #code_dim
+      out_chans: 0
+      num_classes: 0
+      embed_dim: 200
+      depth: 3
+      num_heads: 10
+      mlp_ratio: 4.
+      qkv_bias: True
+      qk_norm: null
+      drop_rate: 0.
+      attn_drop_rate: 0.
+      drop_path_rate: 0.
+      init_values: 0
+      init_scale: 0.001
+      n_global_electrodes: 16
+      vocab_size: 8192
+      use_as_encoder: False
+      use_for_pretraining: False

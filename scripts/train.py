@@ -38,6 +38,8 @@ import torch
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 
+import wandb
+
 class Trainer:
     """
     Trainer class for (potentially distributed) training.
@@ -88,11 +90,24 @@ class Trainer:
             checkpoint = self.task.load_checkpoint(cfg.model.checkpoint)
             self.epochs_run = checkpoint.get('epoch', 0)
 
+        # For storing metric history across epochs
+        self.metrics = []
+
         # Wrap after loading. Checkpointed models are saved in non-DDP format, so we need to load first and then wrap if distributed.
         if self.distributed:
             self.task.wrap_distributed(self.local_rank)
 
-        self.metrics = []
+        # Initialise weights and biases
+        if self.is_main and cfg.logging.get("use_wandb", False):
+            wandb.init(
+                project=cfg.logging.get("wandb_project", "emg-foundation-model"),
+                name=cfg.experiment.name,
+                config=OmegaConf.to_container(cfg, resolve=True), # Log full config
+                dir=self.save_dir # Keep W&B local logs in your experiment folder
+            )
+            self.use_wandb = True
+        else:
+            self.use_wandb = False
    
 
     def train(self):
@@ -108,29 +123,12 @@ class Trainer:
         epochs_no_improve = 0
         stop_training = False
 
-        self.task.train()
-
         for epoch in range(self.epochs_run, num_epochs):
 
             train_metrics = self._run_epoch(epoch)
             val_metrics = self._val(epoch)
 
-            train_metrics = self._reduce_metrics(train_metrics)
-            val_metrics = self._reduce_emtrics(val_metrics)
-
-
-            logging.info(f"Epoch {epoch} Train| " +
-                " | ".join([f"{k}: {v:.4f}" for k, v in train_metrics.items()])
-            )
-
-            logging.info(
-                f"Epoch {epoch} Validation| " +
-                " | ".join([f"{k}: {v:.4f}" for k, v in val_metrics.items()])
-            )
-
-            self._record_metrics(epoch, train_metrics, val_metrics, best_val_loss)
-
-            val_loss = val_metrics[self.task.monitor_metric]
+            val_loss = val_metrics['loss']
 
             # Early stopping and best model saving
             if self.is_main and patience is not None:
@@ -151,32 +149,33 @@ class Trainer:
                 dist.broadcast(stop_tensor, src=0)
                 stop_training = bool(stop_tensor.item())
 
-            if stop_training:
-                break
+            self._record_metrics(epoch, train_metrics, val_metrics, best_val_loss)
 
+            if stop_training:
+                logging.info(f"No improvement in validation loss for {patience} epochs. Early stopping triggered.")
+                break
 
         logging.info("Training complete.")
 
 
     def _run_epoch(self, epoch):
-
         if self.distributed:
-            self.train_loader.sampler.set_epoch(epoch)
+            self.train_loader.sampler.set_epoch(epoch) 
 
-        epoch_metrics = defaultdict(float)
-        
+        self.task.train()
+        self.task.train_metrics.reset()
+
         num_batches = len(self.train_loader)
-
+        total_loss = 0.0
         for batch_idx, batch in enumerate(self.train_loader):
-            batch_metrics = self.task.train_step(batch)
-
-            for k, v in batch_metrics.items():
-                epoch_metrics[k] += v
-
-        for k in epoch_metrics:
-            epoch_metrics[k] /= num_batches
+            total_loss += self.task.train_step(batch)
         
-        return dict(epoch_metrics)
+        avg_loss = total_loss / num_batches
+
+        epoch_metrics = self.task.train_metrics.compute()
+        self.task.train_metrics.reset()
+        return epoch_metrics
+
 
 
     @torch.no_grad()
@@ -188,44 +187,64 @@ class Trainer:
             if hasattr(self.val_loader.sampler, "set_epoch"):
                 self.val_loader.dataset.set_epoch(epoch)  # If using a distributed sampler, set epoch for shuffling
 
-        
 
         self.task.eval()
 
-        epoch_metrics = defaultdict(float)
+        total_loss = 0.0
         num_batches = len(self.val_loader)
 
         with torch.no_grad():
             for batch_idx, batch in enumerate(self.val_loader):
+                total_loss += self.task.val_step(batch, batch_idx, epoch)
+            
+        avg_loss = total_loss / num_batches
 
-                batch_metrics = self.task.val_step(batch, batch_idx, epoch)
-
-                for k, v in batch_metrics.items():
-                    epoch_metrics[k] += v
-
-        for k in epoch_metrics:
-            epoch_metrics[k] /= num_batches
-
-        return dict(epoch_metrics)
+        val_metrics = self.task.val_metrics.compute()
+        self.task.val_metrics.reset()
+        
+        return val_metrics
     
 
     def _record_metrics(self, epoch, train_metrics, val_metrics, best_val_loss):
-        record = {
-            "epoch": epoch,
-            **{f"train_{k}": v for k, v in train_metrics.items()},
-            **{f"val_{k}": v for k, v in val_metrics.items()},
-            "best_val_loss": best_val_loss        }
-        self.metrics.append(record)
+        # 1. Create the scalar record for CSV (Numbers only)
+        scalar_record = {"epoch": epoch, "best_val_loss": best_val_loss}
+        
+        for phase, metrics in [("train", train_metrics), ("val", val_metrics)]:
+            if metrics is None: continue # Handling non-main ranks
+            for k, v in metrics.items():
+                if np.isscalar(v): # Only add numbers (loss, acc, f1)
+                    scalar_record[f"{phase}_{k}"] = v
+
+        # Keep track of metrics history for each epoch
+        self.metrics.append(scalar_record)
 
         if self.is_main:
+            # Log results
+            logging.info(f"Epoch {epoch} Train| " +
+                " | ".join([f"{k}: {v:.4f}" for k, v in scalar_record.items()])
+            )
+
             fpath = self.save_dir / "results.csv"
 
             write_header = not fpath.exists()
             with open(fpath, "a", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=record.keys())
+                writer = csv.DictWriter(f, fieldnames=scalar_record.keys())
                 if write_header:
                     writer.writeheader()
-                writer.writerow(record)
+                writer.writerow(scalar_record)
+
+            if self.use_wandb:
+                wandb_data = {**scalar_record}
+                
+                # Log Confusion Matrix as a specialized WandB Plot
+                # if "confusion_matrix" in val_metrics:
+                #     wandb_data["val/confusion_matrix"] = wandb.plot.confusion_matrix(
+                #         probs=None,
+                #         y_true=val_metrics["targets"],
+                #         preds=val_metrics["preds"],
+                #         class_names=self.cfg.data.get("class_names", None)
+                #     )
+                wandb.log(wandb_data, step=epoch)
 
             if self.cfg.experiment.plot_examples:
                 train_losses = [m['train_loss'] for m in self.metrics]
@@ -233,19 +252,6 @@ class Trainer:
                 epochs = [m['epoch'] for m in self.metrics]
                 vis.plot_loss_curves(train_losses, val_losses, epochs, fpath=self.save_dir / "figures" / "loss_curves.png")
 
-
-    def _reduce_metrics(self, metrics: dict):
-        """Reduce a dict of metrics across all processes by averaging. Only call this on the main process after reduction."""
-        if not self.distributed:
-            return metrics
-
-        reduced = {}
-        for k, v in metrics.items():
-            t = torch.tensor(v, device=self.device)
-            dist.all_reduce(t, op=dist.ReduceOp.SUM)
-            reduced[k] = (t / dist.get_world_size()).item()
-        return reduced
-        
 
     def find_max_batch_size(self, start_bs=32, max_trials=10, safety_factor=0.8) -> int:
         """
@@ -306,6 +312,10 @@ def main(cfg, overwrite=False):
     trainer = Trainer(cfg, overwrite=overwrite)
     # trainer.find_max_batch_size()
     trainer.train()
+
+    if trainer.is_main and trainer.use_wandb:
+        wandb.finish()
+
     if trainer.distributed:
         dist.barrier()  # Ensure all processes have finished writing results before any process exits
         destroy_process_group()

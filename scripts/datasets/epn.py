@@ -1,5 +1,11 @@
 """Script epn.py
 
+NOTE:
+    There is a bit of a hack going on. In order to avoid repeating group names (e.g. session 1 from both training and testing samples)
+    I add the split name to the session group name (e.g. train_session_1, test_session_1). This way we can store both training and testing samples for each user in the same HDF5 file without conflicts.
+    This can be confusing as it refers to the SOURCE of the session, not the reallocated split. 
+    The same goes for users naming.
+
 Convert epn612 dataset from JSON to HDF5 format. The dataset is organized as follows:
 
 - data/epn612/
@@ -111,17 +117,40 @@ def get_global_gesture_id(gesture_id):
 
 def process_samples(sample_dict, user_group, session_info, split="train"):
     """Processes a dictionary of samples and adds them to the user_group."""
-    for session_idx, session_data in sample_dict.items():
+    total_samples = len(sample_dict)
+    val_split_idx = int(0.7 * total_samples)  # 70% for training, 10% for validation, 20% for testing
+    test_split_idx = int(0.8 * total_samples)
+
+    for sess_idx, (session_id, session_data) in enumerate(sample_dict.items()):
+        
+        # Update session ID to avoid naming conflicts between training and testing samples (e.g. session 1 in both)
+        session_num = int(session_id.split('_')[-1])  # Extract numeric part of session ID
+        if split == "test":
+            session_num += 150
+        session_id = f'session{session_num}'
+            
         # 1. Basic Metadata
-        session_group = user_group.create_group(f'{split}_session_{session_idx}')
+        session_group = user_group.create_group(session_id)
         session_group.attrs['gesture_name'] = session_data.get('gestureName', 'unknown')
         session_group.attrs['gesture_id'] = get_global_gesture_id(get_gesture_id(session_group.attrs['gesture_name']))
         session_group.attrs['start_point'] = session_data.get('startPointforGestureExecution', 0)
-        session_group.attrs['session_id'] = session_idx
+        session_group.attrs['session_id'] = session_id
 
         for k, v in session_info.items():
             session_group.attrs[k] = v
-        session_group.attrs['split'] = split
+
+        # Figure out session split
+        # Unlabelled sessions (gesture_id == -1) go into a separate "unlabelled" split, otherwise we use the val/test/train split based on index
+        if session_group.attrs['gesture_id'] == -1:
+            sess_split = "unlabelled"
+        elif sess_idx < val_split_idx:
+            sess_split = "train"
+        elif val_split_idx <= sess_idx < test_split_idx:
+            sess_split = "val"
+        else:
+            sess_split = "test"
+
+        session_group.attrs['split'] = sess_split
 
         # 2. EMG Dataset (T, 8)
         emg_dict = session_data.get('emg', {})
@@ -222,7 +251,6 @@ def main(dataset_dir, output_path=None):
         root = f.create_group("epn612")
 
         for mode in ["training", "testing"]:
-            subj_split = "train" if mode == "training" else "test"
 
             data_dir = dataset_dir / f"{mode}JSON"
             if not data_dir.exists(): continue
@@ -242,8 +270,26 @@ def main(dataset_dir, output_path=None):
                 u_info = user_data['userInfo']
                 # Get standardized metadata for user and session
                 user_std, session_std = process_metadata(u_info, gen_info)
+
+                subject_id = user_std['subject_id']
+                subject_num = int(subject_id.replace("user", ""))  # Extract numeric part for splitting logic
+
+                # Figure out the split this user should be in 
+                if mode == "training":
+                    # All users in trainingJSON are in the training split
+                    subj_split = "train"
+                else:
+                    # users 1-122 go into training. users 123-183 go into val, users 184-306 go into test
+                    if subject_num <= 122:
+                        subj_split = "train"
+                    elif 123 <= subject_num <= 183:
+                        subj_split = "val"
+                    else:
+                        subj_split = "test"
+                    # Offset the subject ID by the split to avoid conflicts (e.g. user_1 in training and testing)
+                    subject_num += 306
                 
-                unique_subj_id = f'{subj_split}_{user_std['subject_id']}'
+                unique_subj_id = f'user{subject_num}'
                 subj_group = root.create_group(unique_subj_id)
 
                 # Store metadata as attributes
