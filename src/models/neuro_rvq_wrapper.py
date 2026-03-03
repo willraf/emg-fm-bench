@@ -10,16 +10,14 @@ class NeuroRVQClassifierWrapper(nn.Module):
         
         self.embed_dim = cfg.model.fm.embed_dim
         self.num_classes = cfg.finetuning.n_classes
-        self.n_patches = cfg.model.fm.n_patches
+        self.patch_len = cfg.model.fm.patch_size
+
         self.pooling_type = cfg.finetuning.pooling_type
         self.finetune_spacial_embedding = cfg.finetuning.finetune_spacial_embedding
 
         self.embed_dim = self.embed_dim * 4 if self.fm.use_as_encoder else self.embed_dim
         
-        # We need to know how many channels are in your EPN data
-        # Based on your previous context, this is 8
-        self.n_channels = 8 
-        self.n_time_steps = self.n_patches // self.n_channels
+        self.n_channels = cfg.data.num_channels
 
         # Head Definition
         if self.pooling_type == "concat":
@@ -42,11 +40,13 @@ class NeuroRVQClassifierWrapper(nn.Module):
         tokens, _ = self.fm(x, temporal_embedding_ix, spatial_embedding_ix, 
                             return_patch_embeddings=True, branch_idx=0)
         
-        # tokens shape: (B, 256, 200)
+        # tokens shape: (B, n_patches, embed_dim)
         B, N, E = tokens.shape
+
+        n_time_steps = N // self.n_channels
         
         # Reshape to (Batch, Channels, Time, Embed) -> (B, 8, 32, 200)
-        tokens = tokens.reshape(B, self.n_channels, self.n_time_steps, E)
+        tokens = tokens.reshape(B, self.n_channels, n_time_steps, E)
 
         if self.pooling_type == "mean":
             # Global Average across all patches (Simple & robust)
@@ -58,7 +58,7 @@ class NeuroRVQClassifierWrapper(nn.Module):
             
         elif self.pooling_type == "concat":
             # Concat channels: (B, Time, Chan*Embed) -> (B, 32, 1600)
-            feat = tokens.permute(0, 2, 1, 3).reshape(B, self.n_time_steps, -1)
+            feat = tokens.permute(0, 2, 1, 3).reshape(B, n_time_steps, -1)
             feat = feat.mean(dim=1) # Average over time -> (B, 1600)
 
         elif self.pooling_type == "attention_pool":
@@ -81,6 +81,6 @@ class NeuroRVQClassifierWrapper(nn.Module):
             head_params += [self.query] + list(self.attn.parameters())
 
         if self.finetune_spacial_embedding:
-            head_params += list(self.fm.pos_embed.parameters())
+            head_params += list(self.fm.pos_embed)
 
         return head_params

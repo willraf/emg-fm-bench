@@ -135,7 +135,7 @@ class NeuroRVQFM(nn.Module):
         in_chans = cfg.in_chans
         out_chans = cfg.out_chans
         n_global_electrodes = cfg.n_global_electrodes
-        n_patches = cfg.n_patches
+        n_patches = cfg.max_patches
         drop_rate = cfg.drop_rate
         drop_path_rate = cfg.drop_path_rate
         depth = cfg.depth

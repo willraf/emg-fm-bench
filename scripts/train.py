@@ -80,10 +80,10 @@ class Trainer:
 
         self.save_dir = setup_save_dir(cfg, overwrite=overwrite, mode='train', is_main_process=self.is_main)
 
+        self.task = setup_task(cfg, device=self.device, distributed=self.distributed, is_main=self.is_main, save_dir=self.save_dir)
+
         self.train_loader = setup_data(cfg, mode="train", distributed=self.distributed)
         self.val_loader = setup_data(cfg, mode="val", distributed=self.distributed)
-
-        self.task = setup_task(cfg, device=self.device, distributed=self.distributed, is_main=self.is_main, save_dir=self.save_dir)
 
         self.epochs_run = 0
         if cfg.model.checkpoint is not None:
@@ -307,11 +307,14 @@ class Trainer:
         return recommended
     
 
-def main(cfg, overwrite=False):
+def main(cfg, overwrite=False, find_batch_size=False):
     
     trainer = Trainer(cfg, overwrite=overwrite)
-    # trainer.find_max_batch_size()
-    trainer.train()
+
+    if find_batch_size:
+        trainer.find_max_batch_size()
+    else:
+        trainer.train()
 
     if trainer.is_main and trainer.use_wandb:
         wandb.finish()
@@ -326,9 +329,10 @@ if __name__ == "__main__":
     parser.add_argument('--config', type=str, required=True)
     parser.add_argument('--default', type=str, required=False, default="configs/default.yaml")
     parser.add_argument('--overwrite', action='store_true')
+    parser.add_argument('--find_batch_size', action='store_true', required=False, default=False, help="Run batch size finder instead of training")
     args = parser.parse_args()
 
     cfg = load_config(args.config, default_path=args.default)
     setup_logging()
     
-    main(cfg, overwrite=args.overwrite)
+    main(cfg, overwrite=args.overwrite, find_batch_size=args.find_batch_size)

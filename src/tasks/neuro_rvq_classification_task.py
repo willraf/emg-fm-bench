@@ -33,15 +33,16 @@ class NeuroRVQClassificationTask(BaseTask):
 
         super().__init__()
 
+        self.cfg = cfg
+        self.resolve_parameters()
+
         fm_path = cfg.model.fm.checkpoint
         lr = cfg.finetuning.learning_rate
         wd = cfg.finetuning.weight_decay
         self.target_field = cfg.finetuning.target_field
 
         self.patch_len = cfg.model.fm.patch_size
-        self.n_patches = cfg.model.fm.n_patches
-
-        self.cfg = cfg
+        
         self.device = device
         self.distributed = distributed
         self.is_main = is_main
@@ -59,6 +60,10 @@ class NeuroRVQClassificationTask(BaseTask):
         self.model.to(device)
 
         head_params = self.model.get_fine_tuning_parameters()
+
+        # Unfreeze parameters to be fine-tuned
+        for p in head_params:
+            p.requires_grad = True
                 
         self.optimiser = torch.optim.AdamW(
             head_params,
@@ -73,6 +78,33 @@ class NeuroRVQClassificationTask(BaseTask):
         self.test_metrics = Metrics(device, distributed, is_main)
 
 
+    def resolve_parameters(self):
+        """Ensure parameters given in the config file are consistent wih each other
+        window_duration, window_lenght, target_length, n_patches
+
+        This is super hacky but will do for now. 
+        """
+
+        window_duration = self.cfg.window_duration
+        sample_rate = self.cfg.data.sample_rate
+        patch_length = self.cfg.model.fm.patch_size
+        target_fs = self.cfg.resample.target_fs
+
+        window_length = int(window_duration * sample_rate)
+        if window_length != self.cfg.data.window_length:
+            logging.warning(f"Derived window_length {window_length} from window_duration and sample_rate does not match config value {self.cfg.data.window_length}. Using derived value.")
+            self.cfg.data.window_length = window_length
+
+        if target_fs != 1000:
+            logging.warning(f"Target sample rate {target_fs} is not 1000Hz. Sample rate is expected to be 1000Hz for NeuroRVQ. Ensure resampling is configured correctly.") 
+
+        # Check we are padding to the correct length
+        target_len_after_resampling = int(window_duration * target_fs)
+        if target_len_after_resampling != self.cfg.pad_length.target_length:
+            logging.warning(f"Derived target_length after resampling {target_len_after_resampling} does not match pad_length.target_length {self.cfg.pad_length.target_length}. Adjusting pad_length.target_length to match derived value.")
+            self.cfg.pad_length.target_length = target_len_after_resampling
+
+
     def train_step(self, batch, batch_idx=None, epoch=None):
         temporal_ix = batch["temporal_ix"].int().to(self.device)   # B, n_patches  
         spatial_ix = batch["spatial_ix"].int().to(self.device)      # B, n_patches
@@ -80,9 +112,8 @@ class NeuroRVQClassificationTask(BaseTask):
         targets = batch[self.target_field].long().to(self.device)  # (B,)
 
         B, C, T = emg.shape
-        time_patches = self.n_patches // C
 
-        emg = emg.reshape(B, C, time_patches, self.patch_len)
+        emg = emg.reshape(B, C, -1, self.patch_len)
 
         logits = self.model(
             emg,
@@ -112,8 +143,7 @@ class NeuroRVQClassificationTask(BaseTask):
         spatial_ix = batch["spatial_ix"].int().to(self.device)
         targets = batch[self.target_field].long().to(self.device)  # (B,)
         B, C, T = emg.shape
-        time_patches = self.n_patches // C
-        emg = emg.reshape(B, C, time_patches, self.patch_len)
+        emg = emg.reshape(B, C, -1, self.patch_len)
         logits = self.model(
             emg,
             temporal_embedding_ix=temporal_ix,
@@ -139,8 +169,7 @@ class NeuroRVQClassificationTask(BaseTask):
         temporal_ix = batch["temporal_ix"].int().to(self.device)
         spatial_ix = batch["spatial_ix"].int().to(self.device)
         B, C, T = emg.shape
-        time_patches = self.n_patches // C
-        emg = emg.reshape(B, C, time_patches, self.patch_len)
+        emg = emg.reshape(B, C, -1, self.patch_len)
 
         logits = self.model(
             emg,

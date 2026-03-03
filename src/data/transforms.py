@@ -243,11 +243,13 @@ class NeuroRVQEmbeddings:
     """Adds spacial and temporal embeddings to the data dict, using neuroRVQ method
 
     Args:
-        n_patches (int): The maximum number of patches to be extracted from the data. This is determined by the max number the model can process
+        max_patches (int): The maximum number of patches the model was pretrained to handle. 
+            The bottleneck comes from the size/number of temporal embeddings, which are fixed at max_patches.
 
     """
 
-    n_patches: int
+    max_patches: int
+    patch_len: int
     channel_field: str = "channels"
     global_channels: tuple = (
         'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8',
@@ -270,6 +272,8 @@ class NeuroRVQEmbeddings:
             ])
     
     def __call__(self, data: dict) -> dict:
+        C, T = data['emg'].shape
+
         if self.sample_channels is not None:
             sample_channels = self._sample_channels_array
         else:
@@ -283,16 +287,14 @@ class NeuroRVQEmbeddings:
             ])
 
         
-        n_channels = len(sample_channels)
         # The number of patches in the time dimension
         # for aligning the current time-point to the right.
-        n_time = self.n_patches // n_channels
-    
+        n_time = T // self.patch_len
 
         # temporal
         temp_ix = torch.arange(
-            self.n_patches - n_time,
-            self.n_patches
+            self.max_patches - n_time,
+            self.max_patches
         ).repeat(len(sample_channels))
 
         # spatial
