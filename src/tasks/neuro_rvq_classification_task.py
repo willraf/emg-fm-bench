@@ -42,6 +42,8 @@ class NeuroRVQClassificationTask(BaseTask):
         self.target_field = cfg.finetuning.target_field
 
         self.patch_len = cfg.model.fm.patch_size
+
+        freeze_backbone = self.cfg.finetuning.freeze_backbone
         
         self.device = device
         self.distributed = distributed
@@ -52,21 +54,26 @@ class NeuroRVQClassificationTask(BaseTask):
         self.load_fm_checkpoint(fm_path, fm)
         fm.to(device)
 
-        # Freeze everything
-        for p in fm.parameters():
-            p.requires_grad = False
+        if freeze_backbone:
+            # Freeze everything
+            for p in fm.parameters():
+                p.requires_grad = False
 
-        self.model = NeuroRVQClassifierWrapper(cfg, fm)
-        self.model.to(device)
+            self.model = NeuroRVQClassifierWrapper(cfg, fm)
+            self.model.to(device)
 
-        head_params = self.model.get_fine_tuning_parameters()
+            finetune_params = self.model.get_fine_tuning_parameters()
 
-        # Unfreeze parameters to be fine-tuned
-        for p in head_params:
-            p.requires_grad = True
+            # Unfreeze parameters to be fine-tuned
+            for p in finetune_params:
+                p.requires_grad = True
+        else:
+            self.model = NeuroRVQClassifierWrapper(cfg, fm)
+            self.model.to(device)
+            finetune_params = self.model.parameters()
                 
         self.optimiser = torch.optim.AdamW(
-            head_params,
+            finetune_params,
             lr=lr,
             weight_decay=wd
         )

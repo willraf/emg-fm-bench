@@ -30,7 +30,7 @@ class Metrics:
         local_targets = torch.cat(self.targets)
         
         if self.distributed:
-            # 1. Gather all predictions and targets to rank 0
+            # Gather all predictions and targets to rank 0
             # We use a list-based gather which is safer for varying sizes
             output_preds = [None for _ in range(dist.get_world_size())]
             output_targets = [None for _ in range(dist.get_world_size())]
@@ -40,14 +40,22 @@ class Metrics:
             dist.all_gather_object(output_preds, local_preds)
             dist.all_gather_object(output_targets, local_targets)
 
+            # must also reduce the loss and sample counts across GPUs
+            loss_tensor = torch.tensor([self.total_loss, self.total_samples], device=self.device)
+            dist.all_reduce(loss_tensor, op=dist.ReduceOp.SUM)
+
             if not self.is_main:
                 return None # Only main process computes final metrics
 
             preds = torch.cat(output_preds).numpy()
             targets = torch.cat(output_targets).numpy()
+            final_loss = (loss_tensor[0] / loss_tensor[1]).item() if loss_tensor[1] > 0 else 0
         else:    
             preds = local_preds.numpy()
             targets = local_targets.numpy()
+            final_loss = self.total_loss / self.total_samples if self.total_samples > 0 else 0
+
+        final_loss = final_loss.item() if isinstance(final_loss, torch.Tensor) else final_loss
 
         acc = metrics.accuracy_score(targets, preds)
         prec, recall, f1, _ = metrics.precision_recall_fscore_support(
@@ -56,15 +64,6 @@ class Metrics:
         
         cm = metrics.confusion_matrix(targets, preds)
 
-        if self.distributed:
-            # You must also reduce the loss and sample counts across GPUs
-            loss_tensor = torch.tensor([self.total_loss, self.total_samples], device=self.device)
-            dist.all_reduce(loss_tensor, op=dist.ReduceOp.SUM)
-            final_loss = (loss_tensor[0] / loss_tensor[1])
-        else:
-            final_loss = self.total_loss / self.total_samples if self.total_samples > 0 else 0
-        
-        final_loss = final_loss.item()
 
         return {
             "loss": final_loss,

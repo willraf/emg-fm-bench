@@ -14,7 +14,7 @@ logging:
   wandb_project: "neurorvq_ninaprodb5"
 
 experiment:
-  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${data.window_duration}s_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
+  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${window_duration}s_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
   random_seed: 42
   plot_examples: True
   save: True
@@ -55,10 +55,10 @@ encode_stage:
 pad_length:
   _target_: src.data.transforms.PadCropToLength
   field: emg
-  target_length: 3200
+  target_length: 1000
 
 
-window_duration: 5
+window_duration: 1
 
 
 data:
@@ -68,13 +68,6 @@ data:
   timeseries_keys: null
   hdf5_path: data/ninapro_db5/ninapro_db5.hdf5
   num_channels: 16
-  # Current restrictions on window_length: Must be a multiple of S=strides product (320 here)
-  #   and bottleneck size (window_length / (s1*s2*s3)) must be >= padding ( dilation×(K−1)+(1−stride) ) 
-  #   stride is 1 in residual units
-  # For finetuning, window length must be before resampling
-
-  # Start with window duration in seconds and derive other parameters from there
-  window_duration: 1
   window_length: 200     # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
   sample_rate: 200
   stride: null

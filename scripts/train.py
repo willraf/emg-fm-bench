@@ -128,10 +128,11 @@ class Trainer:
             train_metrics = self._run_epoch(epoch)
             val_metrics = self._val(epoch)
 
-            val_loss = val_metrics['loss']
-
             # Early stopping and best model saving
             if self.is_main and patience is not None:
+
+                val_loss = val_metrics['loss']
+
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
                     epochs_no_improve = 0
@@ -149,7 +150,8 @@ class Trainer:
                 dist.broadcast(stop_tensor, src=0)
                 stop_training = bool(stop_tensor.item())
 
-            self._record_metrics(epoch, train_metrics, val_metrics, best_val_loss)
+            if self.is_main:
+                self._record_metrics(epoch, train_metrics, val_metrics, best_val_loss)
 
             if stop_training:
                 logging.info(f"No improvement in validation loss for {patience} epochs. Early stopping triggered.")
@@ -174,6 +176,7 @@ class Trainer:
 
         epoch_metrics = self.task.train_metrics.compute()
         self.task.train_metrics.reset()
+        # Only the main process will have valid metrics when using distributed training, so we return None for other ranks
         return epoch_metrics
 
 
@@ -218,39 +221,38 @@ class Trainer:
         # Keep track of metrics history for each epoch
         self.metrics.append(scalar_record)
 
-        if self.is_main:
-            # Log results
-            logging.info(f"Epoch {epoch} Train| " +
-                " | ".join([f"{k}: {v:.4f}" for k, v in scalar_record.items()])
-            )
+        # Log results
+        logging.info(f"Epoch {epoch} Train| " +
+            " | ".join([f"{k}: {v:.4f}" for k, v in scalar_record.items()])
+        )
 
-            fpath = self.save_dir / "results.csv"
+        fpath = self.save_dir / "results.csv"
 
-            write_header = not fpath.exists()
-            with open(fpath, "a", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=scalar_record.keys())
-                if write_header:
-                    writer.writeheader()
-                writer.writerow(scalar_record)
+        write_header = not fpath.exists()
+        with open(fpath, "a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=scalar_record.keys())
+            if write_header:
+                writer.writeheader()
+            writer.writerow(scalar_record)
 
-            if self.use_wandb:
-                wandb_data = {**scalar_record}
-                
-                # Log Confusion Matrix as a specialized WandB Plot
-                # if "confusion_matrix" in val_metrics:
-                #     wandb_data["val/confusion_matrix"] = wandb.plot.confusion_matrix(
-                #         probs=None,
-                #         y_true=val_metrics["targets"],
-                #         preds=val_metrics["preds"],
-                #         class_names=self.cfg.data.get("class_names", None)
-                #     )
-                wandb.log(wandb_data, step=epoch)
+        if self.use_wandb:
+            wandb_data = {**scalar_record}
+            
+            # Log Confusion Matrix as a specialized WandB Plot
+            # if "confusion_matrix" in val_metrics:
+            #     wandb_data["val/confusion_matrix"] = wandb.plot.confusion_matrix(
+            #         probs=None,
+            #         y_true=val_metrics["targets"],
+            #         preds=val_metrics["preds"],
+            #         class_names=self.cfg.data.get("class_names", None)
+            #     )
+            wandb.log(wandb_data, step=epoch)
 
-            if self.cfg.experiment.plot_examples:
-                train_losses = [m['train_loss'] for m in self.metrics]
-                val_losses = [m['val_loss'] for m in self.metrics]
-                epochs = [m['epoch'] for m in self.metrics]
-                vis.plot_loss_curves(train_losses, val_losses, epochs, fpath=self.save_dir / "figures" / "loss_curves.png")
+        if self.cfg.experiment.plot_examples:
+            train_losses = [m['train_loss'] for m in self.metrics]
+            val_losses = [m['val_loss'] for m in self.metrics]
+            epochs = [m['epoch'] for m in self.metrics]
+            vis.plot_loss_curves(train_losses, val_losses, epochs, fpath=self.save_dir / "figures" / "loss_curves.png")
 
 
     def find_max_batch_size(self, start_bs=32, max_trials=10, safety_factor=0.8) -> int:
