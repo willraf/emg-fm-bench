@@ -185,7 +185,7 @@ class Trainer:
             dist.barrier()  # Ensure all processes have finished training before validation
 
             if hasattr(self.val_loader.sampler, "set_epoch"):
-                self.val_loader.dataset.set_epoch(epoch)  # If using a distributed sampler, set epoch for shuffling
+                self.val_loader.sampler.set_epoch(epoch)  # If using a distributed sampler, set epoch for shuffling
 
 
         self.task.eval()

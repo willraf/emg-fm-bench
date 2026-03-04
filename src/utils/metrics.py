@@ -60,11 +60,12 @@ class Metrics:
             # You must also reduce the loss and sample counts across GPUs
             loss_tensor = torch.tensor([self.total_loss, self.total_samples], device=self.device)
             dist.all_reduce(loss_tensor, op=dist.ReduceOp.SUM)
-            final_loss = (loss_tensor[0] / loss_tensor[1]).item()
+            final_loss = (loss_tensor[0] / loss_tensor[1])
         else:
             final_loss = self.total_loss / self.total_samples if self.total_samples > 0 else 0
-
+        
         final_loss = final_loss.item()
+
         return {
             "loss": final_loss,
             "acc": acc,

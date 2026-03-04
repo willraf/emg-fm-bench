@@ -24,7 +24,7 @@ import logging
 
 from omegaconf import OmegaConf
 
-from src.utils.utils import load_config, get_experiment_directory
+from src.utils.utils import load_config, get_experiment_directory, setup_logging
 
 from scripts.train import main as train
 from scripts.eval import main as evaluate
@@ -35,14 +35,6 @@ import hydra
 
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg=None):
-    # setup basic logger
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler()
-        ]
-    )
 
     experiment_dir = get_experiment_directory(cfg)
     OmegaConf.save(cfg, experiment_dir / "config.yaml")
@@ -63,4 +55,5 @@ def main(cfg=None):
     }
 
 if __name__ == "__main__":
+    setup_logging()
     main()
