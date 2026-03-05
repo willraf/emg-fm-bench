@@ -1,11 +1,11 @@
-hydra:
-  mode: MULTIRUN
-  sweeper:
-    params:
-      data.window_length: 200, 1000
-      finetuning.split_type: user,session
-      # finetuning.freeze_backbone: True,False
-      finetuning.pooling_type: mean,concat
+# hydra:
+#   mode: MULTIRUN
+#   sweeper:
+#     params:
+#       data.window_length: 200, 1000
+#       finetuning.split_type: user,session
+#       # finetuning.freeze_backbone: True,False
+#       finetuning.pooling_type: mean,concat
 
 
 logging:
@@ -54,7 +54,10 @@ encode_stage:
 pad_length:
   _target_: src.data.transforms.PadCropToLength
   field: emg
-  target_length: 6400
+  target_length: 5000
+
+
+window_duration: 5
 
 
 data:
@@ -64,13 +67,7 @@ data:
   timeseries_keys: null
   hdf5_path: data/epn612/epn612.hdf5
   num_channels: 8
-  data_dir: data/epn612
-  # data_dir: data/emg2pose_dataset_mini
-  # data_dir: /mnt/data/emg2pose_data
   metadata_file: ${data.data_dir}/metadata.csv
-  # Current restrictions on window_length: Must be a multiple of S=strides product (320 here)
-  #   and bottleneck size (window_length / (s1*s2*s3)) must be >= padding ( dilation×(K−1)+(1−stride) ) 
-  #   stride is 1 in residual units
   # For finetuning, window length must be before resampling
   window_length: 1000      # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
   sample_rate: 200        # Original sample rate of the data
@@ -78,8 +75,7 @@ data:
   num_workers: 10
   subsample: 1.0
   padding: [0, 0]
-  skip_ik_failures: True
-  batch_size: 8
+  batch_size: 32
   transforms:
     train:
       - ${standardise}
@@ -103,10 +99,10 @@ task:
 
 
 finetuning:
-  split_type: user
-  freeze_backbone: True
-  finetune_spacial_embedding: False
-  pooling_type: mean
+  split_type: session 
+  freeze_backbone: False
+  finetune_spacial_embedding: True
+  pooling_type: concat
   learning_rate: 0.0001
   weight_decay: 0
   n_classes: 6
