@@ -1,8 +1,8 @@
-# hydra:
-#   mode: MULTIRUN
-#   sweeper:
-#     params:
-#       data.window_length: 200, 1000
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      window_duration: 1, 5
 #       finetuning.split_type: user,session
 #       # finetuning.freeze_backbone: True,False
 #       finetuning.pooling_type: mean,concat
@@ -12,7 +12,6 @@ logging:
   log_interval: 10
   use_wandb: True
   wandb_project: "neurorvq_epn612"
-
 
 experiment:
   name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${data.window_length}_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
@@ -41,7 +40,8 @@ resample:
 
 neurorvq_embed:
   _target_: src.data.transforms.NeuroRVQEmbeddings
-  n_patches: ${model.fm.n_patches}
+  max_patches: ${model.fm.max_patches}
+  patch_len: ${model.fm.patch_size}
   global_channels: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8',
         'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16']
   sample_channels: ['c2', 'c4', 'c6', 'c8', 'c10', 'c12', 'c14', 'c16']
@@ -123,7 +123,7 @@ finetuning:
   
 
 training:
-  patience: 20
+  patience: 8
   epochs: 100
 
 
@@ -132,7 +132,7 @@ model:
   checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
   fm:
     checkpoint: pretrained_models/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt
-    n_patches: 256
+    max_patches: 256
     patch_size: 200
     in_chans: 1
     out_chans: 8

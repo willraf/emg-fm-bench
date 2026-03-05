@@ -1,8 +1,8 @@
-# hydra:
-#   mode: MULTIRUN
-#   sweeper:
-#     params:
-#       data.window_length: 200, 1000
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      window_duration: 1, 5
 #       finetuning.split_type: user,session
 #       # finetuning.freeze_backbone: True,False
 #       finetuning.pooling_type: mean,concat
@@ -72,7 +72,6 @@ channel_dropout:
 
 window_duration: 5
 
-
 data:
   name: hdf5_windowed
   root_key: ninapro_db5
@@ -122,12 +121,12 @@ task:
 #   loss_function: mse
 
 training:
-  patience: 5
-  epochs: 1
+  patience: 8
+  epochs: 100
 
 finetuning:
   split_type: session
-  freeze_backbone: True
+  freeze_backbone: False
   finetune_spacial_embedding: True
   pooling_type: concat
   learning_rate: 0.0001
