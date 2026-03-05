@@ -14,8 +14,7 @@ logging:
   wandb_project: "neurorvq_ninaprodb5"
 
 experiment:
-  # name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${window_duration}s_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
-  name: TEST
+  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${window_duration}s_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
   random_seed: 42
   plot_examples: True
   save: True
