@@ -160,7 +160,8 @@ def plot_confusion_matrix(cm: Union[np.ndarray, torch.Tensor],
     if class_names is None:
         class_names = [f'Class {i}' for i in range(num_classes)]
     
-    fig, ax = plt.subplots()
+    fig_size = (10, 8) if num_classes <= 10 else (num_classes, num_classes)
+    fig, ax = plt.subplots(figsize=fig_size)
     im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
     ax.figure.colorbar(im, ax=ax)
     
@@ -172,14 +173,16 @@ def plot_confusion_matrix(cm: Union[np.ndarray, torch.Tensor],
         ax.set(title='Confusion Matrix', ylabel='True label', xlabel='Predicted label')
     
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-    
-    # Loop over data dimensions and create text annotations.
-    fmt = 'd'
-    thresh = cm.max() / 2.
-    for i in range(num_classes):
-        for j in range(num_classes):
-            ax.text(j, i, format(cm[i, j], fmt),
-                    ha="center", va="center",
-                    color="white" if cm[i, j] > thresh else "black")
-    
-    _save_or_show(fig, fpath)
+
+
+    if num_classes <= 10:    
+        # Loop over data dimensions and create text annotations.
+        fmt = 'd'
+        thresh = cm.max() / 2.
+        for i in range(num_classes):
+            for j in range(num_classes):
+                ax.text(j, i, format(cm[i, j], fmt),
+                        ha="center", va="center",
+                        color="white" if cm[i, j] > thresh else "black")
+        
+        _save_or_show(fig, fpath)

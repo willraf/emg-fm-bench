@@ -68,6 +68,7 @@ class HDF5WindowedDataset(BaseDataset):
 
         stride = self.cfg.data.stride
         self.stride = stride if stride is not None else self.window_length  # Default to non-overlapping windows
+        self.jitter = self.cfg.data.jitter
 
         self.primary_data_key = self.cfg.data.primary_data_key
         self.root_key = self.cfg.data.root_key
@@ -164,7 +165,7 @@ class HDF5WindowedDataset(BaseDataset):
                         obj = session_group[self.primary_data_key]
                         T = obj.shape[0]
 
-                        # If the signal is shorter than the window length, we can still include it as one window (with padding applied in __getitem__)
+                        # If the signal is shorter than the window length, we can still include it as one window (with padding applied in transforms)
                         if T < self.window_length:
                             num_windows = 1 
                         else:
@@ -189,14 +190,25 @@ class HDF5WindowedDataset(BaseDataset):
 
         session_group = self.file[group_path]
         user_group = session_group.parent
-        end_idx = start_idx + self.window_length  
 
         # 2. Slice the data directly from the master file
         # HDF5 is very fast at random-access slicing
         primary_data = session_group[self.primary_data_key]
-
         T = primary_data.shape[0]
-        actual_end_idx = min(end_idx, T)  # Handle case where window extends beyond signal length
+
+        if self.jitter and self.mode == "train":
+            # Distance to the end of this sample
+            leftover = T - (start_idx + self.window_length)
+
+            # Handle case where signal is shorter than window length (leftover will be negative, so max_jitter will be 0 and no jitter applied)
+            leftover = max(0, leftover)
+            max_jitter = min(leftover, self.stride)  # Don't jitter more than the stride to avoid overlap with next window
+            jitter_amount = np.random.randint(0, max_jitter + 1) if max_jitter > 0 else 0
+            start_idx += jitter_amount
+
+        end_idx = start_idx + self.window_length
+        # Ensure we don't exceed trial boundaries
+        actual_end_idx = min(end_idx, T)
 
         primary_fs = primary_data.attrs.get("sample_rate")
         primary_window = primary_data[start_idx : actual_end_idx]
@@ -210,9 +222,10 @@ class HDF5WindowedDataset(BaseDataset):
                 sample_rate = data.attrs.get("sample_rate") 
                 if sample_rate is not None:
                     output[key + "_sample_rate"] = sample_rate
-                    scaling_factor = primary_fs / sample_rate
-                    scaled_start_idx = int(start_idx * scaling_factor)
-                    scaled_end_idx = int(end_idx * scaling_factor)
+                    # Scale the start and end indices so the time interval matches
+                    scaling_factor = sample_rate / primary_fs
+                    scaled_start_idx = round(start_idx * scaling_factor)
+                    scaled_end_idx = scaled_start_idx + round(self.window_length * scaling_factor)
                     output[key] = data[scaled_start_idx : scaled_end_idx]
                 else:
                     output[key] = data[start_idx : end_idx]

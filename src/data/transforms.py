@@ -335,3 +335,36 @@ class Compose:
         for transform in self.transforms:
             data = transform(data)
         return data
+    
+
+# Data augmentation transforms
+# Similar to TinyMyo
+
+@dataclass
+class RandomAmplitudeScale(DictTransform):
+    """TinyMyo: Multiplies signal by a random scalar between min and max."""
+    min_scale: float = 0.9
+    max_scale: float = 1.1
+    field: str = "emg"
+
+    def __post_init__(self):
+        super().__init__(self.field)
+
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        scale = np.random.uniform(self.min_scale, self.max_scale)
+        return x * scale
+
+
+@dataclass
+class RandomChannelDropout(DictTransform):
+    """TinyMyo: Completely zeroes out random channels with probability p."""
+    dropout_prob: float = 0.05
+    field: str = "emg"
+
+    def __post_init__(self):
+        super().__init__(self.field)
+
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        # Generate a mask (C, 1) where 1 means keep, 0 means dropout
+        mask = torch.rand(x.shape[0], 1, device=x.device) > self.dropout_prob
+        return x * mask.float()

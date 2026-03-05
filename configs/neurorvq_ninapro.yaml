@@ -58,7 +58,19 @@ pad_length:
   target_length: 1000
 
 
-window_duration: 1
+random_scale:
+  _target_: src.data.transforms.RandomAmplitudeScale
+  field: emg
+  min_scale: 0.9
+  max_scale: 1.1
+
+channel_dropout:
+  _target_: src.data.transforms.RandomChannelDropout
+  field: emg
+  dropout_prob: 0.05
+
+
+window_duration: 5
 
 
 data:
@@ -70,11 +82,11 @@ data:
   num_channels: 16
   window_length: 200     # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
   sample_rate: 200
-  stride: null
+  stride: 50
+  jitter: True
   num_workers: 10
   subsample: 1.0
   padding: [0, 0]
-  skip_ik_failures: True
   batch_size: 32
   transforms:
     train:
@@ -82,6 +94,8 @@ data:
       - ${band_pass}
       - ${resample}
       - ${pad_length}
+      - ${random_scale}
+      - ${channel_dropout}
       - ${neurorvq_embed}
       # - _target_: src.data.transforms.RotationAugmentation
     val:
@@ -109,7 +123,7 @@ task:
 
 training:
   patience: 5
-  epochs: 100
+  epochs: 1
 
 finetuning:
   split_type: session

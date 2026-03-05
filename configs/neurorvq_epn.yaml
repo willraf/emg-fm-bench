@@ -56,6 +56,18 @@ pad_length:
   field: emg
   target_length: 5000
 
+random_scale:
+  _target_: src.data.transforms.RandomAmplitudeScale
+  field: emg
+  min_scale: 0.9
+  max_scale: 1.1
+
+channel_dropout:
+  _target_: src.data.transforms.RandomChannelDropout
+  field: emg
+  dropout_prob: 0.05
+
+
 
 window_duration: 5
 
@@ -71,7 +83,8 @@ data:
   # For finetuning, window length must be before resampling
   window_length: 1000      # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
   sample_rate: 200        # Original sample rate of the data
-  stride: null
+  stride: 50
+  jitter: True
   num_workers: 10
   subsample: 1.0
   padding: [0, 0]
