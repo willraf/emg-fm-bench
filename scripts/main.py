@@ -32,7 +32,6 @@ from scripts.predict import main as predict
 
 import hydra
 
-
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg=None):
 

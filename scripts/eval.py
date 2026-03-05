@@ -23,7 +23,8 @@ from omegaconf import OmegaConf
 
 from typing import Union, Optional, Callable
 
-from torch import dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.distributed as dist
 
 from src.utils.utils import *
 import src.utils.visualisation as vis
