@@ -144,13 +144,23 @@ class BandPassFilter(DictTransform):
 
     def __post_init__(self):
         super().__init__(self.field)
-        b, a = signal.butter(
-            self.order,
-            [self.highpass, self.lowpass],
-            btype="bandpass",
-            fs=self.fs,
-        )
+        
+        if self.lowpass and self.highpass:
+            # Standard Bandpass
+            Wn = [self.highpass, self.lowpass]
+            btype = "bandpass"
+        elif self.lowpass:
+            # No highpass -> Lowpass only
+            Wn = self.lowpass
+            btype = "lowpass"
+        elif self.highpass:
+            # No lowpass -> Highpass only
+            Wn = self.highpass
+            btype = "highpass"
+        else:
+            raise ValueError("At least one cutoff frequency must be provided.")
 
+        b, a = signal.butter(self.order, Wn, btype=btype, fs=self.fs)
         self.b = torch.tensor(b, dtype=torch.float32)
         self.a = torch.tensor(a, dtype=torch.float32)
 

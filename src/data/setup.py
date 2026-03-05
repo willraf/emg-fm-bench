@@ -82,6 +82,7 @@ def setup_data(cfg: OmegaConf, mode: str = "train", distributed: bool = False) -
 
     dataset_class = find_dataset_using_name(cfg.data.name)
     dataset = dataset_class(cfg, mode=mode)
+    print(f"Initialized {mode} dataset with {len(dataset)} samples.")
 
     sampler = DistributedSampler(dataset) if distributed else None
 
