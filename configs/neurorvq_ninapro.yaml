@@ -2,8 +2,8 @@ hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      window_duration: 1, 5
-#       finetuning.split_type: user,session
+      # data.window_length: 1, 5
+      finetuning.split_type: user,session
 #       # finetuning.freeze_backbone: True,False
 #       finetuning.pooling_type: mean,concat
 
@@ -55,8 +55,7 @@ encode_stage:
 pad_length:
   _target_: src.data.transforms.PadCropToLength
   field: emg
-  target_length: 1000
-
+  target_length: 1000 
 
 random_scale:
   _target_: src.data.transforms.RandomAmplitudeScale
@@ -69,7 +68,6 @@ channel_dropout:
   field: emg
   dropout_prob: 0.05
 
-
 window_duration: 5
 
 data:
@@ -79,7 +77,8 @@ data:
   timeseries_keys: null
   hdf5_path: data/ninapro_db5/ninapro_db5.hdf5
   num_channels: 16
-  window_length: 200     # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
+  window_length: 1000   # Calculate window length in samples based on duration and sample rate
+  # window_length: 200   # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
   sample_rate: 200
   stride: 50
   jitter: True
@@ -92,7 +91,7 @@ data:
       - ${standardise}
       - ${band_pass}
       - ${resample}
-      - ${pad_length}
+      # - ${pad_length}
       - ${random_scale}
       - ${channel_dropout}
       - ${neurorvq_embed}
@@ -101,7 +100,7 @@ data:
       - ${standardise}
       - ${band_pass}
       - ${resample}
-      - ${pad_length}
+      # - ${pad_length}
       - ${neurorvq_embed}
 
     test: ${data.transforms.val}
@@ -126,7 +125,7 @@ training:
 
 finetuning:
   split_type: session
-  freeze_backbone: False
+  freeze_backbone: True
   finetune_spacial_embedding: True
   pooling_type: concat
   learning_rate: 0.0001

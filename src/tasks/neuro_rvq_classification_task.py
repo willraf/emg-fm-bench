@@ -34,7 +34,6 @@ class NeuroRVQClassificationTask(BaseTask):
         super().__init__()
 
         self.cfg = cfg
-        self.resolve_parameters()
 
         fm_path = cfg.model.fm.checkpoint
         lr = cfg.finetuning.learning_rate
@@ -85,31 +84,31 @@ class NeuroRVQClassificationTask(BaseTask):
         self.test_metrics = Metrics(device, distributed, is_main)
 
 
-    def resolve_parameters(self):
-        """Ensure parameters given in the config file are consistent wih each other
-        window_duration, window_lenght, target_length, n_patches
+    # def resolve_parameters(self):
+    #     """Ensure parameters given in the config file are consistent wih each other
+    #     window_duration, window_lenght, target_length, n_patches
 
-        This is super hacky but will do for now. 
-        """
+    #     This is super hacky but will do for now. 
+    #     """
 
-        window_duration = self.cfg.window_duration
-        sample_rate = self.cfg.data.sample_rate
-        patch_length = self.cfg.model.fm.patch_size
-        target_fs = self.cfg.resample.target_fs
+    #     window_duration = self.cfg.window_duration
+    #     sample_rate = self.cfg.data.sample_rate
+    #     patch_length = self.cfg.model.fm.patch_size
+    #     target_fs = self.cfg.resample.target_fs
 
-        window_length = int(window_duration * sample_rate)
-        if window_length != self.cfg.data.window_length:
-            logging.warning(f"Derived window_length {window_length} from window_duration and sample_rate does not match config value {self.cfg.data.window_length}. Using derived value.")
-            self.cfg.data.window_length = window_length
+    #     window_length = int(window_duration * sample_rate)
+    #     if window_length != self.cfg.data.window_length:
+    #         logging.warning(f"Derived window_length {window_length} from window_duration and sample_rate does not match config value {self.cfg.data.window_length}. Using derived value.")
+    #         self.cfg.data.window_length = window_length
 
-        if target_fs != 1000:
-            logging.warning(f"Target sample rate {target_fs} is not 1000Hz. Sample rate is expected to be 1000Hz for NeuroRVQ. Ensure resampling is configured correctly.") 
+    #     if target_fs != 1000:
+    #         logging.warning(f"Target sample rate {target_fs} is not 1000Hz. Sample rate is expected to be 1000Hz for NeuroRVQ. Ensure resampling is configured correctly.") 
 
-        # Check we are padding to the correct length
-        target_len_after_resampling = int(window_duration * target_fs)
-        if target_len_after_resampling != self.cfg.pad_length.target_length:
-            logging.warning(f"Derived target_length after resampling {target_len_after_resampling} does not match pad_length.target_length {self.cfg.pad_length.target_length}. Adjusting pad_length.target_length to match derived value.")
-            self.cfg.pad_length.target_length = target_len_after_resampling
+    #     # Check we are padding to the correct length
+    #     target_len_after_resampling = int(window_duration * target_fs)
+    #     if target_len_after_resampling != self.cfg.pad_length.target_length:
+    #         logging.warning(f"Derived target_length after resampling {target_len_after_resampling} does not match pad_length.target_length {self.cfg.pad_length.target_length}. Adjusting pad_length.target_length to match derived value.")
+    #         self.cfg.pad_length.target_length = target_len_after_resampling
 
 
     def train_step(self, batch, batch_idx=None, epoch=None):

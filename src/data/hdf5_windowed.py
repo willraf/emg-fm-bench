@@ -211,7 +211,10 @@ class HDF5WindowedDataset(BaseDataset):
         actual_end_idx = min(end_idx, T)
 
         primary_fs = primary_data.attrs.get("sample_rate")
-        primary_window = primary_data[start_idx : actual_end_idx]
+        raw_slice = primary_data[start_idx : actual_end_idx]
+
+        # Ensure output window is always the same length, even if the whole signal is shorter than window length
+        primary_window = self.pad_crop_to_length(raw_slice, self.window_length)
 
         output = {self.primary_data_key: primary_window}
 
@@ -225,10 +228,16 @@ class HDF5WindowedDataset(BaseDataset):
                     # Scale the start and end indices so the time interval matches
                     scaling_factor = sample_rate / primary_fs
                     scaled_start_idx = round(start_idx * scaling_factor)
-                    scaled_end_idx = scaled_start_idx + round(self.window_length * scaling_factor)
-                    output[key] = data[scaled_start_idx : scaled_end_idx]
+                    scaled_window_length = round(self.window_length * scaling_factor)
+                    
+                    scaled_end_idx = scaled_start_idx + scaled_window_length
+                    # Pad or crop to ensure consistent length
+                    # Should only happen is the full singal is shorter than the window length after scaling, in which case we pad from the left
+                    window = self.pad_crop_to_length(data[scaled_start_idx : scaled_end_idx], scaled_window_length)
                 else:
-                    output[key] = data[start_idx : end_idx]
+                    window = self.pad_crop_to_length(data[start_idx : end_idx], self.window_length)
+
+                output[key] = window
 
         # Just return all metadata for the session and user
         # Could specifiy which keys to return in the config if we want to be more selective
@@ -267,3 +276,21 @@ class HDF5WindowedDataset(BaseDataset):
 
         # Leave Strings/None/Booleans as they are (Dataloader will handle strings)
         return value
+    
+    @staticmethod
+    def pad_crop_to_length(signal: np.ndarray, target_length: int) -> np.ndarray:
+        """
+        Pad with zeros if signal is shorter than target_length, or crop if it's longer.
+        Same logic as PadCropToLength transform
+
+        Args:
+            signal: np.ndarray of shape (T, C)
+            target_length: int, desired length of the output signal
+        """
+        current_length = signal.shape[0]
+        if current_length < target_length:
+            pad_width = target_length - current_length
+            # Pad the time dimension (0) with zeros on the left side
+            return np.pad(signal, ((pad_width, 0), (0, 0)), mode='constant')
+        else:
+            return signal[:target_length]

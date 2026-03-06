@@ -1,20 +1,20 @@
-# hydra:
-#   mode: MULTIRUN
-#   sweeper:
-#     params:
-#       data.window_length: 200, 1000
-#       finetuning.split_type: user,session
-#       # finetuning.freeze_backbone: True,False
-#       finetuning.pooling_type: mean,concat
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      data.window_length: 200, 1000
+      finetuning.split_type: user,session
+      # finetuning.freeze_backbone: True,False
+      # finetuning.pooling_type: mean,concat
 
 
 logging:
   log_interval: 10
-  use_wandb: False
+  use_wandb: True
   wandb_project: "neurorvq_ninaprodb5"
 
 experiment:
-  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${window_duration}s_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
+  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${data.window_length}_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
   random_seed: 42
   plot_examples: True
   save: True
@@ -37,15 +37,6 @@ resample:
   target_fs: 1000
   orig_fs: ${data.sample_rate}
 
-
-neurorvq_embed:
-  _target_: src.data.transforms.NeuroRVQEmbeddings
-  max_patches: ${model.fm.max_patches}
-  patch_len: ${model.fm.patch_size}
-  global_channels: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8',
-        'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16']
-  # Channels 1-8 are the first band, 9-16 are the second band, so this is selecting every other channel to get a mix of both bands
-  sample_channels: ['c1', 'c3', 'c5', 'c7', 'c9', 'c11', 'c13', 'c15', 'c2', 'c4', 'c6', 'c8', 'c10', 'c12', 'c14', 'c16']
 
 encode_stage:
   _target_: src.data.transforms.EncodeStage
@@ -96,13 +87,13 @@ data:
       - ${resample}
       - ${random_scale}
       - ${channel_dropout}
-      - ${pad_length}
+      # - ${pad_length}
       # - _target_: src.data.transforms.RotationAugmentation
     val:
       - ${standardise}
       - ${band_pass}
       - ${resample}
-      - ${pad_length}
+      # - ${pad_length}
 
     test: ${data.transforms.val}
 
