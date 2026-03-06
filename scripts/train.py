@@ -278,8 +278,8 @@ class Trainer:
 
         for trial in range(max_trials):
             logging.info(f"Trial {trial+1}/{max_trials}: Testing batch size {batch_size}...")
-            cfg.data.batch_size = batch_size
-            loader = setup_data(cfg, mode="val")
+            self.cfg.data.batch_size = batch_size
+            loader = setup_data(self.cfg, mode="val")
             
             batch = next(iter(loader))
 

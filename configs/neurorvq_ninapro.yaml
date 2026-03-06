@@ -2,7 +2,7 @@ hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      # data.window_length: 1, 5
+      data.window_length: 200, 1000
       finetuning.split_type: user,session
 #       # finetuning.freeze_backbone: True,False
 #       finetuning.pooling_type: mean,concat
@@ -57,6 +57,7 @@ pad_length:
   field: emg
   target_length: 1000 
 
+
 random_scale:
   _target_: src.data.transforms.RandomAmplitudeScale
   field: emg
@@ -67,8 +68,6 @@ channel_dropout:
   _target_: src.data.transforms.RandomChannelDropout
   field: emg
   dropout_prob: 0.05
-
-window_duration: 5
 
 data:
   name: hdf5_windowed

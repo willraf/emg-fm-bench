@@ -2,7 +2,7 @@ hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      window_length: 200, 1000
+      data.window_length: 200, 1000
 #       finetuning.split_type: user,session
 #       # finetuning.freeze_backbone: True,False
 #       finetuning.pooling_type: mean,concat
@@ -14,7 +14,8 @@ logging:
   wandb_project: "neurorvq_epn612"
 
 experiment:
-  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${data.window_length}_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
+  # name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${data.window_length}_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
+  name: neurorvq_epn_batch_size
   random_seed: 42
   plot_examples: True
   save: True
@@ -67,10 +68,6 @@ channel_dropout:
   field: emg
   dropout_prob: 0.05
 
-
-window_duration: 5
-
-
 data:
   name: hdf5_windowed
   root_key: epn612
@@ -78,7 +75,6 @@ data:
   timeseries_keys: null
   hdf5_path: data/epn612/epn612.hdf5
   num_channels: 8
-  metadata_file: ${data.data_dir}/metadata.csv
   # For finetuning, window length must be before resampling
   window_length: 1000      
   sample_rate: 200        # Original sample rate of the data
