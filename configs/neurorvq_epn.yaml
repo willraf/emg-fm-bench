@@ -2,7 +2,7 @@ hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      window_duration: 1, 5
+      window_length: 200, 1000
 #       finetuning.split_type: user,session
 #       # finetuning.freeze_backbone: True,False
 #       finetuning.pooling_type: mean,concat
@@ -68,7 +68,6 @@ channel_dropout:
   dropout_prob: 0.05
 
 
-
 window_duration: 5
 
 
@@ -81,7 +80,7 @@ data:
   num_channels: 8
   metadata_file: ${data.data_dir}/metadata.csv
   # For finetuning, window length must be before resampling
-  window_length: 1000      # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
+  window_length: 1000      
   sample_rate: 200        # Original sample rate of the data
   stride: 50
   jitter: True
@@ -94,7 +93,7 @@ data:
       - ${standardise}
       - ${band_pass}
       - ${resample}
-      - ${pad_length}
+      # - ${pad_length}
       - ${neurorvq_embed}
       # - _target_: src.data.transforms.RotationAugmentation
       
@@ -102,7 +101,7 @@ data:
       - ${standardise}
       - ${band_pass}
       - ${resample}
-      - ${pad_length}
+      # - ${pad_length}
       - ${neurorvq_embed}
       # - _target_: src.data.transforms.RotationAugmentation
     test: ${data.transforms.val}
