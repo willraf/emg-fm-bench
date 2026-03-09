@@ -3,7 +3,7 @@ hydra:
   sweeper:
     params:
       data.window_length: 200, 1000
-      finetuning.split_type: user,session
+      finetuning.split_type: subject,intra_session
       # finetuning.freeze_backbone: True,False
       # finetuning.pooling_type: mean,concat
 
@@ -61,9 +61,6 @@ channel_dropout:
   dropout_prob: 0.05
 
 
-window_duration: 1
-
-
 data:
   name: hdf5_windowed
   root_key: ninapro_db5
@@ -106,7 +103,7 @@ training:
   epochs: 100
 
 finetuning:
-  split_type: session
+  split_type: intra_session
   freeze_backbone: True
   finetune_spacial_embedding: True
   pooling_type: concat

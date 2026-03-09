@@ -185,4 +185,5 @@ def plot_confusion_matrix(cm: Union[np.ndarray, torch.Tensor],
                         ha="center", va="center",
                         color="white" if cm[i, j] > thresh else "black")
         
-        _save_or_show(fig, fpath)
+        
+    _save_or_show(fig, fpath)

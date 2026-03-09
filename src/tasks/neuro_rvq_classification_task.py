@@ -84,33 +84,6 @@ class NeuroRVQClassificationTask(BaseTask):
         self.test_metrics = Metrics(device, distributed, is_main)
 
 
-    # def resolve_parameters(self):
-    #     """Ensure parameters given in the config file are consistent wih each other
-    #     window_duration, window_lenght, target_length, n_patches
-
-    #     This is super hacky but will do for now. 
-    #     """
-
-    #     window_duration = self.cfg.window_duration
-    #     sample_rate = self.cfg.data.sample_rate
-    #     patch_length = self.cfg.model.fm.patch_size
-    #     target_fs = self.cfg.resample.target_fs
-
-    #     window_length = int(window_duration * sample_rate)
-    #     if window_length != self.cfg.data.window_length:
-    #         logging.warning(f"Derived window_length {window_length} from window_duration and sample_rate does not match config value {self.cfg.data.window_length}. Using derived value.")
-    #         self.cfg.data.window_length = window_length
-
-    #     if target_fs != 1000:
-    #         logging.warning(f"Target sample rate {target_fs} is not 1000Hz. Sample rate is expected to be 1000Hz for NeuroRVQ. Ensure resampling is configured correctly.") 
-
-    #     # Check we are padding to the correct length
-    #     target_len_after_resampling = int(window_duration * target_fs)
-    #     if target_len_after_resampling != self.cfg.pad_length.target_length:
-    #         logging.warning(f"Derived target_length after resampling {target_len_after_resampling} does not match pad_length.target_length {self.cfg.pad_length.target_length}. Adjusting pad_length.target_length to match derived value.")
-    #         self.cfg.pad_length.target_length = target_len_after_resampling
-
-
     def train_step(self, batch, batch_idx=None, epoch=None):
         temporal_ix = batch["temporal_ix"].int().to(self.device)   # B, n_patches  
         spatial_ix = batch["spatial_ix"].int().to(self.device)      # B, n_patches
@@ -126,6 +99,11 @@ class NeuroRVQClassificationTask(BaseTask):
             temporal_embedding_ix=temporal_ix,
             spatial_embedding_ix=spatial_ix
         )  
+
+        print(f"Logits shape: {logits.shape}, Targets shape: {targets.shape}")
+        preds = logits.argmax(dim=1)
+        print(f"Preds shape: {preds.shape}, Preds: {preds}, Targets: {targets}")
+        print(f"Unique Preds: {preds.unique()}, Unique Targets: {targets.unique()}")
         
         loss = self.loss_fn(logits, targets)
         

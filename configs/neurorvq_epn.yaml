@@ -3,8 +3,8 @@ hydra:
   sweeper:
     params:
       data.window_length: 200, 1000
-#       finetuning.split_type: user,session
-#       # finetuning.freeze_backbone: True,False
+      finetuning.split_type: subject,intra_session
+      finetuning.freeze_backbone: True,False
 #       finetuning.pooling_type: mean,concat
 
 
@@ -14,8 +14,8 @@ logging:
   wandb_project: "neurorvq_epn612"
 
 experiment:
-  # name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${data.window_length}_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
-  name: neurorvq_epn_batch_size
+  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${data.window_length}_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
+  # name: TEST
   random_seed: 42
   plot_examples: True
   save: True
@@ -77,7 +77,7 @@ data:
   num_channels: 8
   # For finetuning, window length must be before resampling
   window_length: 1000      
-  sample_rate: 200        # Original sample rate of the data
+  sample_rate: 200        # Original sample rate of the (primary) data
   stride: 50
   jitter: True
   num_workers: 10
@@ -107,7 +107,7 @@ task:
 
 
 finetuning:
-  split_type: session 
+  split_type: intra_session 
   freeze_backbone: False
   finetune_spacial_embedding: True
   pooling_type: concat

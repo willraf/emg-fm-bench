@@ -94,8 +94,12 @@ import h5py
 import json
 import numpy as np
 import argparse
+import urllib.request
+import zipfile
+import shutil
 from pathlib import Path
 from tqdm import tqdm
+
 
 def get_gesture_id(gesture_name):
     """Maps a gesture name to its corresponding ID using the provided mapping."""
@@ -111,11 +115,13 @@ def get_gesture_id(gesture_name):
 
     return gesture_mapping.get(gesture_name, -1)  # Return -1 for unknown gestures
 
+
 def get_global_gesture_id(gesture_id):
     """Maps local (datset specific) gesture IDs to global for multi-dataset training"""
     return gesture_id
 
-def process_samples(sample_dict, user_group, session_info, split="train"):
+
+def process_samples(sample_dict, user_group, session_info, original_session_split="train", subj_split="train"):
     """Processes a dictionary of samples and adds them to the user_group."""
     total_samples = len(sample_dict)
     val_split_idx = int(0.7 * total_samples)  # 70% for training, 10% for validation, 20% for testing
@@ -125,7 +131,8 @@ def process_samples(sample_dict, user_group, session_info, split="train"):
         
         # Update session ID to avoid naming conflicts between training and testing samples (e.g. session 1 in both)
         session_num = int(session_id.split('_')[-1])  # Extract numeric part of session ID
-        if split == "test":
+        # We offset the session number by 150 for test sessions to avoid conflicts with training sessions (e.g. session1 in training and testing)
+        if original_session_split == "test":
             session_num += 150
         session_id = f'session{session_num}'
             
@@ -143,6 +150,7 @@ def process_samples(sample_dict, user_group, session_info, split="train"):
         # Unlabelled sessions (gesture_id == -1) go into a separate "unlabelled" split, otherwise we use the val/test/train split based on index
         if session_group.attrs['gesture_id'] == -1:
             sess_split = "unlabelled"
+            subj_split = "unlabelled"
         elif sess_idx < val_split_idx:
             sess_split = "train"
         elif val_split_idx <= sess_idx < test_split_idx:
@@ -150,7 +158,10 @@ def process_samples(sample_dict, user_group, session_info, split="train"):
         else:
             sess_split = "test"
 
-        session_group.attrs['split'] = sess_split
+        session_group.attrs['intra_session_split'] = sess_split
+        # EPN612 does not explictly state that sessions (idx_1, idx_2, etc.) are from different recording sessions, so we treat as intra-session only
+        session_group.attrs['inter_session_split'] = "n/a"
+        session_group.attrs['subject_split'] = subj_split
 
         # 2. EMG Dataset (T, 8)
         emg_dict = session_data.get('emg', {})
@@ -198,6 +209,7 @@ def process_samples(sample_dict, user_group, session_info, split="train"):
 
         # session_group.create_dataset("imu", data=imu_array, compression="gzip")
 
+
 def process_metadata(user_info, general_info):
     gender = user_info.get('gender', 'u').lower()
 
@@ -242,12 +254,68 @@ def process_metadata(user_info, general_info):
     return standardised_user_info, standadised_session_info
 
 
-def main(dataset_dir, output_path=None):
+def download_epn612(data_dir):
+    """
+    Downloads EPN612 from Zenodo and flattens the directory structure.
+    URL: https://zenodo.org/records/4421500
+    """
+    data_dir = Path(data_dir)
+    data_dir.mkdir(parents=True, exist_ok=True)
+    
+    url = "https://zenodo.org/records/4421500/files/EMG-EPN612%20Dataset.zip?download=1"
+    zip_path = data_dir / "epn612_raw.zip"
+    
+    print(f"Downloading EPN612 from Zenodo...")
+    try:
+        urllib.request.urlretrieve(url, zip_path)
+        
+        # 2. Extract and Flatten
+        print("Extracting and cleaning up directory structure...")
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            for member in zip_ref.namelist():
+                # Zenodo zip usually has a top-level folder 'EMG-EPN612 Dataset/'
+                # We want to strip that and put contents directly in data_dir
+                member_path = Path(member)
+                
+                # Skip the top-level directory itself and any non-essential files
+                if len(member_path.parts) <= 1:
+                    continue
+                
+                # Create the target path (omitting the first directory part)
+                target_path = data_dir / Path(*member_path.parts[1:])
+                
+                if member.endswith('/'): # It's a directory
+                    target_path.mkdir(parents=True, exist_ok=True)
+                else: # It's a file
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    with zip_ref.open(member) as source, open(target_path, "wb") as target:
+                        shutil.copyfileobj(source, target)
+                        
+        # 3. Cleanup
+        zip_path.unlink()
+        print(f"Successfully downloaded and organized EPN612 in {data_dir}")
+        
+    except Exception as e:
+        print(f"An error occurred during EPN612 download: {e}")
+        if zip_path.exists():
+            zip_path.unlink()
+
+
+def main(dataset_dir, output_dir=None, download_data=False):
     dataset_dir = Path(dataset_dir)
-    output_path = Path(output_path) if output_path else dataset_dir / "epn612.hdf5"
+
+    if output_dir is None:
+        output_fpath = dataset_dir / "epn612.hdf5"
+    else:
+        output_dir = Path(output_dir)
+        output_dir.parent.mkdir(parents=True, exist_ok=True)
+        output_fpath = output_dir / "epn612.hdf5"
+
+    if download_data:
+        download_epn612(dataset_dir)
     
     # EPN612 splits: 'trainingJSON' (train users) and 'testingJSON' (test users)
-    with h5py.File(output_path, "w") as f:
+    with h5py.File(output_fpath, "w") as f:
         root = f.create_group("epn612")
 
         for mode in ["training", "testing"]:
@@ -295,17 +363,19 @@ def main(dataset_dir, output_path=None):
                 # Store metadata as attributes
                 for k, v in user_std.items():
                     subj_group.attrs[k] = v
-                subj_group.attrs['split'] = subj_split
+                subj_group.attrs['subject_split'] = subj_split
 
                 # Process the internal splits
                 # user_data['trainingSamples'] goes to training.hdf5
-                process_samples(user_data.get('trainingSamples', {}), subj_group, session_std, split="train")
+                process_samples(user_data.get('trainingSamples', {}), subj_group, session_std, original_session_split="train", subj_split=subj_split)
                 # user_data['testingSamples'] goes to testing.hdf5
-                process_samples(user_data.get('testingSamples', {}), subj_group, session_std, split="test")
+                process_samples(user_data.get('testingSamples', {}), subj_group, session_std, original_session_split="test", subj_split=subj_split)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_dir", type=str, default="data/epn612/")
     parser.add_argument("--output_dir", type=str, default=None, help="Directory to save the converted HDF5 files. Defaults to the dataset directory.")
+    parser.add_argument("--download_data", action="store_true", help="Whether to download the EPN612 dataset.")
     args = parser.parse_args()
-    main(args.dataset_dir, args.output_dir)
+    main(args.dataset_dir, args.output_dir, args.download_data)
