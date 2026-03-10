@@ -1,0 +1,46 @@
+# @package _global_
+model:
+  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
+  sample_rate: 2000
+
+  fm:
+    name: physiowave
+    checkpoint: pretrained_models/foundation_models/physiowave_pretraining.pt
+    in_channels: ${data.num_channels}
+    max_level: 3
+    wave_kernel_size: 16
+    wavelet_names: null
+    use_separate_channel: True
+    # Patch embedding parameters
+    patch_size: 20
+    embed_dim: 128
+    # Transformer parameters
+    depth: 6
+    num_heads: 8
+    mlp_ratio: 4.0
+    dropout: 0.1
+    rope_dim: null
+    # Position encoding parameters
+    use_pos_embed: True
+    pos_embed_type: '2d'
+    # Masking parameters
+    masking_strategy: 'frequency_guided'
+    importance_ratio: 0.6
+    mask_ratio: 0.15
+    # Task head parameters - no head needed as the wrapper will take care of this
+    task_type: null
+    num_classes: null
+    output_dim: null
+    head_config: null
+    pooling: null
+
+
+  wrapper:
+    # Parameters needed to construct the BioFMWrapper
+    embed_dim: ${model.fm.embed_dim}
+    n_classes: ${data.n_classes}
+    patch_size: ${model.fm.patch_size}
+    num_channels: ${data.num_channels}
+    pooling_type: concat
+    finetune_spacial_embedding: False
+    

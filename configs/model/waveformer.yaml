@@ -1,0 +1,10 @@
+# @package _global_
+model:
+  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
+  sample_rate: null
+
+  fm:
+    name: wave_former
+    checkpoint: pretrained_models/foundation_models/wave_former_pretraining.pt
+
+    return_latent: True 

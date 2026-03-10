@@ -1,0 +1,38 @@
+# @package _global_
+transforms:
+  standardise:
+    _target_: src.data.transforms.StandardiseSignal
+    field: emg
+
+  band_pass:
+    _target_: src.data.transforms.BandPassFilter 
+    lowpass: 90 
+    highpass: 20 
+    order: 3 
+    fs: ${data.sample_rate}
+
+  resample:
+    _target_: src.data.transforms.Resample 
+    field: emg
+    target_fs: ${model.sample_rate}
+    orig_fs: ${data.sample_rate}
+
+  encode_stage:
+    _target_: src.data.transforms.EncodeStage
+    field: stage
+
+  pad_length:
+    _target_: src.data.transforms.PadCropToLength
+    field: emg
+    target_length: 1000 
+
+  random_scale:
+    _target_: src.data.transforms.RandomAmplitudeScale
+    field: emg
+    min_scale: 0.9
+    max_scale: 1.1
+
+  channel_dropout:
+    _target_: src.data.transforms.RandomChannelDropout
+    field: emg
+    dropout_prob: 0.05

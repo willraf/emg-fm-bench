@@ -1,0 +1,6 @@
+# @package _global_
+
+# This replaces the need for command line arguments
+defaults:
+  - override /dataset: epn612
+  - override /model: neurorvq

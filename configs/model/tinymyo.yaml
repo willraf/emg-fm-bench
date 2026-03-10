@@ -1,0 +1,37 @@
+# @package _global_
+model:
+  name: tinymyo
+  # Sample rate the model was trained at
+  sample_rate: 2000
+  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
+  fm:
+    name: tiny_myo
+    checkpoint: pretrained_models/TinyMyo/pretraining/base.safetensors
+    img_size: ${data.window_length}
+    patch_size: 20
+    in_chans: ${data.num_channels}
+    embed_dim: 192
+    n_layer: 8
+    n_head: 3
+    mlp_ratio: 4
+    qkv_bias: True
+    attn_drop: 0.1
+    proj_drop: 0.1
+    drop_path: 0.1
+    # THese dont actually get used
+    task: classification
+    classification_type: ml
+    reduction_type: concat
+    num_classes: 53
+    reg_target_len: 500
+    ###
+    return_latent: True
+
+  wrapper:
+    # Parameters needed to construct the BioFMWrapper
+    embed_dim: ${model.fm.embed_dim}
+    n_classes: ${data.n_classes}
+    patch_size: ${model.fm.patch_size}
+    num_channels: ${data.num_channels}
+    pooling_type: concat
+    finetune_spacial_embedding: False
