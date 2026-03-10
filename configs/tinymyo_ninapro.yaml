@@ -2,7 +2,7 @@ hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      # data.window_length: 200, 1000
+      data.window_length: 200, 1000
       finetuning.split_type: subject,intra_session
       finetuning.freeze_backbone: True,False
       # finetuning.pooling_type: mean,concat
@@ -34,7 +34,7 @@ band_pass:
 resample:
   _target_: src.data.transforms.Resample 
   field: emg
-  target_fs: 1000
+  target_fs: ${model.sample_rate}
   orig_fs: ${data.sample_rate}
 
 
@@ -68,7 +68,7 @@ data:
   timeseries_keys: null
   hdf5_path: data/ninapro_db5/ninapro_db5.hdf5
   num_channels: 16
-  window_length: 1000     # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
+  window_length: 200     # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
   sample_rate: 200
   stride: 50
   jitter: True
@@ -104,16 +104,17 @@ training:
 
 finetuning:
   split_type: intra_session
-  freeze_backbone: True
+  freeze_backbone: False
   finetune_spacial_embedding: True
   pooling_type: concat
-  learning_rate: 0.0001
+  learning_rate: 0.00001
   weight_decay: 0
   n_classes: 53
   target_field: gesture_id
 
 model:
   name: tinymyo
+  sample_rate: 2000
   checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
   fm:
     checkpoint: pretrained_models/TinyMyo/pretraining/base.safetensors

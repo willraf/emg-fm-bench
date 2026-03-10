@@ -52,7 +52,7 @@ class Evaluator:
 
         self.save_dir = setup_save_dir(cfg, overwrite=overwrite, mode='test', is_main_process=self.is_main)
 
-        self.test_loader = setup_data(cfg, mode="test", distributed=self.distributed)
+        self.test_loader = setup_data(cfg.data, mode="test", distributed=self.distributed)
 
         self.task = setup_task(cfg, device=self.device, distributed=self.distributed, is_main=self.is_main, save_dir=self.save_dir)
 

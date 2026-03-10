@@ -3,7 +3,9 @@ defaults:
   - dataset: ninapro_db5
   - model: neurorvq
   - transforms: transforms
-  - task: neuro_rvq_classification
+
+task: 
+  name: finetune_classification
 
 logging:
   log_interval: 10
@@ -12,29 +14,29 @@ logging:
 
 # Global experiment settings that use interpolation
 experiment:
-  name: ${now:%Y-%m-%d}_${model.name}_${dataset.root_key}_${finetuning.split_type}
+  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${data.window_length}s_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}
   random_seed: 42
   plot_examples: True
   save: True
 
 training:
   patience: 8
-  epochs: 100
+  epochs: 1
 
+# TODO split params into their own section
 finetuning:
-  split_type: subject
+  # Needed by the task
+  target_field: gesture_id
   freeze_backbone: False
-  finetune_spacial_embedding: True
-  pooling_type: concat
+  from_scratch: False
   learning_rate: 0.0001
   weight_decay: 0
-  n_classes: 53
-  target_field: gesture_id
 
-hydra:
-  mode: MULTIRUN
-  sweeper:
-    params:
-      data.window_length: 200, 1000
-      finetuning.split_type: subject,intra_session
-      finetuning.freeze_backbone: True,False
+
+# hydra:
+#   mode: MULTIRUN
+#   sweeper:
+#     params:
+#       data.window_length: 200, 1000
+#       data.split_type: subject,intra_session
+#       finetuning.freeze_backbone: True,False

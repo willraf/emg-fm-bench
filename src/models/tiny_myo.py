@@ -598,6 +598,7 @@ class TinyMyo(nn.Module):
     reduction_type: Literal["concat", "mean"] = "concat"
     num_classes: int = 53
     reg_target_len: int = 500
+    return_latent: bool = False
 
     def __post_init__(self):
         super().__init__()
@@ -748,6 +749,7 @@ class TinyMyo(nn.Module):
                   [B, Out] and the original input signal tensor.
         """
         x_original = x_signal.clone()
+        B, C, T = x_signal.shape
         x = self.prepare_tokens(x_signal, mask=mask)
 
         # forward pass through transformer blocks
@@ -758,6 +760,11 @@ class TinyMyo(nn.Module):
         if self.num_classes == 0:  # reconstruction
             x_reconstructed = self.model_head(x_latent)  # [B, N, patch_size]
             return x_reconstructed, x_original
+        
+        if self.return_latent:
+            # return x_latent.view(B, self.in_chans, -1, self.embed_dim)  # [B, num_patches_per_channel, in_chans, embed_dim]
+            x_latent = rearrange(x_latent, "b (c p) d -> b c p d", c=self.in_chans)  # [B, num_patches, in_chans, embed_dim]
+            return x_latent
 
         else:  # classification or regression
             x_out = self.model_head(x_latent)  # [B, Out]

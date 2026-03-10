@@ -1,6 +1,6 @@
-""" Module neuro_rvq_eval_task.py
+""" Module tiny_myo_classification_task.py
 
-Finetune neuroRVQ on different datasets
+***Add description here***
 
 Usage:
 
@@ -9,8 +9,16 @@ Authors:
     Will Raftery
 
 Date:
-    23/02/2026
+    10/03/2026
 """
+
+
+
+def main():
+    pass
+
+if __name__ == '__main__':
+    main()
 
 
 from src.tasks.base_task import BaseTask

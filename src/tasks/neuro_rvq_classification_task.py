@@ -17,7 +17,7 @@ from src.tasks.base_task import BaseTask
 from src.models import setup_model
 import src.utils.visualisation as vis
 from src.utils.metrics import Metrics
-from src.models.neuro_rvq_wrapper import NeuroRVQClassifierWrapper 
+from src.models.bio_fm_wrapper import NeuroRVQClassifierWrapper 
 
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch

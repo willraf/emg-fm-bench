@@ -47,7 +47,7 @@ import logging
 #         self.stride = self.stride if self.stride is not None else self.window_length  # Default to non-overlapping windows
 #         self.global_index = self._build_global_index()
 #         self._file = None
-#         transform_cfgs = self.cfg.data.transforms.get(self.mode)
+#         transform_cfgs = cfg.transforms.get(self.mode)
 #         self.transforms = self._build_transform(transform_cfgs) if transform_cfgs else None
     
 
@@ -59,22 +59,22 @@ class HDF5WindowedDataset(BaseDataset):
 
         self.mode = mode
         
-        self.hdf5_path = Path(self.cfg.data.hdf5_path)
-        self.window_length = self.cfg.data.window_length
+        self.hdf5_path = Path(cfg.hdf5_path)
+        self.window_length = cfg.window_length
 
         # The type of split/generalisation we are evaluating
-        self.split_type = self.cfg.finetuning.split_type            # Should be either "user" or "session"
+        self.split_type = cfg.split_type            # Should be either "user" or "session"
         assert self.split_type in ["subject", "intra_session", "inter_session"], "split_type must be either 'subject', 'intra_session', or 'inter_session'"
 
-        stride = self.cfg.data.stride
+        stride = cfg.stride
         self.stride = stride if stride is not None else self.window_length  # Default to non-overlapping windows
-        self.jitter = self.cfg.data.jitter
+        self.jitter = cfg.jitter
 
-        self.primary_data_key = self.cfg.data.primary_data_key
-        self.root_key = self.cfg.data.root_key
-        self.timeseries_keys = self.cfg.data.timeseries_keys if self.cfg.data.timeseries_keys is not None else []
+        self.primary_data_key = cfg.primary_data_key
+        self.root_key = cfg.root_key
+        self.timeseries_keys = cfg.timeseries_keys if cfg.timeseries_keys is not None else []
         
-        transform_cfgs = self.cfg.data.transforms.get(self.mode)
+        transform_cfgs = cfg.transforms.get(self.mode)
         self.transform = self._build_transform(transform_cfgs) if transform_cfgs else None
 
         # We build this ONCE at startup

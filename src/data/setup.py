@@ -23,6 +23,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from omegaconf import OmegaConf
+import logging
+import inspect
 
 def resolve_data_dir(cfg):
     """
@@ -62,7 +64,7 @@ def find_dataset_using_name(dataset_name):
     return dataset
 
 
-def setup_data(cfg: OmegaConf, mode: str = "train", distributed: bool = False) -> DataLoader:
+def setup_data(data_cfg: OmegaConf, mode: str = "train", distributed: bool = False) -> DataLoader:
     """
     Setup data loaders and scheduler based on the configuration.
     
@@ -74,15 +76,31 @@ def setup_data(cfg: OmegaConf, mode: str = "train", distributed: bool = False) -
     Returns:
         dataloader (DataLoader): DataLoader for the specified mode
     """
-    num_workers = cfg.data.num_workers
-    batch_size = cfg.data.batch_size
+    num_workers = data_cfg.num_workers
+    batch_size = data_cfg.batch_size
+    dataset_name = data_cfg.name
 
     # This is a bit of a hack, as I copy data to a tmpdir for faster access on the HPC
     # resolve_data_dir(cfg)
 
-    dataset_class = find_dataset_using_name(cfg.data.name)
-    dataset = dataset_class(cfg, mode=mode)
-    print(f"Initialized {mode} dataset with {len(dataset)} samples.")
+    dataset_class = find_dataset_using_name(dataset_name)
+
+    sig = inspect.signature(dataset_class.__init__)
+
+    # Check if 'cfg' is explicitly requested in the signature
+    # Leave funcitonality for both styles of model class (those that take full cfg and those that take unpacked parameters)
+    # Full cfg useful for development, experimentation and ablation stages, unpacked parameters for production and premade models
+    if 'cfg' in sig.parameters:
+        logging.info(f"Dataset [{dataset_name}] requested full 'cfg'. Passing OmegaConf object.")
+        dataset = dataset_class(data_cfg, mode=mode)
+    else:
+        logging.info(f"Dataset [{dataset_name}] standardized. Unpacking parameters.")
+        # Resolve and convert to standard dict
+        params = OmegaConf.to_container(data_cfg, resolve=True)
+        params.pop('name', None)
+        dataset = dataset_class(**params, mode=mode)
+
+    logging.info(f"Initialized {mode} dataset with {len(dataset)} samples.")
 
     sampler = DistributedSampler(dataset) if distributed else None
 

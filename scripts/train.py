@@ -82,8 +82,8 @@ class Trainer:
 
         self.task = setup_task(cfg, device=self.device, distributed=self.distributed, is_main=self.is_main, save_dir=self.save_dir)
 
-        self.train_loader = setup_data(cfg, mode="train", distributed=self.distributed)
-        self.val_loader = setup_data(cfg, mode="val", distributed=self.distributed)
+        self.train_loader = setup_data(cfg.data, mode="train", distributed=self.distributed)
+        self.val_loader = setup_data(cfg.data, mode="val", distributed=self.distributed)
 
         self.epochs_run = 0
         if cfg.model.checkpoint is not None:

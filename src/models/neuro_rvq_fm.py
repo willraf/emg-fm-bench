@@ -25,8 +25,10 @@ from torch.nn import functional as F
 from einops import rearrange
 import math
 from functools import partial
-import os
-import sys
+from dataclasses import dataclass
+from typing import Optional, Callable
+
+import numpy as np
 
 from src.models.neuro_rvq.NeuroRVQ_modules import Block, trunc_normal_
 
@@ -114,43 +116,49 @@ class MultiDimentionalTemporalConv(nn.Module):
         x4 = rearrange(x4, 'B C NA T -> B NA (T C)')
         return x1, x2, x3, x4
         
+
+
+@dataclass(eq=False)
 class NeuroRVQFM(nn.Module):
     """
     NeuroRVQ Foundation Model Class
     """
-    def __init__(self, cfg):
 
+    max_patches: int
+    patch_size: int
+    in_chans: int
+    out_chans: int
+    num_classes: int
+    embed_dim: int
+    depth: int
+    num_heads: int
+    mlp_ratio: float
+    qkv_bias: bool
+    qk_norm: Optional[Callable]
+    drop_rate: float
+    attn_drop_rate: float
+    drop_path_rate: float
+    init_values: Optional[float]
+    init_scale: float
+    n_global_electrodes: int
+    vocab_size: int
+    use_as_encoder: bool
+    use_for_pretraining: bool
+    sample_channels: tuple
+    return_patch_embeddings: bool
+
+    # Channel labels of the global electrodes (from pretraining)
+    global_channels: tuple = (
+        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8',
+        'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16'
+    )
+    # Channel labels of the sample-specific electrodes
+  
+
+    def __post_init__(self):
         super().__init__()
-        
-        self.num_classes = cfg.num_classes
-        self.embed_dim = cfg.embed_dim
-        self.num_heads = cfg.num_heads
-        self.patch_size = cfg.patch_size
-        self.use_for_pretraining = cfg.use_for_pretraining
-        self.use_as_encoder = cfg.use_as_encoder
-
-        # Not necessary - legacy code
         self.cls_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))
-
-        in_chans = cfg.in_chans
-        out_chans = cfg.out_chans
-        n_global_electrodes = cfg.n_global_electrodes
-        n_patches = cfg.max_patches
-        drop_rate = cfg.drop_rate
-        drop_path_rate = cfg.drop_path_rate
-        depth = cfg.depth
-        mlp_ratio = cfg.mlp_ratio
-        qkv_bias = cfg.qkv_bias
-        qk_norm = partial(nn.LayerNorm, eps=1e-6) 
-        attn_drop_rate = cfg.attn_drop_rate
-        init_values = cfg.init_values
-        vocab_size = cfg.vocab_size
-        init_scale = cfg.init_scale
-
-        embed_dim = self.embed_dim
-        num_classes = self.num_classes
-        num_heads = self.num_heads
-
+        self.qk_norm = partial(nn.LayerNorm, eps=1e-6) 
 
         # print(f'n_patches {n_patches}')
         # print(f'patch_size {self.patch_size}')
@@ -173,105 +181,112 @@ class NeuroRVQFM(nn.Module):
         # print(f'use_as_encoder {self.use_as_encoder}')
         # print(f'use_for_pretraining {self.use_for_pretraining}')
 
+        # For adding spacial and temporal embeddings
+        # Create a mapping from global channel names to their indices for easy lookup
+        self.global_channel_map = {name: i for i, name in enumerate(self.global_channels)}
+        self._cached_sample_channels = None
+        self._cached_spat_ix_tensor = None
+        # Sample channels array stored as a lazy property, as may not be determined till runtime
+        
 
         if self.use_as_encoder or self.use_for_pretraining:
-            self.patch_embed = MultiDimentionalTemporalConv(out_chans=out_chans)
+            self.patch_embed = MultiDimentionalTemporalConv(out_chans=self.out_chans)
         else:     
-            self.patch_embed_1 = PatchEmbed(in_chans=in_chans, embed_dim=embed_dim)
-            self.patch_embed_2 = PatchEmbed(in_chans=in_chans, embed_dim=embed_dim)
-            self.patch_embed_3 = PatchEmbed(in_chans=in_chans, embed_dim=embed_dim)
-            self.patch_embed_4 = PatchEmbed(in_chans=in_chans, embed_dim=embed_dim)
+            self.patch_embed_1 = PatchEmbed(in_chans=self.in_chans, embed_dim=self.embed_dim)
+            self.patch_embed_2 = PatchEmbed(in_chans=self.in_chans, embed_dim=self.embed_dim)
+            self.patch_embed_3 = PatchEmbed(in_chans=self.in_chans, embed_dim=self.embed_dim)
+            self.patch_embed_4 = PatchEmbed(in_chans=self.in_chans, embed_dim=self.embed_dim)
 
-        self.pos_embed = nn.Parameter(torch.zeros(n_global_electrodes + 1, embed_dim), requires_grad=True)
-        self.time_embed = nn.Parameter(torch.zeros(n_patches, embed_dim), requires_grad=True)
-        self.pos_drop = nn.Dropout(p=drop_rate)
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
+        self.pos_embed = nn.Parameter(torch.zeros(self.n_global_electrodes + 1, self.embed_dim), requires_grad=True)
+        self.time_embed = nn.Parameter(torch.zeros(self.max_patches, self.embed_dim), requires_grad=True)
+        self.pos_drop = nn.Dropout(p=self.drop_rate)
+        dpr = [x.item() for x in torch.linspace(0, self.drop_path_rate, self.depth)]  # stochastic depth decay rule
 
         self.blocks = nn.ModuleList([
             Block(
-                dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_norm=qk_norm,
-                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=nn.LayerNorm,
-                init_values=init_values, window_size=None)
-            for i in range(depth)])
+                dim=self.embed_dim, num_heads=self.num_heads, mlp_ratio=self.mlp_ratio, qkv_bias=self.qkv_bias, qk_norm=self.qk_norm,
+                drop=self.drop_rate, attn_drop=self.attn_drop_rate, drop_path=dpr[i], norm_layer=nn.LayerNorm,
+                init_values=self.init_values, window_size=None)
+            for i in range(self.depth)])
 
         # If used for pre-training we need heads to predict 16 * 4 tokens per input sample
         if self.use_for_pretraining:
-            self.mask_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-            self.norm_pre = nn.LayerNorm(embed_dim)
-            self.head_pre_1 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_2 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_3 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_4 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_5 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_6 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_7 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_8 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_9 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_10 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_11 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_12 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_13 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_14 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_15 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_16 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_17 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_18 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_19 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_20 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_21 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_22 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_23 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_24 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_25 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_26 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_27 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_28 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_29 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_30 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_31 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_32 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_33 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_34 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_35 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_36 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_37 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_38 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_39 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_40 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_41 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_42 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_43 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_44 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_45 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_46 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_47 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_48 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_49 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_50 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_51 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_52 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_53 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_54 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_55 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_56 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_57 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_58 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_59 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_60 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_61 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_62 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_63 = nn.Linear(embed_dim, vocab_size)
-            self.head_pre_64 = nn.Linear(embed_dim, vocab_size)
+            self.mask_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))
+            self.norm_pre = nn.LayerNorm(self.embed_dim)
+            self.head_pre_1 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_2 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_3 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_4 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_5 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_6 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_7 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_8 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_9 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_10 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_11 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_12 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_13 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_14 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_15 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_16 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_17 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_18 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_19 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_20 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_21 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_22 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_23 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_24 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_25 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_26 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_27 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_28 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_29 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_30 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_31 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_32 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_33 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_34 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_35 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_36 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_37 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_38 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_39 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_40 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_41 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_42 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_43 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_44 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_45 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_46 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_47 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_48 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_49 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_50 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_51 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_52 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_53 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_54 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_55 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_56 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_57 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_58 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_59 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_60 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_61 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_62 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_63 = nn.Linear(self.embed_dim, self.vocab_size)
+            self.head_pre_64 = nn.Linear(self.embed_dim, self.vocab_size)
         else:
             self.norm = nn.Identity()
-            self.fc_norm_1 = nn.LayerNorm(embed_dim)
-            self.head_1 = nn.Linear(embed_dim, num_classes) if num_classes > 0 else nn.Identity()
-            self.fc_norm_2 = nn.LayerNorm(embed_dim)
-            self.head_2 = nn.Linear(embed_dim, num_classes) if num_classes > 0 else nn.Identity()
-            self.fc_norm_3 = nn.LayerNorm(embed_dim)
-            self.head_3 = nn.Linear(embed_dim, num_classes) if num_classes > 0 else nn.Identity()
-            self.fc_norm_4 = nn.LayerNorm(embed_dim)
-            self.head_4 = nn.Linear(embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+            self.fc_norm_1 = nn.LayerNorm(self.embed_dim)
+            self.head_1 = nn.Linear(self.embed_dim, self.num_classes) if self.num_classes > 0 else nn.Identity()
+            self.fc_norm_2 = nn.LayerNorm(self.embed_dim)
+            self.head_2 = nn.Linear(self.embed_dim, self.num_classes) if self.num_classes > 0 else nn.Identity()
+            self.fc_norm_3 = nn.LayerNorm(self.embed_dim)
+            self.head_3 = nn.Linear(self.embed_dim, self.num_classes) if self.num_classes > 0 else nn.Identity()
+            self.fc_norm_4 = nn.LayerNorm(self.embed_dim)
+            self.head_4 = nn.Linear(self.embed_dim, self.num_classes) if self.num_classes > 0 else nn.Identity()
 
         # Initialize the weights of the network
         trunc_normal_(self.pos_embed, std=.02)
@@ -349,26 +364,83 @@ class NeuroRVQFM(nn.Module):
             if isinstance(self.head_1, nn.Linear):
                 trunc_normal_(self.head_1.weight, std=.02)
             if isinstance(self.head_1, nn.Linear):
-                self.head_1.weight.data.mul_(init_scale)
-                self.head_1.bias.data.mul_(init_scale)
+                self.head_1.weight.data.mul_(self.init_scale)
+                self.head_1.bias.data.mul_(self.init_scale)
             if isinstance(self.head_2, nn.Linear):
                 trunc_normal_(self.head_2.weight, std=.02)
             if isinstance(self.head_2, nn.Linear):
-                self.head_2.weight.data.mul_(init_scale)
-                self.head_2.bias.data.mul_(init_scale)
+                self.head_2.weight.data.mul_(self.init_scale)
+                self.head_2.bias.data.mul_(self.init_scale)
             if isinstance(self.head_3, nn.Linear):
                 trunc_normal_(self.head_3.weight, std=.02)
             if isinstance(self.head_3, nn.Linear):
-                self.head_3.weight.data.mul_(init_scale)
-                self.head_3.bias.data.mul_(init_scale)
+                self.head_3.weight.data.mul_(self.init_scale)
+                self.head_3.bias.data.mul_(self.init_scale)
             if isinstance(self.head_4, nn.Linear):
                 trunc_normal_(self.head_4.weight, std=.02)
             if isinstance(self.head_4, nn.Linear):
-                self.head_4.weight.data.mul_(init_scale)
-                self.head_4.bias.data.mul_(init_scale)
+                self.head_4.weight.data.mul_(self.init_scale)
+                self.head_4.bias.data.mul_(self.init_scale)
 
         self.apply(self._init_weights)
         self.fix_init_weight()
+
+        
+    @property
+    def sample_ix_tensor(self):
+        """Returns the spatial indices as a GPU-ready tensor."""
+        if self.sample_channels is None:
+            raise ValueError("sample_channels is not defined")
+            
+        # Only re-create the tensor if the list has changed
+        if self.sample_channels != self._cached_sample_channels:
+            indices = [self.global_channel_map[name] for name in self.sample_channels]
+            # Create it once and store it
+            self._cached_spat_ix_tensor = torch.tensor(
+                indices, dtype=torch.long
+            )
+            self._cached_sample_channels = list(self.sample_channels)
+            
+        return self._cached_spat_ix_tensor
+
+
+    def compute_spacial_embedding(self, emg):
+        # emg shape: (B, C, T)
+        B, C, T = emg.shape
+        n_time = T // self.patch_size
+
+        # 1. Get the spatial indices for the channels we are using
+        # This maps 'c1', 'c3' etc. to [0, 2, ...] based on your global channel list
+        spat_ix_base = self.sample_ix_tensor.to(emg.device)  # Shape: (C,) where C is the number of channels in the sample
+
+        # 2. Repeat for each time patch: [c1, c1, c1 (n times), c2, c2, c2...]
+        # Shape: (C * n_time)
+        spat_ix_patch = torch.repeat_interleave(spat_ix_base, n_time)
+
+        # 3. Expand to Batch size: (B, C * n_time)
+        return spat_ix_patch.unsqueeze(0).expand(B, -1)
+
+
+    def compute_temporal_embedding(self, emg):
+        # emg shape: (B, C, T)
+        B, C, T = emg.shape
+        n_time = T // self.patch_size
+
+        # 1. Create the temporal sequence for one channel
+        # This aligns patches to the 'end' of the max_patches window
+        temp_seq = torch.arange(
+            self.max_patches - n_time,
+            self.max_patches,
+            device=emg.device
+        ) # Shape: (n_time,)
+
+        # 2. Repeat the sequence for all channels: [0, 1, 2, 0, 1, 2...]
+        # Shape: (C * n_time)
+        temp_ix_all_channels = temp_seq.repeat(C)
+
+        # 3. Expand to Batch size: (B, C * n_time)
+        return temp_ix_all_channels.unsqueeze(0).expand(B, -1)
+
 
     # Function to initialize the weights of the network
     def fix_init_weight(self):
@@ -410,11 +482,21 @@ class NeuroRVQFM(nn.Module):
     def no_weight_decay(self):
         return {'pos_embed', 'cls_token', 'time_embed'}
 
-    def forward(self, x, temporal_embedding_ix, spatial_embedding_ix, return_patch_tokens=False, return_patch_embeddings=False, bool_masked_pos=None, use_for_pretraining=False, branch_idx=0):
+    def forward(self, x, return_patch_tokens=False, bool_masked_pos=None, use_for_pretraining=False, branch_idx=0):
         '''
-        x: [batch size, number of electrodes, number of patches, patch size]
-        For example, for an EEG sample of 4 seconds with 64 electrodes, x will be [batch size, 64, 4, 200]
+        Args:
+            x: (batch_size, C, T)
+
+        Returns:
+            if self.return_patch_embeddings:
+                e: (batch_size, num_temporal_patches, C, embed_dim)
         '''
+        temporal_embedding_ix = self.compute_temporal_embedding(x)  # (batch_size, n_patches)
+        spatial_embedding_ix = self.compute_spacial_embedding(x)  # (batch_size, n_patches)
+
+        B, C, T = x.shape
+        x = x.view(B, C, -1, self.patch_size)  # (B, C, temporal_patches, patch_size)
+
         if (self.use_as_encoder):
             x1, x2, x3, x4 = self.patch_embed(x)
             x = x1
@@ -647,9 +729,12 @@ class NeuroRVQFM(nn.Module):
                     elif (branch_idx==3):
                         return self.head_4(self.fc_norm_4(x)), _
                     
-            elif return_patch_embeddings:
+            elif self.return_patch_embeddings:
                 x = torch.concat([x1,x2,x3,x4], dim=-1)
-                return x, _
+                # Reshape to (batch_size, num_temporal_patches, C, embed_dim * 4)
+                num_temporal_patches = T // self.patch_size
+                x = x.view(B, C, num_temporal_patches, self.embed_dim * 4)
+                return x
             else:
                 # ONLY in Fine-Tune
                 x = torch.concat([x1,x2,x3,x4], dim=-1)

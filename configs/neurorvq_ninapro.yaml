@@ -1,20 +1,21 @@
-hydra:
-  mode: MULTIRUN
-  sweeper:
-    params:
-      # data.window_length: 1, 5
-      finetuning.split_type: subject,intra_session
-      # finetuning.freeze_backbone: True,False
-      # finetuning.pooling_type: mean,concat
+# hydra:
+#   mode: MULTIRUN
+#   sweeper:
+#     params:
+#       # data.window_length: 1, 5
+#       finetuning.split_type: subject,intra_session
+#       # finetuning.freeze_backbone: True,False
+#       # finetuning.pooling_type: mean,concat
 
 
 logging:
   log_interval: 10
-  use_wandb: True
+  use_wandb: False
   wandb_project: "neurorvq_ninaprodb5"
 
 experiment:
-  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${data.window_length}s_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
+  # name: ${now:%Y-%m-%d_%H-%M-%S}_${model.name}_${data.root_key}_${data.window_length}s_${finetuning.split_type}_${finetuning.freeze_backbone}_${finetuning.pooling_type}
+  name: TEST
   random_seed: 42
   plot_examples: True
   save: True
@@ -137,6 +138,7 @@ model:
   name: neurorvq
   checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
   fm:
+    name: neuro_rvq_fm
     checkpoint: pretrained_models/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt
     max_patches: 256
     patch_size: 200
