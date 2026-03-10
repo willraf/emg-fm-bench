@@ -318,7 +318,7 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_dir", type=str, default="data/ninapro_db5")
-    parser.add_argument("--output_dir", type=str, default="data/ninapro_db5/ninapro_db5.hdf5")
+    parser.add_argument("--output_dir", type=str)
     parser.add_argument("--download_data", action='store_true', help="If set, will attempt to download the raw .mat files from the official Ninapro DB5 source")
     args = parser.parse_args()
     
