@@ -99,12 +99,6 @@ class NeuroRVQClassificationTask(BaseTask):
             temporal_embedding_ix=temporal_ix,
             spatial_embedding_ix=spatial_ix
         )  
-
-        print(f"Logits shape: {logits.shape}, Targets shape: {targets.shape}")
-        preds = logits.argmax(dim=1)
-        print(f"Preds shape: {preds.shape}, Preds: {preds}, Targets: {targets}")
-        print(f"Unique Preds: {preds.unique()}, Unique Targets: {targets.unique()}")
-        
         loss = self.loss_fn(logits, targets)
         
         self.optimiser.zero_grad(set_to_none=True)

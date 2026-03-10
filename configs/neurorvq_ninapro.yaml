@@ -1,11 +1,11 @@
-# hydra:
-#   mode: MULTIRUN
-#   sweeper:
-#     params:
-#       # data.window_length: 1, 5
-#       finetuning.split_type: subject,intra_session
-# #       # finetuning.freeze_backbone: True,False
-# #       finetuning.pooling_type: mean,concat
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      # data.window_length: 1, 5
+      finetuning.split_type: subject,intra_session
+      # finetuning.freeze_backbone: True,False
+      # finetuning.pooling_type: mean,concat
 
 
 logging:
@@ -77,7 +77,7 @@ data:
   timeseries_keys: null
   hdf5_path: data/ninapro_db5/ninapro_db5.hdf5
   num_channels: 16
-  window_length: 1000   # Calculate window length in samples based on duration and sample rate
+  window_length: 200   # Calculate window length in samples based on duration and sample rate
   # window_length: 200   # Can leave as null for full sequence as we will be padding/cropping to a fixed length in the transforms
   sample_rate: 200
   stride: 50
@@ -125,7 +125,7 @@ training:
 
 finetuning:
   split_type: subject
-  freeze_backbone: True
+  freeze_backbone: False
   finetune_spacial_embedding: True
   pooling_type: concat
   learning_rate: 0.0001

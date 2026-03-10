@@ -222,8 +222,11 @@ def setup_save_dir(cfg: OmegaConf,
     # Save logger to file
     add_log_file(save_dir / f"{mode}.log")
 
-    # Save a copy of the config file
-    OmegaConf.save(cfg, save_dir / "config.yaml")
+    # Save the resolved configuration to the experiment directory for reproducibility
+    resolved_cfg = OmegaConf.to_yaml(cfg, resolve=True)
+    with open(save_dir / "config.yaml", "w") as f:
+        f.write(resolved_cfg)
+
 
     if mode == "train":
 

@@ -1,134 +1,40 @@
-# Default configuration file
-# Any parameters redifined in main.yaml will override these defaults.
-# Parameters left null here are required to be set in main.yaml.
+defaults:
+  - _self_
+  - dataset: ninapro_db5
+  - model: neurorvq
+  - transforms: transforms
+  - task: neuro_rvq_classification
 
 logging:
   log_interval: 10
+  use_wandb: True
+  wandb_project: "emg_fm_benchmarking"
 
+# Global experiment settings that use interpolation
 experiment:
-  name: default_experiment
+  name: ${now:%Y-%m-%d}_${model.name}_${dataset.root_key}_${finetuning.split_type}
   random_seed: 42
   plot_examples: True
   save: True
 
-
-data:
-  data_dir: data
-  metadata_file: ${data.data_dir}/metadata.csv
-  window_length: null
-  stride: null
-  num_workers: 4
-  subsample: 1.0
-  padding: [0, 0]
-  skip_ik_failures: True
-  batch_size: 64
-  # Window transforms are applied to each window of emg. Sample transforms are applied to the whole sample dict
-  transforms:
-    train:
-      - ${to_tensor}
-      - ${band_pass}
-      # - _target_: src.data.transforms.RotationAugmentation
-      
-    val:
-      - ${to_tensor}
-      - ${band_pass}
-      # - _target_: src.data.transforms.RotationAugmentation
-    test: ${transforms.val}
-
-model:
-  name: soundstream
-  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
-
-
-
-# model:
-#   name: neurorvq
-#   fm:
-#     n_patches: 256
-#     patch_size: 200
-#     in_chans: 1
-#     out_chans: 8
-#     num_classes: 5
-#     embed_dim: 200
-#     depth: 12
-#     num_heads: 10
-#     mlp_ratio: 4.
-#     qkv_bias: False
-#     qk_norm: null
-#     drop_rate: 0.
-#     attn_drop_rate: 0.
-#     drop_path_rate: 0.
-#     init_values: null
-#     init_scale: 0.001
-#     n_global_electrodes: 127
-#     vocab_size: 8192
-#     use_as_encoder: True
-#     use_for_pretraining: False
-  
-#   tokeniser:
-#     n_code: 8192
-#     code_dim: 128
-#     decoder_out_dim: 200
-
-#     encoder:
-#       n_patches: 256
-#       patch_size: 200
-#       in_chans: 1
-#       out_chans: 8
-#       num_classes: 5
-#       embed_dim: 200
-#       depth: 12
-#       num_heads: 10
-#       mlp_ratio: 4.
-#       qkv_bias: True
-#       qk_norm: null
-#       drop_rate: 0.
-#       attn_drop_rate: 0.
-#       drop_path_rate: 0.
-#       init_values: 0
-#       init_scale: 0.001
-#       n_global_electrodes: 127
-#       vocab_size: 8192
-#       use_as_encoder: True
-#       use_for_pretraining: True
-
-#     decoder:
-#       n_patches: 256
-#       patch_size: 200
-#       in_chans: 128  #code_dim
-#       out_chans: 8
-#       num_classes: 0
-#       embed_dim: 200
-#       depth: 3
-#       num_heads: 10
-#       mlp_ratio: 4.
-#       qkv_bias: True
-#       qk_norm: null
-#       drop_rate: 0.
-#       attn_drop_rate: 0.
-#       drop_path_rate: 0.
-#       init_values: 0
-#       init_scale: 0.001
-#       n_global_electrodes: 127
-#       vocab_size: 8192
-#       use_as_encoder: True
-#       use_for_pretraining: True
-
-
-
 training:
-  epochs: 10
-  patience: null
+  patience: 8
+  epochs: 100
 
+finetuning:
+  split_type: subject
+  freeze_backbone: False
+  finetune_spacial_embedding: True
+  pooling_type: concat
+  learning_rate: 0.0001
+  weight_decay: 0
+  n_classes: 53
+  target_field: gesture_id
 
-validation:
-  batch_size: null
-
-
-
-evaluation:
-
-
-
-inference:
-
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      data.window_length: 200, 1000
+      finetuning.split_type: subject,intra_session
+      finetuning.freeze_backbone: True,False
