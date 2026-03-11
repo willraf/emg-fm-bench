@@ -168,11 +168,21 @@ class Trainer:
         self.task.train_metrics.reset()
 
         num_batches = len(self.train_loader)
-        total_loss = 0.0
-        for batch_idx, batch in enumerate(self.train_loader):
-            total_loss += self.task.train_step(batch)
+
+        pbar = tqdm(
+            self.train_loader, 
+            disable=(not self.is_main), 
+            desc=f"Epoch {epoch}",
+            ncols=100
+        )
         
-        avg_loss = total_loss / num_batches
+        # for batch_idx, batch in enumerate(self.train_loader):
+        for batch in pbar:
+            loss = self.task.train_step(batch)
+
+            if self.is_main:
+                pbar.set_postfix({"loss": f"{loss:.4f}"})
+        
 
         epoch_metrics = self.task.train_metrics.compute()
         self.task.train_metrics.reset()
@@ -255,7 +265,7 @@ class Trainer:
             vis.plot_loss_curves(train_losses, val_losses, epochs, fpath=self.save_dir / "figures" / "loss_curves.png")
 
 
-    def find_max_batch_size(self, start_bs=32, max_trials=10, safety_factor=0.8) -> int:
+    def find_max_batch_size(self, start_bs=8, max_trials=10, safety_factor=0.8) -> int:
         """
         Utility function to find the maximum batch size that fits in GPU memory.
         Uses a binary search approach, starting from `start_bs` and doubling until OOM, then refining.
@@ -279,7 +289,7 @@ class Trainer:
         for trial in range(max_trials):
             logging.info(f"Trial {trial+1}/{max_trials}: Testing batch size {batch_size}...")
             self.cfg.data.batch_size = batch_size
-            loader = setup_data(self.cfg, mode="val")
+            loader = setup_data(self.cfg.data, mode="val")
             
             batch = next(iter(loader))
 

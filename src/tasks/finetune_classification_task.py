@@ -140,16 +140,32 @@ class FinetuneClassificationTask(BaseTask):
             logging.warning(f"Checkpoint not found: {path}")
             return {}
         
-        checkpoint = torch.load(path)
-        model.load_state_dict(checkpoint)
+        if path.suffix == ".pt":
+            checkpoint = torch.load(path)
+        elif path.suffix == ".safetensors":
+            from safetensors.torch import load_file
+            checkpoint = load_file(path)
+
+        # Keep only the backbone params and strip the leading "model."
+        # Removes lightening-specific "model." prefix (TinyMyo pretrained model)
+        adapted_state = {}
+        for k, v in checkpoint.items():
+            if k.startswith("model."):
+                new_k = k[len("model."):]  # drop the "model." prefix
+                adapted_state[new_k] = v
+        if not adapted_state:
+            adapted_state = checkpoint
+
+        model.load_state_dict(adapted_state, strict=False)
         return checkpoint
 
 
     def save_checkpoint(self, checkpoint_path, epoch, val_loss):
+        # Remove DDP wrapper for saving
         checkpoint = {
             'epoch': epoch,
             'val_loss': val_loss,
-            'model_state_dict': self.model.state_dict(),
+            'model_state_dict': self.unwrap_model(self.model).state_dict(),
             'optimizer_state_dict': self.optimiser.state_dict(),
         }
         torch.save(checkpoint, checkpoint_path)
@@ -169,4 +185,8 @@ class FinetuneClassificationTask(BaseTask):
 
 
     def wrap_distributed(self, local_rank):
-        self.model = DDP(self.model, device_ids=[local_rank], output_device=local_rank)
+        self.model = DDP(self.model, 
+                         device_ids=[local_rank], 
+                         output_device=local_rank,
+                         find_unused_parameters=True  # Allow for some parameters to be frozen or unused
+                         )

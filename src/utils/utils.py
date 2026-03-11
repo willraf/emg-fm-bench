@@ -94,12 +94,11 @@ def get_experiment_directory(cfg: OmegaConf) -> Path:
     """
     save_flag = cfg.experiment.save
     experiment_name = cfg.experiment.name
-    model_name = cfg.model.name
 
     if save_flag:
         if not experiment_name:
             timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            experiment_name = f"{timestamp}_{model_name}"
+            experiment_name = f"{timestamp}"
         experiment_dir = Path("experiments") / experiment_name
     else:
         experiment_dir = Path("experiments") / "TEMP"
