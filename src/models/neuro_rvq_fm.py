@@ -730,8 +730,7 @@ class NeuroRVQFM(nn.Module):
                         return self.head_4(self.fc_norm_4(x)), _
                     
             elif self.return_patch_embeddings:
-                x = torch.concat([x1,x2,x3,x4], dim=-1)
-                # Reshape to (batch_size, num_temporal_patches, C, embed_dim * 4)
+                x = torch.concat([x1,x2,x3,x4], dim=-1)    
                 num_temporal_patches = T // self.patch_size
                 x = x.view(B, C, num_temporal_patches, self.embed_dim * 4)
                 return x

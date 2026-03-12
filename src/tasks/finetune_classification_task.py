@@ -51,6 +51,12 @@ class FinetuneClassificationTask(BaseTask):
 
         if not from_scratch:
             fm_path = cfg.model.fm.checkpoint
+            fm_path = Path(fm_path)
+
+            if fm_path.exists():
+                logging.info(f"Loading foundation model from checkpoint: {fm_path}")
+            else:
+                logging.warning(f"Foundation model checkpoint not found: {fm_path}. Training from scratch instead.")
             fm.load_checkpoint(fm_path)
         else:
             logging.info("Training foundation model from scratch. No pretrained weights will be loaded.")
@@ -175,35 +181,38 @@ class FinetuneClassificationTask(BaseTask):
         # Blacklist logic: anything that shouldn't be squeezed toward zero
         blacklist_modules = (torch.nn.LayerNorm, torch.nn.BatchNorm1d, 
                              torch.nn.BatchNorm2d) #, torch.nn.Embedding)
+        
+        param_to_module = {}
+        for m in self.model.modules():
+            for pn, p in m.named_parameters(recurse=False):
+                param_to_module[p] = m
 
-        for mn, m in self.model.named_modules():
-            for pn, p in m.named_parameters():
+        for pn, p in self.model.named_parameters():
+            # Skip frozen parameters
+            if not p.requires_grad:
+                continue
 
-                # CRITICAL: Skip any parameter that is frozen
-                if not p.requires_grad:
-                    continue
+            # Get the parent module of this specific parameter
+            container_module = param_to_module[p]
 
-                # full param name
-                fpn = f"{mn}.{pn}" if mn else pn 
-
-                # 1. Any bias in the entire model is blacklisted
-                if pn.endswith('bias'):
-                    no_decay.add(fpn)
-                
-                # 2. Parameters belonging to normalization or embedding layers
-                elif isinstance(m, blacklist_modules):
-                    no_decay.add(fpn)
-                
-                # # 3. Specific Transformer tokens/embeddings
-                # elif any(x in pn for x in ['pos_embed', 'cls_token', 'time_embed']):
-                #     no_decay.add(fpn)
-                
-                # 4. Everything else gets weight decay
-                else:
-                    decay.add(fpn)
+            # 1. Biases always no_decay
+            if pn.endswith('bias'):
+                no_decay.add(pn)
+            
+            # 2. Normalization layers (LayerNorm, BatchNorm) always no_decay
+            elif isinstance(container_module, blacklist_modules):
+                no_decay.add(pn)
+            
+            # 3. Special tokens (transformer specific)
+            elif any(x in pn for x in ['pos_embed', 'cls_token', 'time_embed']):
+                no_decay.add(pn)
+            
+            # 4. Everything else (Linear weights, Conv weights, etc.)
+            else:
+                decay.add(pn)
 
         # Sanity Checks
-        param_dict = {pn: p for pn, p in self.model.named_parameters()}
+        param_dict = {pn: p for pn, p in self.model.named_parameters() if p.requires_grad}
         inter_params = decay & no_decay
         union_params = decay | no_decay
         
