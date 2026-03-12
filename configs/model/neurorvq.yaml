@@ -4,7 +4,7 @@ model:
   sample_rate: 1000
   fm:
     name: neuro_rvq_fm
-    checkpoint: pretrained_models/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt
+    checkpoint: pretrained_models/NeuroRVQ/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt
     max_patches: 256
     patch_size: 200
     in_chans: 1

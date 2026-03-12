@@ -128,6 +128,11 @@ class Trainer:
             train_metrics = self._run_epoch(epoch)
             val_metrics = self._val(epoch)
 
+            if hasattr(self.task, 'scheduler') and self.task.scheduler is not None:
+                self.task.scheduler.step()
+                current_lr = self.task.optimiser.param_groups[0]['lr']
+                logging.info(f"End of Epoch {epoch} - Learning Rate: {current_lr:.6f}")
+
             # Early stopping and best model saving
             if self.is_main and patience is not None:
 
@@ -166,8 +171,6 @@ class Trainer:
 
         self.task.train()
         self.task.train_metrics.reset()
-
-        num_batches = len(self.train_loader)
 
         pbar = tqdm(
             self.train_loader, 

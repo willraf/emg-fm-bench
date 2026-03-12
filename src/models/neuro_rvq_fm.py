@@ -739,3 +739,11 @@ class NeuroRVQFM(nn.Module):
                 # ONLY in Fine-Tune
                 x = torch.concat([x1,x2,x3,x4], dim=-1)
                 return self.head(self.fc_norm(x.mean(1))), _
+            
+    def load_checkpoint(self, path):
+        """
+        Load the pretrained foundation model weights.
+        """
+        checkpoint = torch.load(path, map_location="cpu")
+        self.load_state_dict(checkpoint, strict=False)
+        return checkpoint

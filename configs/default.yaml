@@ -14,7 +14,7 @@ logging:
 
 # Global experiment settings that use interpolation
 experiment:
-  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}s_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}
+  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}
   random_seed: 42
   plot_examples: True
   save: True
@@ -30,8 +30,8 @@ finetuning:
   freeze_backbone: False
   from_scratch: False
   learning_rate: 0.0001
-  weight_decay: 0
-
+  weight_decay: 0.001
+  warmup_epochs: 5
 
 # hydra:
 #   mode: MULTIRUN

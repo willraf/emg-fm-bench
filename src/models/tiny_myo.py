@@ -1,6 +1,7 @@
 import math
 from dataclasses import dataclass
 from typing import Literal, Optional, Tuple
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -769,3 +770,12 @@ class TinyMyo(nn.Module):
         else:  # classification or regression
             x_out = self.model_head(x_latent)  # [B, Out]
             return x_out, x_original
+        
+    
+    def load_checkpoint(self, path: Path):
+        from safetensors.torch import load_file
+        checkpoint = load_file(path)
+        # Removes lightening-specific "model." prefix (TinyMyo pretrained model)
+        adapted_state = {k[len("model."):]: v for k, v in checkpoint.items() if k.startswith("model.")}
+        self.load_state_dict(adapted_state, strict=False)
+        return checkpoint

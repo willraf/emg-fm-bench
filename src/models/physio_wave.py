@@ -338,6 +338,11 @@ class PhysioWave(nn.Module):
         Returns:
             Different results based on task
         """
+
+        B, C, T = x.shape
+        if C != self.in_channels:
+            x = self.resample_channels(x, self.in_channels)
+
         if task == 'features':
             return self.forward_features(x)
         elif task == 'pretrain':
@@ -354,6 +359,21 @@ class PhysioWave(nn.Module):
                 return self.forward_downstream(x, task)
             else:
                 raise ValueError(f"Unknown task: {task}")
+            
+    def resample_channels(self, x, target_channels):
+        """Resample input to target number of channels using linear projection"""
+        B, C, T = x.shape
+        if C == target_channels:
+            return x
+        
+        resample_factor = C // target_channels
+        x = x[:, ::resample_factor, :]
+        return x[:, :target_channels, :]
+            
+    def load_checkpoint(self, path):
+        """Load model checkpoint"""
+        path = torch.load(path, weights_only=False)
+        self.load_state_dict(path['model_state_dict'], strict=False)
 
 
 # Convenience constructor functions

@@ -34,6 +34,8 @@ class FinetuneClassificationTask(BaseTask):
 
         lr = cfg.finetuning.learning_rate
         wd = cfg.finetuning.weight_decay
+        num_epochs = cfg.training.epochs
+        warmup_epochs = cfg.finetuning.warmup_epochs
 
         self.target_field = cfg.finetuning.target_field
 
@@ -49,7 +51,9 @@ class FinetuneClassificationTask(BaseTask):
 
         if not from_scratch:
             fm_path = cfg.model.fm.checkpoint
-            self.load_fm_checkpoint(fm_path, fm)
+            fm.load_checkpoint(fm_path)
+        else:
+            logging.info("Training foundation model from scratch. No pretrained weights will be loaded.")
 
         fm.to(device)
 
@@ -66,14 +70,9 @@ class FinetuneClassificationTask(BaseTask):
             # Unfreeze parameters to be fine-tuned
             for p in finetune_params:
                 p.requires_grad = True
-        else:
-            finetune_params = self.model.parameters()
-                
-        self.optimiser = torch.optim.AdamW(
-            finetune_params,
-            lr=lr,
-            weight_decay=wd
-        )
+
+        self.optimiser = self.setup_optimiser(lr, wd)
+        self.scheduler = self.setup_scheduler(self.optimiser, warmup_epochs=warmup_epochs, total_epochs=num_epochs)
 
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
@@ -131,34 +130,6 @@ class FinetuneClassificationTask(BaseTask):
         
         return loss.item()
 
-    def load_fm_checkpoint(self, checkpoint_path, model):
-        """
-        Load the pretrained foundation model weights.
-        """
-        path = Path(checkpoint_path)
-        if not path.exists():
-            logging.warning(f"Checkpoint not found: {path}")
-            return {}
-        
-        if path.suffix == ".pt":
-            checkpoint = torch.load(path)
-        elif path.suffix == ".safetensors":
-            from safetensors.torch import load_file
-            checkpoint = load_file(path)
-
-        # Keep only the backbone params and strip the leading "model."
-        # Removes lightening-specific "model." prefix (TinyMyo pretrained model)
-        adapted_state = {}
-        for k, v in checkpoint.items():
-            if k.startswith("model."):
-                new_k = k[len("model."):]  # drop the "model." prefix
-                adapted_state[new_k] = v
-        if not adapted_state:
-            adapted_state = checkpoint
-
-        model.load_state_dict(adapted_state, strict=False)
-        return checkpoint
-
 
     def save_checkpoint(self, checkpoint_path, epoch, val_loss):
         # Remove DDP wrapper for saving
@@ -190,3 +161,92 @@ class FinetuneClassificationTask(BaseTask):
                          output_device=local_rank,
                          find_unused_parameters=True  # Allow for some parameters to be frozen or unused
                          )
+
+
+    def setup_optimiser(self, lr, weight_decay):
+        """
+        Groups parameters: 
+        - Blacklist: Biases, Normalization (LayerNorm, BatchNorm), and Embeddings (WD=0)
+        - All others: Receive weight decay.
+        """
+        decay = set()
+        no_decay = set()
+        
+        # Blacklist logic: anything that shouldn't be squeezed toward zero
+        blacklist_modules = (torch.nn.LayerNorm, torch.nn.BatchNorm1d, 
+                             torch.nn.BatchNorm2d) #, torch.nn.Embedding)
+
+        for mn, m in self.model.named_modules():
+            for pn, p in m.named_parameters():
+
+                # CRITICAL: Skip any parameter that is frozen
+                if not p.requires_grad:
+                    continue
+
+                # full param name
+                fpn = f"{mn}.{pn}" if mn else pn 
+
+                # 1. Any bias in the entire model is blacklisted
+                if pn.endswith('bias'):
+                    no_decay.add(fpn)
+                
+                # 2. Parameters belonging to normalization or embedding layers
+                elif isinstance(m, blacklist_modules):
+                    no_decay.add(fpn)
+                
+                # # 3. Specific Transformer tokens/embeddings
+                # elif any(x in pn for x in ['pos_embed', 'cls_token', 'time_embed']):
+                #     no_decay.add(fpn)
+                
+                # 4. Everything else gets weight decay
+                else:
+                    decay.add(fpn)
+
+        # Sanity Checks
+        param_dict = {pn: p for pn, p in self.model.named_parameters()}
+        inter_params = decay & no_decay
+        union_params = decay | no_decay
+        
+        assert len(inter_params) == 0, f"Conflict: {inter_params} in both groups!"
+        assert len(param_dict.keys() - union_params) == 0, f"Forgotten: {param_dict.keys() - union_params}"
+
+        optim_groups = [
+            {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": weight_decay},
+            {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
+        ]
+        
+        logging.info(f"Optimiser groups: {len(decay)} params with WD, {len(no_decay)} params without.")
+        return torch.optim.AdamW(optim_groups, lr=lr, betas=(0.9, 0.95))
+    
+
+    def setup_scheduler(self, optimiser, warmup_epochs, total_epochs):
+        """
+        Creates a sequential scheduler: 
+        1. Linear Warmup (0 -> Base LR)
+        2. Cosine Annealing (Base LR -> eta_min)
+        """
+        # 1. Linear Warmup: Start at a tiny fraction of LR and climb to 1.0x LR
+        # We use a multiplier factor: 0.1 means start at 10% of your target LR
+        warmup_sched = torch.optim.lr_scheduler.LinearLR(
+            optimiser, 
+            start_factor=0.01, 
+            end_factor=1.0, 
+            total_iters=warmup_epochs
+        )
+        
+        # 2. Cosine Annealing: Decay from target LR down to eta_min
+        cosine_sched = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimiser, 
+            T_max=(total_epochs - warmup_epochs),
+            eta_min=1e-6
+        )
+        
+        # 3. Combine them
+        # milestone is the epoch index where the switch happens
+        scheduler = torch.optim.lr_scheduler.SequentialLR(
+            optimiser,
+            schedulers=[warmup_sched, cosine_sched],
+            milestones=[warmup_epochs]
+        )
+        
+        return scheduler

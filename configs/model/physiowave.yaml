@@ -1,19 +1,20 @@
 # @package _global_
+# https://github.com/ForeverBlue816/PhysioWave/blob/6f7bec7996254e1a03ae929bbbf728fadd942c13/EMG/finetune_emg.sh
 model:
   checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
   sample_rate: 2000
 
   fm:
-    name: physiowave
-    checkpoint: pretrained_models/foundation_models/physiowave_pretraining.pt
-    in_channels: ${data.num_channels}
+    name: physio_wave
+    checkpoint: pretrained_models/PhysioWave/emg.pth
+    in_channels: 8
     max_level: 3
     wave_kernel_size: 16
-    wavelet_names: null
+    wavelet_names: ['sym4', 'sym5', 'db6', 'coif3', 'bior4.4']
     use_separate_channel: True
     # Patch embedding parameters
-    patch_size: 20
-    embed_dim: 128
+    patch_size: 64
+    embed_dim: 256
     # Transformer parameters
     depth: 6
     num_heads: 8
