@@ -36,7 +36,7 @@ class FinetuneClassificationTask(BaseTask):
         wd = cfg.finetuning.weight_decay
         num_epochs = cfg.training.epochs
         warmup_epochs = cfg.finetuning.warmup_epochs
-        use_amp = cfg.training.get("use_amp", False)
+        self.use_amp = cfg.training.get("use_amp", False)
 
         self.target_field = cfg.finetuning.target_field
 
@@ -128,7 +128,7 @@ class FinetuneClassificationTask(BaseTask):
         with torch.autocast(device_type=self.device.type, enabled=self.use_amp, dtype=self.amp_dtype):
             logits = self.model(emg)
             loss = self.loss_fn(logits, targets)
-            
+
         preds = logits.argmax(dim=1)
         
         self.val_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
