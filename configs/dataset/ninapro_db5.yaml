@@ -5,7 +5,7 @@ data:
   primary_data_key: emg
   timeseries_keys: null
   hdf5_path: data/ninapro_db5/ninapro_db5.hdf5
-  split_type: subject
+  split_type: inter_subject
   num_channels: 16
   window_length: 200   # Calculate window length in samples based on duration and sample rate
   sample_rate: 200

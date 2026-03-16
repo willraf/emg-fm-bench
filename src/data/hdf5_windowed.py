@@ -64,7 +64,7 @@ class HDF5WindowedDataset(BaseDataset):
 
         # The type of split/generalisation we are evaluating
         self.split_type = cfg.split_type            # Should be either "user" or "session"
-        assert self.split_type in ["subject", "intra_session", "inter_session"], "split_type must be either 'subject', 'intra_session', or 'inter_session'"
+        assert self.split_type in ["inter_subject", "intra_session", "inter_session"], "split_type must be either 'inter_subject', 'intra_session', or 'inter_session'"
 
         stride = cfg.stride
         self.stride = stride if stride is not None else self.window_length  # Default to non-overlapping windows
@@ -100,13 +100,13 @@ class HDF5WindowedDataset(BaseDataset):
                     session_group = user_group[sess_name]
 
                     is_match = False
-                    if self.split_type == "subject":
-                        if 'subject_split' in session_group.attrs:
-                            subject_split = session_group.attrs['subject_split']
-                        elif 'subject_split' in user_group.attrs:
-                            subject_split = user_group.attrs['subject_split']
+                    if self.split_type == "inter_subject":
+                        if 'inter_subject_split' in session_group.attrs:
+                            subject_split = session_group.attrs['inter_subject_split']
+                        # elif 'inter_subject_split' in user_group.attrs:
+                        #     subject_split = user_group.attrs['inter_subject_split']
                         else:
-                            raise ValueError(f"Missing 'subject_split' attribute in both session and user groups for {user_name}/{sess_name}. Please ensure your HDF5 file has the correct metadata structure.")
+                            raise ValueError(f"Missing 'inter_subject_split' attribute in both session and user groups for {user_name}/{sess_name}. Please ensure your HDF5 file has the correct metadata structure.")
                         is_match = (self.mode == subject_split)
 
                     elif self.split_type == "intra_session":
@@ -122,7 +122,7 @@ class HDF5WindowedDataset(BaseDataset):
                         is_match = (self.mode == inter_session_split)
 
                     else:
-                        raise ValueError(f"Invalid split_type: {self.split_type}. Must be one of 'subject', 'intra_session', or 'inter_session'.")
+                        raise ValueError(f"Invalid split_type: {self.split_type}. Must be one of 'inter_subject', 'intra_session', or 'inter_session'.")
 
                     
                     if is_match:

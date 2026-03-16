@@ -40,6 +40,10 @@ TRAIN_SUBJS = [1, 3, 4, 6, 8, 9, 10]
 VAL_SUBJS = [11]
 TEST_SUBJS = [5, 7]
 
+TRAIN_REPS = [1, 3, 4, 6]
+VAL_REPS = [2]
+TEST_REPS = [5]
+
 INCLUDE_REST = False
 
 def get_gesture_id(exercise_id, stimulus_id):
@@ -174,13 +178,16 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
 
                 subject_id_int = int(mat['subject'][0][0])
                 if subject_id_int in TRAIN_SUBJS:
-                    subj_group.attrs['subject_split'] = 'train'
+                    subj_split = 'train'
                 elif subject_id_int in VAL_SUBJS:
-                    subj_group.attrs['subject_split'] = 'val'
+                    subj_split = 'val'
                 elif subject_id_int in TEST_SUBJS:
-                    subj_group.attrs['subject_split'] = 'test'
+                    subj_split = 'test'
                 else:
-                    subj_group.attrs['subject_split'] = 'unknown'
+                    print(f"Warning: Subject {subj_key} not found in predefined splits. Assigning 'unknown' split.")
+                    subj_split = 'unknown'
+
+                subj_group.attrs['inter_subject_split'] = subj_split
                     
             else:
                 subj_group = root[subj_key]
@@ -233,7 +240,7 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
                     sample_group.attrs['intra_session_split'] = 'train'
 
                 sample_group.attrs['inter_session_split'] = 'n/a'  # NinaPro DB5 doesn't have multiple sessions per subject
-                sample_group.attrs['subject_split'] = subj_group.attrs.get('subject_split', 'unknown')
+                sample_group.attrs['inter_subject_split'] = subj_group.attrs.get('inter_subject_split', 'unknown')
                 
                 for k, v in sess_std.items():
                     sample_group.attrs[k] = v

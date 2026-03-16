@@ -2,37 +2,38 @@ task:
   name: finetune_classification
 logging:
   log_interval: 10
-  use_wandb: false
-  wandb_project: neurorvq_ninaprodb5
+  use_wandb: False
+  wandb_project: neurorvq_epn612
 experiment:
-  # name: ${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}s_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}
-  name: TEST
+  # name: ${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}
+  name: neurorvq_epn_batch_size
   random_seed: 42
   plot_examples: true
   save: true
 training:
   patience: 8
-  epochs: 1
+  epochs: 100
 finetuning:
   target_field: gesture_id
-  freeze_backbone: false
+  freeze_backbone: true
   from_scratch: false
   learning_rate: 1.0e-05
-  weight_decay: 0
+  weight_decay: 0.001
+  warmup_epochs: 5
 data:
   name: hdf5_windowed
-  root_key: ninapro_db5
+  root_key: epn612
   primary_data_key: emg
   timeseries_keys: null
-  hdf5_path: data/ninapro_db5/ninapro_db5.hdf5
-  split_type: subject
-  num_channels: 16
+  hdf5_path: data/epn612/epn612.hdf5
+  split_type: intra_session
+  num_channels: 8
   window_length: 1000
   sample_rate: 200
-  stride: 50
+  stride: null
   jitter: true
   num_workers: 10
-  batch_size: 8
+  batch_size: 256
   transforms:
     train:
     - ${transforms.standardise}
@@ -46,14 +47,6 @@ data:
     - ${transforms.resample}
     test: ${data.transforms.val}
   sample_channels:
-  - c1
-  - c3
-  - c5
-  - c7
-  - c9
-  - c11
-  - c13
-  - c15
   - c2
   - c4
   - c6
@@ -62,38 +55,42 @@ data:
   - c12
   - c14
   - c16
-  n_classes: 53
+  n_classes: 6
 model:
-  name: tinymyo
-  sample_rate: 2000
   checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
+  sample_rate: 1000
   fm:
-    name: tiny_myo
-    checkpoint: pretrained_models/TinyMyo/pretraining/base.safetensors
-    img_size: ${data.window_length}
-    patch_size: 20
-    in_chans: ${data.num_channels}
-    embed_dim: 192
-    n_layer: 8
-    n_head: 3
-    mlp_ratio: 4
+    name: neuro_rvq_fm
+    checkpoint: pretrained_models/NeuroRVQ/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt
+    max_patches: 256
+    patch_size: 200
+    in_chans: 1
+    out_chans: 8
+    num_classes: 0
+    embed_dim: 200
+    depth: 12
+    num_heads: 10
+    mlp_ratio: 4.0
     qkv_bias: true
-    attn_drop: 0.1
-    proj_drop: 0.1
-    drop_path: 0.1
-    task: classification
-    classification_type: ml
-    reduction_type: concat
-    num_classes: 53
-    reg_target_len: 500
-    return_latent: true
+    qk_norm: null
+    drop_rate: 0.0
+    attn_drop_rate: 0.0
+    drop_path_rate: 0.0
+    init_values: 1.0e-05
+    init_scale: 0.001
+    n_global_electrodes: 16
+    vocab_size: 8192
+    use_as_encoder: true
+    use_for_pretraining: true
+    return_patch_embeddings: true
+    sample_channels: ${data.sample_channels}
   wrapper:
-    embed_dim: ${model.fm.embed_dim}
+    embed_dim: 800
     n_classes: ${data.n_classes}
     patch_size: ${model.fm.patch_size}
     num_channels: ${data.num_channels}
     pooling_type: concat
-    finetune_spacial_embedding: false
+    finetune_spacial_embedding: true
 transforms:
   standardise:
     _target_: src.data.transforms.StandardiseSignal

@@ -5,11 +5,11 @@ data:
   primary_data_key: emg
   timeseries_keys: null
   hdf5_path: data/epn612/epn612.hdf5
-  split_type: subject
+  split_type: inter_subject
   num_channels: 8
   window_length: 1000      
   sample_rate: 200        # Original sample rate of the (primary) data
-  stride: 50
+  stride: null
   jitter: True
   num_workers: 10
   batch_size: 32

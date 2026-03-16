@@ -1,0 +1,28 @@
+# @package _global_
+defaults:
+  - override /dataset: ninapro_db5
+  - override /model: neurorvq
+  - override /transforms: transforms
+  - _self_
+
+data:
+  window_length: 1000
+  split_type: subject
+  batch_size: 16
+
+finetuning:
+  freeze_backbone: False
+  learning_rate: 0.00001
+
+logging:
+  log_interval: 10
+  use_wandb: True
+  wandb_project: "neurorvq_ninaprodb5"
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      # data.window_length: 1000
+      data.split_type: inter_subject,intra_session
+      # finetuning.freeze_backbone: True,False

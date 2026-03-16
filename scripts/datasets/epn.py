@@ -100,6 +100,14 @@ import shutil
 from pathlib import Path
 from tqdm import tqdm
 
+TRAIN_REPS = [1, 2, 4, 5, 6, 9, 10, 11, 13, 14, 16, 17, 19, 20, 21, 23, 24, 25]
+VAL_REPS = [7, 15]
+TEST_REPS = [3, 8, 12, 18, 22]
+
+assert len(set(TRAIN_REPS) & set(VAL_REPS)) == 0, "Overlap between train and val reps"
+assert len(set(TRAIN_REPS) & set(TEST_REPS)) == 0, "Overlap between train and test reps"
+assert len(set(VAL_REPS) & set(TEST_REPS)) == 0, "Overlap between val and test reps"
+assert len(set(TRAIN_REPS) | set(VAL_REPS) | set(TEST_REPS)) == 25, "Total unique reps should be 25"
 
 def get_gesture_id(gesture_name):
     """Maps a gesture name to its corresponding ID using the provided mapping."""
@@ -120,97 +128,7 @@ def get_global_gesture_id(gesture_id):
     """Maps local (datset specific) gesture IDs to global for multi-dataset training"""
     return gesture_id
 
-
-def process_samples(sample_dict, user_group, session_info, original_session_split="train", subj_split="train"):
-    """Processes a dictionary of samples and adds them to the user_group."""
-    total_samples = len(sample_dict)
-    val_split_idx = int(0.7 * total_samples)  # 70% for training, 10% for validation, 20% for testing
-    test_split_idx = int(0.8 * total_samples)
-
-    for sess_idx, (session_id, session_data) in enumerate(sample_dict.items()):
-        
-        # Update session ID to avoid naming conflicts between training and testing samples (e.g. session 1 in both)
-        session_num = int(session_id.split('_')[-1])  # Extract numeric part of session ID
-        # We offset the session number by 150 for test sessions to avoid conflicts with training sessions (e.g. session1 in training and testing)
-        if original_session_split == "test":
-            session_num += 150
-        session_id = f'session{session_num}'
-            
-        # 1. Basic Metadata
-        session_group = user_group.create_group(session_id)
-        session_group.attrs['gesture_name'] = session_data.get('gestureName', 'unknown')
-        session_group.attrs['gesture_id'] = get_global_gesture_id(get_gesture_id(session_group.attrs['gesture_name']))
-        session_group.attrs['start_point'] = session_data.get('startPointforGestureExecution', 0)
-        session_group.attrs['session_id'] = session_id
-
-        for k, v in session_info.items():
-            session_group.attrs[k] = v
-
-        # Figure out session split
-        # Unlabelled sessions (gesture_id == -1) go into a separate "unlabelled" split, otherwise we use the val/test/train split based on index
-        if session_group.attrs['gesture_id'] == -1:
-            sess_split = "unlabelled"
-            subj_split = "unlabelled"
-        elif sess_idx < val_split_idx:
-            sess_split = "train"
-        elif val_split_idx <= sess_idx < test_split_idx:
-            sess_split = "val"
-        else:
-            sess_split = "test"
-
-        session_group.attrs['intra_session_split'] = sess_split
-        # EPN612 does not explictly state that sessions (idx_1, idx_2, etc.) are from different recording sessions, so we treat as intra-session only
-        session_group.attrs['inter_session_split'] = "n/a"
-        session_group.attrs['subject_split'] = subj_split
-
-        # 2. EMG Dataset (T, 8)
-        emg_dict = session_data.get('emg', {})
-        # Shape (8, T)
-        emg_data = np.array([emg_dict.get(f'ch{i}', []) for i in range(1, 9)], dtype=np.float32)
-        
-        # Dead sample check (optional but recommended)
-        if emg_data.size == 0 or np.std(emg_data) == 0:
-            continue
-
-        emg_data /= 128.0  # Normalize to [-1, 1]
-        emg_data = emg_data.T  # Shape (T, 8)
-        session_group.create_dataset("emg", data=emg_data, dtype='<f4', compression="gzip")
-        session_group["emg"].attrs['sample_rate'] = session_info.get('sample_rate', 200)
-
-        accel = session_data.get('accelerometer', {})
-        gyro = session_data.get('gyroscope', {})
-        quat = session_data.get('quaternion', {})
-
-        session_group.create_dataset("accelerometer", data=np.array([accel.get(axis, []) for axis in ['x', 'y', 'z']], dtype=np.float32).T, compression="gzip")
-        session_group.create_dataset("gyroscope", data=np.array([gyro.get(axis, []) for axis in ['x', 'y', 'z']], dtype=np.float32).T, compression="gzip")
-        session_group.create_dataset("quaternion", data=np.array([quat.get(axis, []) for axis in ['w', 'x', 'y', 'z']], dtype=np.float32).T, compression="gzip")
-
-        session_group["accelerometer"].attrs['sample_rate'] = 50
-        session_group["gyroscope"].attrs['sample_rate'] = 50
-        session_group["quaternion"].attrs['sample_rate'] = 50
-
-        # # 3. IMU Dataset (Structured)
-        # DEPRICATED, no longer using compound datasets
-        # imu_dtype = np.dtype([
-        #     ('accelerometer', '<f4', (3,)),
-        #     ('gyroscope', '<f4', (3,)),
-        #     ('quaternion', '<f4', (4,))
-        # ])
-
-        # T_imu = min(len(accel.get('x', [])), len(gyro.get('x', [])), len(quat.get('w', [])))
-        # if T_imu == 0: continue
-
-        # imu_array = np.empty(T_imu, dtype=imu_dtype)
-        # for i, axis in enumerate(['x', 'y', 'z']):
-        #     imu_array['accelerometer'][:, i] = accel.get(axis, [])[:T_imu]
-        #     imu_array['gyroscope'][:, i] = gyro.get(axis, [])[:T_imu]
-        # for i, axis in enumerate(['w', 'x', 'y', 'z']):
-        #     imu_array['quaternion'][:, i] = quat.get(axis, [])[:T_imu]
-
-        # session_group.create_dataset("imu", data=imu_array, compression="gzip")
-
-
-def process_metadata(user_info, general_info):
+def process_metadata(user_info, general_info, subject_id, json_file):
     gender = user_info.get('gender', 'u').lower()
 
     if gender in ['man', 'male']:
@@ -231,7 +149,7 @@ def process_metadata(user_info, general_info):
         handedness = 'u'
 
     standardised_user_info = {
-        'subject_id': str(user_info.get('name', 'unknown')),
+        'subject_id': str(subject_id),
         'age': int(user_info.get('age', -1)),
         'gender': gender,
         'handedness': handedness,
@@ -241,6 +159,8 @@ def process_metadata(user_info, general_info):
         'distance_elbow_to_myo_cm': float(user_info.get('distanceFromElbowToMyoInCm', -1)),
         'distance_elbow_to_ulna_cm': float(user_info.get('distanceFromElbowToUlnaInCm', -1)),
         'forearm_circumference_cm': float(user_info.get('armPerimeterInCm', -1)),
+        # Store the original JSON file path for traceability
+        'origin_path': str(json_file)
     }
 
     standadised_session_info = {
@@ -313,7 +233,10 @@ def main(dataset_dir, output_dir=None, download_data=False):
 
     if download_data:
         download_epn612(dataset_dir)
-    
+
+    # Reallocate subject ids. Originally, ids are repeated across training and testing splits
+    # We want unique ids for each user to avoid conflicts when storing in the same HDF5 file.
+    new_subject_id = 0     
     # EPN612 splits: 'trainingJSON' (train users) and 'testingJSON' (test users)
     with h5py.File(output_fpath, "w") as f:
         root = f.create_group("epn612")
@@ -332,45 +255,139 @@ def main(dataset_dir, output_dir=None, download_data=False):
 
                 with open(json_file, "r") as j:
                     user_data = json.load(j)
+                new_subject_id += 1
 
                 # Metadata setup
                 gen_info = user_data['generalInfo']
-                u_info = user_data['userInfo']
-                # Get standardized metadata for user and session
-                user_std, session_std = process_metadata(u_info, gen_info)
-
-                subject_id = user_std['subject_id']
-                subject_num = int(subject_id.replace("user", ""))  # Extract numeric part for splitting logic
-
-                # Figure out the split this user should be in 
-                if mode == "training":
-                    # All users in trainingJSON are in the training split
-                    subj_split = "train"
-                else:
-                    # users 1-122 go into training. users 123-183 go into val, users 184-306 go into test
-                    if subject_num <= 122:
-                        subj_split = "train"
-                    elif 123 <= subject_num <= 183:
-                        subj_split = "val"
-                    else:
-                        subj_split = "test"
-                    # Offset the subject ID by the split to avoid conflicts (e.g. user_1 in training and testing)
-                    subject_num += 306
+                user_info = user_data['userInfo']
                 
-                unique_subj_id = f'user{subject_num}'
-                subj_group = root.create_group(unique_subj_id)
+                subj_group = root.create_group(f"user{new_subject_id}")
 
-                # Store metadata as attributes
+                # Process metadata to get standardised versions
+                user_std, session_std = process_metadata(user_info, gen_info, new_subject_id, json_file)
+
+                # Store user metadata as attributes
                 for k, v in user_std.items():
                     subj_group.attrs[k] = v
-                subj_group.attrs['subject_split'] = subj_split
 
-                # Process the internal splits
-                # user_data['trainingSamples'] goes to training.hdf5
-                process_samples(user_data.get('trainingSamples', {}), subj_group, session_std, original_session_split="train", subj_split=subj_split)
-                # user_data['testingSamples'] goes to testing.hdf5
-                process_samples(user_data.get('testingSamples', {}), subj_group, session_std, original_session_split="test", subj_split=subj_split)
+                # Resplit the subjects for a more standard train/val/test split. 
+                if new_subject_id <= 428:
+                    subj_split = "train"
+                elif new_subject_id <= 489:
+                    subj_split = "val"
+                else:
+                    subj_split = "test"
+                subj_group.attrs['inter_subject_split'] = subj_split
+                session_std['inter_subject_split'] = subj_split
 
+                # Again, reallocating session ids to avoid conflicts between training and testing splits
+                new_session_id = 0
+
+                gesture_counter = {}  # To track how many times each gesture has been seen 
+
+                training_samples = user_data.get('trainingSamples', {})
+                for original_session_id, session_data in training_samples.items():
+                    new_session_id += 1
+                    session_group = subj_group.create_group(f'session{new_session_id}')
+                    origin_path = f'{str(json_file)}:trainingSamples.{original_session_id}'
+                    process_session(session_std, session_group, session_data, origin_path, new_session_id, gesture_counter, subj_split)
+
+                testing_samples = user_data.get('testingSamples', {})
+                gesture_counter = {}  # Reset gesture counter for testing samples
+                for original_session_id, session_data in testing_samples.items():
+                    new_session_id += 1
+                    session_group = subj_group.create_group(f'session{new_session_id}')
+                    origin_path = f'{str(json_file)}:testingSamples.{original_session_id}'
+                    process_session(session_std, session_group, session_data, origin_path, new_session_id, gesture_counter, subj_split)
+
+def process_session(session_std, session_group, session_data, origin_path, new_session_id, gesture_counter, subj_split):
+    """
+    Process a single session data and store it in the session_group.
+    """
+    
+    # Copy session specific metadata that was included under user
+    session_metadata = session_std.copy()
+    
+    # Determine intra-session split based on gesture repetition 
+    gesture_name = session_data.get('gestureName', 'unknown')
+    gesture_id = get_gesture_id(gesture_name)
+    gesture_counter[gesture_id] = gesture_counter.get(gesture_id, 0) + 1
+    rep = gesture_counter[gesture_id]
+
+    if gesture_id < 0:
+        session_split = "unlabelled"
+        # If the there is no gesture label, we mark the split as unlabelled as the sample cannot be used for finetuning or evaluation. 
+        subj_split = "unlabelled"
+    elif rep in TRAIN_REPS:
+        session_split = "train"
+    elif rep in VAL_REPS:
+        session_split = "val"
+    elif rep in TEST_REPS:
+        session_split = "test"
+    else:
+        print(f"Warning: Gesture {gesture_name} (ID {gesture_id}) repetition {rep} does not fit into any split. Marking as unlabelled.")
+        session_split = "unlabelled"
+
+    session_metadata['intra_session_split'] = session_split
+    # EPN612 does not explictly state that sessions (idx_1, idx_2, etc.) are from different recording sessions, so we treat as intra-session only
+    session_metadata['inter_session_split'] = "n/a"
+    session_metadata['inter_subject_split'] = subj_split
+
+    # Add session metadata to session_std
+    session_metadata['gesture_name'] = gesture_name
+    session_metadata['gesture_id'] = gesture_id
+    session_metadata['start_point'] = session_data.get('startPointforGestureExecution', 0)
+    session_metadata['session_id'] = new_session_id
+    session_metadata['origin_path'] = origin_path
+
+    for k, v in session_metadata.items():
+        session_group.attrs[k] = v
+
+    # 2. EMG Dataset (T, 8)
+    emg_dict = session_data.get('emg', {})
+    # Shape (8, T)
+    emg_data = np.array([emg_dict.get(f'ch{i}', []) for i in range(1, 9)], dtype=np.float32)
+    
+    # Dead sample check (optional but recommended)
+    if emg_data.size == 0 or np.std(emg_data) == 0:
+        return
+
+    emg_data /= 128.0  # Normalize to [-1, 1]
+    emg_data = emg_data.T  # Shape (T, 8)
+    session_group.create_dataset("emg", data=emg_data, dtype='<f4', compression="gzip")
+    session_group["emg"].attrs['sample_rate'] = session_metadata.get('sample_rate', 200)
+
+    accel = session_data.get('accelerometer', {})
+    gyro = session_data.get('gyroscope', {})
+    quat = session_data.get('quaternion', {})
+
+    session_group.create_dataset("accelerometer", data=np.array([accel.get(axis, []) for axis in ['x', 'y', 'z']], dtype=np.float32).T, compression="gzip")
+    session_group.create_dataset("gyroscope", data=np.array([gyro.get(axis, []) for axis in ['x', 'y', 'z']], dtype=np.float32).T, compression="gzip")
+    session_group.create_dataset("quaternion", data=np.array([quat.get(axis, []) for axis in ['w', 'x', 'y', 'z']], dtype=np.float32).T, compression="gzip")
+
+    session_group["accelerometer"].attrs['sample_rate'] = 50
+    session_group["gyroscope"].attrs['sample_rate'] = 50
+    session_group["quaternion"].attrs['sample_rate'] = 50
+
+    # # 3. IMU Dataset (Structured)
+    # DEPRICATED, no longer using compound datasets
+    # imu_dtype = np.dtype([
+    #     ('accelerometer', '<f4', (3,)),
+    #     ('gyroscope', '<f4', (3,)),
+    #     ('quaternion', '<f4', (4,))
+    # ])
+
+    # T_imu = min(len(accel.get('x', [])), len(gyro.get('x', [])), len(quat.get('w', [])))
+    # if T_imu == 0: continue
+
+    # imu_array = np.empty(T_imu, dtype=imu_dtype)
+    # for i, axis in enumerate(['x', 'y', 'z']):
+    #     imu_array['accelerometer'][:, i] = accel.get(axis, [])[:T_imu]
+    #     imu_array['gyroscope'][:, i] = gyro.get(axis, [])[:T_imu]
+    # for i, axis in enumerate(['w', 'x', 'y', 'z']):
+    #     imu_array['quaternion'][:, i] = quat.get(axis, [])[:T_imu]
+
+    # session_group.create_dataset("imu", data=imu_array, compression="gzip")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

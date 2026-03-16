@@ -144,6 +144,7 @@ class FinetuneClassificationTask(BaseTask):
             'val_loss': val_loss,
             'model_state_dict': self.unwrap_model(self.model).state_dict(),
             'optimizer_state_dict': self.optimiser.state_dict(),
+            'scheduler_state_dict': self.scheduler.state_dict(),
         }
         torch.save(checkpoint, checkpoint_path)
         logging.info(f"Checkpoint saved: {checkpoint_path}")
@@ -158,6 +159,7 @@ class FinetuneClassificationTask(BaseTask):
         checkpoint = torch.load(path)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimiser.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         return checkpoint
 
 
