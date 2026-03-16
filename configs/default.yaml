@@ -22,6 +22,7 @@ experiment:
 training:
   patience: 8
   epochs: 100
+  use_amp: True
 
 # TODO split params into their own section
 finetuning:

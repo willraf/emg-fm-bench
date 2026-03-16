@@ -36,6 +36,7 @@ class FinetuneClassificationTask(BaseTask):
         wd = cfg.finetuning.weight_decay
         num_epochs = cfg.training.epochs
         warmup_epochs = cfg.finetuning.warmup_epochs
+        use_amp = cfg.training.get("use_amp", False)
 
         self.target_field = cfg.finetuning.target_field
 
@@ -80,6 +81,11 @@ class FinetuneClassificationTask(BaseTask):
         self.optimiser = self.setup_optimiser(lr, wd)
         self.scheduler = self.setup_scheduler(self.optimiser, warmup_epochs=warmup_epochs, total_epochs=num_epochs)
 
+        # L40/40-series support bfloat16 which is more stable for Transformers
+        self.amp_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+        # Scaler is only strictly needed for float16, but harmless for bfloat16
+        self.scaler = torch.amp.GradScaler(device=self.device.type, enabled=(self.use_amp and self.amp_dtype == torch.float16))
+
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
         self.train_metrics = Metrics(device, distributed, is_main)
@@ -91,12 +97,20 @@ class FinetuneClassificationTask(BaseTask):
         emg = batch["emg"].to(self.device)  # (B, C, T)
         targets = batch[self.target_field].long().to(self.device)  # (B,)
 
-        logits = self.model(emg)  
-        loss = self.loss_fn(logits, targets)
-        
+        with torch.autocast(device_type=self.device.type, enabled=self.use_amp, dtype=self.amp_dtype):
+            logits = self.model(emg)  
+            loss = self.loss_fn(logits, targets)
+
         self.optimiser.zero_grad(set_to_none=True)
-        loss.backward()
-        self.optimiser.step()
+
+        if self.use_amp and self.amp_dtype == torch.float16:
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimiser)
+            self.scaler.update()
+        else:
+            # For BF16 or FP32
+            loss.backward()
+            self.optimiser.step()
 
         with torch.no_grad():
             preds = logits.argmax(dim=1)
@@ -111,8 +125,10 @@ class FinetuneClassificationTask(BaseTask):
         emg = batch["emg"].to(self.device)  # (B, C, T)
         targets = batch[self.target_field].long().to(self.device)  # (B,)
 
-        logits = self.model(emg)
-        loss = self.loss_fn(logits, targets)
+        with torch.autocast(device_type=self.device.type, enabled=self.use_amp, dtype=self.amp_dtype):
+            logits = self.model(emg)
+            loss = self.loss_fn(logits, targets)
+            
         preds = logits.argmax(dim=1)
         
         self.val_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))

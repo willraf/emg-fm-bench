@@ -181,6 +181,7 @@ class Trainer:
         
         # for batch_idx, batch in enumerate(self.train_loader):
         for batch in pbar:
+            
             loss = self.task.train_step(batch)
 
             if self.is_main:
