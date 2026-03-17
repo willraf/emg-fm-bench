@@ -13,6 +13,7 @@ Date:
     20/02/2026
 """
 from dataclasses import dataclass, field
+import sys
 
 from pyparsing import Callable, Optional
 from src.data.base import BaseDataset
@@ -79,7 +80,11 @@ class HDF5WindowedDataset(BaseDataset):
 
         # We build this ONCE at startup
         self.global_index = self._build_global_index()
-        
+
+        # Log stats about memery size of index
+        example_path, example_start_idx = self.global_index[0]
+        logging.info(f"Memory size of global index: {sys.getsizeof(example_path) + sys.getsizeof(example_start_idx) * len(self.global_index)} bytes")
+
         # Keep file handle None for now to be worker-safe
         self._file = None
 

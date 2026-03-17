@@ -11,7 +11,7 @@ data:
   sample_rate: 200        # Original sample rate of the (primary) data
   stride: null
   jitter: True
-  num_workers: 10
+  num_workers: 5
   batch_size: 32
   transforms:
     train:
