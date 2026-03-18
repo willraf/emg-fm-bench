@@ -64,8 +64,13 @@ class FinetuneClassificationTask(BaseTask):
 
         fm.to(device)
 
+        # Print number of parameters in the backbone for reference
+        num_fm_params = sum(p.numel() for p in fm.parameters())
+        logging.info(f"Foundation model parameters: {num_fm_params:,}")
+
         self.model = BioFMWrapper(cfg.model.wrapper, fm)
         self.model.to(device)
+
 
         if freeze_backbone:
             # Freeze everything
@@ -77,6 +82,14 @@ class FinetuneClassificationTask(BaseTask):
             # Unfreeze parameters to be fine-tuned
             for p in finetune_params:
                 p.requires_grad = True
+
+        
+        # Print total number of parameters and trainable parameters for reference
+        total_params = sum(p.numel() for p in self.model.parameters())
+        trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        logging.info(f"Total model parameters: {total_params:,} | Trainable parameters: {trainable_params:,}")
+
+
 
         self.optimiser = self.setup_optimiser(lr, wd)
         self.scheduler = self.setup_scheduler(self.optimiser, warmup_epochs=warmup_epochs, total_epochs=num_epochs)
