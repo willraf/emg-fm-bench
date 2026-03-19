@@ -13,6 +13,8 @@ Date:
 """
 
 
+import logging
+
 from torch import nn
 from src.models.neuro_rvq_fm import NeuroRVQFM
 import torch 
@@ -88,12 +90,22 @@ class BioFMWrapper(nn.Module):
     
 
     def get_fine_tuning_parameters(self):
+        """
+        Watch out for defference between module and parameters. Calling nn.module.parameters() returns an iterator over module parameters,
+        converting this to list is valid. However, calling list(nn.Parameter) (as in list(self.fm.pos_embed)) creates a view of the parameters
+        Basically, because pos_embed is a sigle parameter, list(self.fm.pos_embed) creates a list of the individual elements of the parameter tensor, which are not the actual parameters we want to optimize.
+        """
         
         head_params = list(self.head.parameters()) + list(self.fc_norm.parameters())
+
         if self.pooling_type == "attention_pool":
             head_params += [self.query] + list(self.attn.parameters())
 
+            head_params.append(self.query)
+            head_params.append(self.attn)
+
         if self.finetune_spacial_embedding:
-            head_params += list(self.fm.pos_embed)
+            head_params += list(self.fm.pos_embed) ERROR - I think this creates a view of the parameters
+            head_params.append(self.fm.pos_embed)
 
         return head_params
