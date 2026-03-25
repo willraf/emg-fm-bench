@@ -4,20 +4,25 @@ This document defines the standardized HDF5 structure for all biosignal datasets
 
 ---
 
+
+
+
 ## 1. Directory & Internal Hierarchy
 
 Datasets are stored as single HDF5 files per dataset. The hierarchy follows a subject and session split, treating sessions/trials as discrete groups.
 
 ```text
 / [dataset_name] (Root)
-└── [subject_id] (Group)             # e.g., "S1", "u01", "d3870"
+└── [subject_id] (Group)             # "sub-<label>"
     ├── .attrs (Subject Metadata)    # Demographic and physical data, user split
-    └── [session_id] (Group)         # e.g., "E1_RR1_RG1", "session1"
-        ├── .attrs (Session Metadata)# Trial-specific data (gesture, split)
-        ├── emg (Dataset)            # shape: (T, C), dtype: float32
-            ├── .attrs               # Sample rate for the modality
-        ├── imu (Dataset)            # shape: (T, D), dtype: float32 or Compound
-        └── kinematics (Dataset)     # shape: (T, K), dtype: float32 (Glove/Joints)
+    └── [session_id] (Group)         # session-<label>
+        ├── .attrs (Session Metadata)# Session-specific data (gesture, split)
+        └── [run_id]                     # run-<label>
+            ├── .attrs (run Metadata)    # run-specific data (gesture, split)
+	        ├── emg (Dataset)            # shape: (T, C), dtype: float32
+	            ├── .attrs               # Sample rate for the modality
+	        ├── imu (Dataset)            # shape: (T, D), dtype: float32 or Compound
+	        └── kinematics (Dataset)     # shape: (T, K), dtype: float32 (Glove/Joints)
 
 ```
 
@@ -29,31 +34,44 @@ To enable automated manifest generation, the following keys are **Reserved**. Du
 
 ### 2.1 Subject Level (`[subject_id].attrs`)
 
-| Key             | Type   | Units/Values                  | Description                   |
-| --------------- | ------ | ----------------------------- | ----------------------------- |
-| `subject_id`    | String | -                             | Unique subject identifier.    |
-| `gender`        | String | `m`, `f`, `o`, `u`            | Male, Female, Other, Unknown. |
-| `age`           | Int    | Years                         | Subject age.                  |
-| `handedness`    | String | `r`, `l`, `a`                 | Right, Left, Ambidextrous.    |
-| `arm_perimeter` | Float  | cm                            | Forearm circumference.        |
-| `ethnicity`     | String | -                             | Subject ethnic group/origin.  |
-| `subject_split` | String | `train`, `val`, `test`, `n/a` | Inter subject level split     |
+| Key                        | Requirement Level | Type   | Units/Values                  | Description                   |
+| -------------------------- | ----------------- | ------ | ----------------------------- | ----------------------------- |
+| `participant_id`           | REQUIRED          | String | `sub-<label>`                 | Unique subject identifier.    |
+| `sex`                      | RECOMMENDED       | String | `m`, `f`, `o`, `u`            | Male, Female, Other, Unknown. |
+| `age`                      | RECOMMENDED       | Int    | Years                         | Subject age.                  |
+| `handedness`               | RECOMMENDED       | String | `r`, `l`, `a`                 | Right, Left, Ambidextrous.    |
+| `forearm_circumference_cm` | OPTIONAL          | Float  | cm                            | Forearm circumference.        |
+| `ethnicity`                | OPTIONAL          | String | -                             | Subject ethnic group/origin.  |
+| `subject_split`            | RECOMMENDED       | String | `train`, `val`, `test`, `n/a` | Inter subject level split     |
+
 
 ### 2.2 Session Level (`[session_id].attrs`)
 
-| Key                   | Type   | Units/Values                  | Description                                                                                                                                    |
-| --------------------- | ------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `session_id`          | String | -                             | Unique trial, repetition, or recording ID.                                                                                                     |
-| `gesture_id`          | Int    | -                             | **Global ID** (Mapped across Exercises 1, 2, 3 for NinaPro). Gestures are at indexed within the dataset rather than globally between datasets. |
-| `sample_rate`         | Int    | Hz                            | Sampling frequency in Hz of the primary datatype (standardized to EMG).                                                                        |
-| `exercise_id`         | Int    |                               | NinaPro-specific exercise category (1, 2, or 3).                                                                                               |
-| `intra_session_split` | String | `train`, `val`, `test`, `n/a` | Training and testing from the same session                                                                                                     |
-| `inter_session_split` | String | `train`, `val`, `test`, `n/a` | Training and testing from the same user, different session                                                                                     |
-| `subject_split`       | String | `train`, `val`, `test`, `n/a` | Training and testing from the different users (same as `[subject_id].attrs.split`)                                                             |
+| Key                   | Requirement Level | Type   | Units/Values                  | Description                                                                                                                                    |
+| --------------------- | ----------------- | ------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session_id`          | REQUIRED          | String | -                             | Unique trial, repetition, or recording ID.                                                                                                     |
+| `participant_id`      |                   |        |                               |                                                                                                                                                |
+| `gesture_id`          |                   | Int    | -                             | **Global ID** (Mapped across Exercises 1, 2, 3 for NinaPro). Gestures are at indexed within the dataset rather than globally between datasets. |
+| `sample_rate`         |                   | Int    | Hz                            | Sampling frequency in Hz of the primary datatype (standardized to EMG).                                                                        |
+| `exercise_id`         |                   | Int    |                               | NinaPro-specific exercise category (1, 2, or 3).                                                                                               |
+| `intra_session_split` |                   | String | `train`, `val`, `test`, `n/a` | Training and testing from the same session                                                                                                     |
+| `inter_session_split` |                   | String | `train`, `val`, `test`, `n/a` | Training and testing from the same user, different session                                                                                     |
+| `subject_split`       |                   | String | `train`, `val`, `test`, `n/a` | Training and testing from the different users (same as `[subject_id].attrs.split`)                                                             |
 
----
 
-### 2.3 Modality Level (`[modality_name].attrs`)
+### 2.3 Run Level (`[run_id].attrs`)
+
+| Key                   | Requirement Level | Type   | Units/Values                  | Description                                                                                                                                    |
+| --------------------- | ----------------- | ------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session_id`          | REQUIRED          | String | -                             | Unique trial, repetition, or recording ID.                                                                                                     |
+| `gesture_id`          |                   | Int    | -                             | **Global ID** (Mapped across Exercises 1, 2, 3 for NinaPro). Gestures are at indexed within the dataset rather than globally between datasets. |
+| `sample_rate`         |                   | Int    | Hz                            | Sampling frequency in Hz of the primary datatype (standardized to EMG).                                                                        |
+| `exercise_id`         |                   | Int    |                               | NinaPro-specific exercise category (1, 2, or 3).                                                                                               |
+| `intra_session_split` |                   | String | `train`, `val`, `test`, `n/a` | Training and testing from the same session                                                                                                     |
+| `inter_session_split` |                   | String | `train`, `val`, `test`, `n/a` | Training and testing from the same user, different session                                                                                     |
+| `subject_split`       |                   | String | `train`, `val`, `test`, `n/a` | Training and testing from the different users (same as `[subject_id].attrs.split`)                                                             |
+
+### 2.4 Modality Level (`[modality_name].attrs`)
 | Key           | Type   | Description                             |
 | ------------- | ------ | --------------------------------------- |
 | `sample_rate` | Int    | Sample rate used for this modality (Hz) |
