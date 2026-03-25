@@ -84,6 +84,10 @@ class PadCropToLength(DictTransform):
 
 @dataclass
 class EncodeStage(DictTransform):
+    """
+    Specific for emg2pose
+    """
+
     stage_to_idx: dict = field(default_factory=lambda: {
         'ThumbsUpDownThumbRotationsCWCCWP': 0,
         'HandClawGraspFlicks': 1,
@@ -131,7 +135,6 @@ class EncodeStage(DictTransform):
             self.stage_to_idx[x],
             dtype=torch.long
         )
-
 
 
 @dataclass
@@ -249,79 +252,6 @@ class ChannelDownsampling(DictTransform):
 
 
 @dataclass
-class NeuroRVQEmbeddings:
-    """Adds spacial and temporal embeddings to the data dict, using neuroRVQ method
-
-    Args:
-        max_patches (int): The maximum number of patches the model was pretrained to handle. 
-            The bottleneck comes from the size/number of temporal embeddings, which are fixed at max_patches.
-
-    """
-
-    max_patches: int
-    patch_len: int
-    channel_field: str = "channels"
-    global_channels: tuple = (
-        'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8',
-        'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16'
-    )
-    # Optionally add the sample channels, if all samples are going to be the same
-    sample_channels: int = None
-
-    def __post_init__(self):
-        # Convert to numpy array for efficient lookups
-        self._global_channels_array = np.array([
-            c.encode() if isinstance(c, str) else c 
-            for c in self.global_channels
-        ])
-
-        if self.sample_channels is not None:
-            self._sample_channels_array = np.array([
-                c.encode() if isinstance(c, str) else c 
-                for c in self.sample_channels
-            ])
-    
-    def __call__(self, data: dict) -> dict:
-        C, T = data['emg'].shape
-
-        if self.sample_channels is not None:
-            sample_channels = self._sample_channels_array
-        else:
-            sample_channels = data[self.channel_field]
-
-        # Ensure channels are in bytes format for comparison
-        if isinstance(sample_channels, (list, np.ndarray)):
-            sample_channels = np.array([
-                c.encode() if isinstance(c, str) else c 
-                for c in sample_channels
-            ])
-
-        
-        # The number of patches in the time dimension
-        # for aligning the current time-point to the right.
-        n_time = T // self.patch_len
-
-        # temporal
-        temp_ix = torch.arange(
-            self.max_patches - n_time,
-            self.max_patches
-        ).repeat(len(sample_channels))
-
-        # spatial
-        spat_ix = torch.tensor([
-            np.where(self._global_channels_array == c)[0][0]
-            for c in sample_channels
-        ])
-
-        spat_ix = torch.repeat_interleave(spat_ix, n_time)
-        spat_ix = spat_ix
-
-        data['temporal_ix'] = temp_ix
-        data['spatial_ix'] = spat_ix
-        return data
-
-
-@dataclass
 class Compose:
     """Compose a chain of transforms.
 
@@ -335,7 +265,68 @@ class Compose:
         for transform in self.transforms:
             data = transform(data)
         return data
+
+
+
+@dataclass
+class PerChannelZScoreNormalise(DictTransform):
+    """Normalise signal to zero mean and unit variance.
     
+    Per channel z score normalisation
+    """
+    field: str = "emg"
+
+    def __post_init__(self):
+        super().__init__(self.field)
+
+    def transform(self, x: torch.Tensor) -> torch.Tensor:       
+        mean = x.mean(dim=-1, keepdim=True)
+        std = x.std(dim=-1, keepdim=True) + 1e-6
+        return (x - mean) / std
+    
+
+@dataclass
+class GlobalZScoreNormalise(DictTransform):
+    """Normalise signal to zero mean and unit variance.
+    
+    Global z score normalisation across all channels
+    """
+    field: str = "emg"
+
+    def __post_init__(self):
+        super().__init__(self.field)
+
+    def transform(self, x: torch.Tensor) -> torch.Tensor:       
+        mean = x.mean()
+        std = x.std() + 1e-6
+        return (x - mean) / std
+    
+
+@dataclass
+class MinMaxNormalise(DictTransform):
+    """Normalise signal to [-1, 1] range."""
+    field: str = "emg"
+
+    def __post_init__(self):
+        super().__init__(self.field)
+
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        min_val = x.min(dim=-1, keepdim=True).values
+        max_val = x.max(dim=-1, keepdim=True).values
+        return 2 * (x - min_val) / (max_val - min_val + 1e-6) - 1
+    
+
+@dataclass
+class PeakNormalise(DictTransform):
+    """Normalise signal by its peak value."""
+    field: str = "emg"
+
+    def __post_init__(self):
+        super().__init__(self.field)
+
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        peak = torch.max(torch.abs(x)) + 1e-6
+        return x / peak
 
 # Data augmentation transforms
 # Similar to TinyMyo

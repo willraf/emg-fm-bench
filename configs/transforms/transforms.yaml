@@ -36,3 +36,7 @@ transforms:
     _target_: src.data.transforms.RandomChannelDropout
     field: emg
     dropout_prob: 0.05
+
+  per_channel_z_score_normalise:
+    _target_: src.data.transforms.PerChannelZScoreNormalise
+    field: emg

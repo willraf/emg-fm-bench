@@ -101,11 +101,8 @@ class BioFMWrapper(nn.Module):
         if self.pooling_type == "attention_pool":
             head_params += [self.query] + list(self.attn.parameters())
 
-            head_params.append(self.query)
-            head_params.append(self.attn)
-
         if self.finetune_spacial_embedding:
-            head_params += list(self.fm.pos_embed) ERROR - I think this creates a view of the parameters
+            # head_params += list(self.fm.pos_embed) ERROR - I think this creates a view of the parameters
             head_params.append(self.fm.pos_embed)
 
         return head_params

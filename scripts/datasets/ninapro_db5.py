@@ -3,7 +3,7 @@
 Convert Ninapro DB5 from its original .mat format into a structured HDF5 format for efficient loading in our EMG processing pipeline.
 
 NOTE:
-    this script segments signals into individual gesture trials based on the 'restimulus' and 'rerepetition' labels.
+    this script segments signals into individual gesture runs based on the 'restimulus' and 'rerepetition' labels.
     Rest portions (stimulus=0) are ignored in the final dataset, so final gesture IDs range from 1-52
 
 Usage:
@@ -45,6 +45,7 @@ VAL_REPS = [2]
 TEST_REPS = [5]
 
 INCLUDE_REST = False
+SEGMENT_GESTURES = True
 
 def get_gesture_id(exercise_id, stimulus_id):
     """NinaPro DB5 has a unique gesture distribution across exercises:
@@ -85,9 +86,9 @@ def process_metadata(mat):
     handedness = 'r' if 'r' in lat else ('l' if 'l' in lat else 'u')
 
     standard_user = {
-        'subject_id': f"S{int(mat['subject'][0][0])}",
+        'participant_id': f"sub-{int(mat['subject'][0][0])}",
         'age': int(mat['age'][0][0]),
-        'gender': gender,
+        'sex': gender,
         'handedness': handedness,
         'weight_kg': float(mat['weight'][0][0]),
         'height_cm': float(mat['height'][0][0]),
@@ -170,7 +171,10 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
 
             user_std, sess_std = process_metadata(mat)
             
-            subj_key = user_std['subject_id']
+            # --------------------------------------------------
+            #            Create or open subject group
+            # --------------------------------------------------
+            subj_key = user_std['participant_id']
             if subj_key not in root:
                 subj_group = root.create_group(subj_key)
                 for k, v in user_std.items():
@@ -192,6 +196,24 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
             else:
                 subj_group = root[subj_key]
 
+
+            # --------------------------------------------------
+            #            Create or open session group
+            # --------------------------------------------------
+            # We treat the three exercises as a single session per subject, as they do not explicitly state that the sensors were removed/reapplied between exercises
+            session_key = f"session-01"
+            if session_key not in subj_group:
+                sess_group = subj_group.create_group(session_key)
+                for k, v in sess_std.items():
+                    sess_group.attrs[k] = v
+                sess_group.attrs['inter_session_split'] = 'n/a'  # NinaPro DB5 doesn't have multiple sessions per subject
+            else:
+                sess_group = subj_group[session_key]
+
+
+            # --------------------------------------------------
+            #            get timeseries data and labels
+            # --------------------------------------------------
             # Continuous data arrays
             emg = mat['emg'].astype(np.float32) / 128.0 # Standardize to [-1, 1]
             acc = mat['acc'].astype(np.float32)
@@ -201,69 +223,121 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
             stimulus = mat['restimulus'].flatten()
             repetition = mat['rerepetition'].flatten()
 
-            # 2. Identify transitions to catch "Rest" periods
-            # A "trial" is now defined as any continuous block with the same stimulus ID
-            diff = np.diff(stimulus, prepend=-1)
-            trial_starts = np.where(diff != 0)[0]
-            trial_ends = np.append(trial_starts[1:], len(stimulus))
 
-            for i, (start, end) in enumerate(zip(trial_starts, trial_ends)):
-                stim_idx = stimulus[start]
-                rep_idx = repetition[start]
-
-                if not INCLUDE_REST and stim_idx == 0:
-                    continue
-                
-                # We still ignore very short windows
-                # NOTE: includnig rest is likely to cause label leakage, as distribution of signal lengths is very different for rest vs active periods.
-                if (end - start) < 200: 
-                    continue
-                
+            # Include the full unsegmented data as a "run"
+            if not SEGMENT_GESTURES:
                 exercise_id = sess_std['exercise_id']
-                gesture_id = get_gesture_id(exercise_id, stim_idx)
+                run_key = f"run-{exercise_id}"
+                run_group = sess_group.create_group(run_key)
+                run_group.attrs['inter_session_split'] = 'n/a' 
+                run_group.attrs['intra_session_split'] = 'n/a'  
+                run_group.attrs['inter_subject_split'] = subj_group.attrs.get('inter_subject_split', 'unknown')
 
-                # 3. Handle naming for Rest (Label 0)
-                # We add a unique counter 'T' for Trial because Repetition 0 isn't unique
-                sample_name = f"E{exercise_id}_T{i}_G{gesture_id}"
-                sample_group = subj_group.create_group(sample_name)
-                
-                # Metadata
-                sample_group.attrs['gesture_id'] = gesture_id
-                sample_group.attrs['repetition_id'] = rep_idx
-
-
-                if rep_idx == 2:  # Validation repetition
-                    sample_group.attrs['intra_session_split'] = 'val'
-                elif rep_idx == 5:  # Test repetition
-                    sample_group.attrs['intra_session_split'] = 'test'
-                else:
-                    sample_group.attrs['intra_session_split'] = 'train'
-
-                sample_group.attrs['inter_session_split'] = 'n/a'  # NinaPro DB5 doesn't have multiple sessions per subject
-                sample_group.attrs['inter_subject_split'] = subj_group.attrs.get('inter_subject_split', 'unknown')
-                
                 for k, v in sess_std.items():
-                    sample_group.attrs[k] = v
+                    run_group.attrs[k] = v
 
-                # All modalities are oversampled to 200Hz, so they should be aligned by index
-                
+
                 # 1. EMG (T, 16) 
-                sample_group.create_dataset("emg", data=emg[start:end], compression="lzf")
-                sample_group["emg"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
-                sample_group["emg"].attrs['units'] = 'normalized'
+                run_group.create_dataset("emg", data=emg, compression="lzf")
+                run_group["emg"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
+                run_group["emg"].attrs['units'] = 'normalized'
                 sensor_val = mat.get('sensor', ['unknown'])[0]
                 # Use np.string_ to ensure it's HDF5-compatible (fixed-width)
-                sample_group["emg"].attrs['sensor_type'] = str(sensor_val)
+                run_group["emg"].attrs['sensor_type'] = str(sensor_val)
+
+                # NinaPro DB5 has already been resampled to 200Hz, so all modalities should be aligned by index
                 
                 # 2. Accel (T, 3)
-                sample_group.create_dataset("accel", data=acc[start:end], compression="lzf")
-                sample_group["accel"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
-                sample_group["accel"].attrs['sensor_type'] = str(sensor_val)
+                run_group.create_dataset("accel", data=acc, compression="lzf")
+                run_group["accel"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
+                run_group["accel"].attrs['sensor_type'] = str(sensor_val)
                 
                 # 3. Glove (T, 22) - Kinematic ground truth
-                sample_group.create_dataset("glove", data=glove[start:end], compression="lzf")
-                sample_group["glove"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
-                sample_group["glove"].attrs['sensor_type'] = 'cyber_glove'
+                run_group.create_dataset("glove", data=glove, compression="lzf")
+                run_group["glove"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
+                run_group["glove"].attrs['sensor_type'] = 'cyber_glove'
+
+                # 4. Labels
+                run_group.create_dataset("stimulus", data=stimulus, compression="lzf")
+                run_group["stimulus"].attrs['description'] = "Original restimulus labels from NinaPro DB5"
+
+                run_group.create_dataset("repetition", data=repetition, compression="lzf")
+                run_group["repetition"].attrs['description'] = "Original rerepetition labels from NinaPro DB5"
+
+
+            else:    
+
+                # Identify transitions to catch "Rest" periods
+                # A "run" is now defined as any continuous block with the same stimulus ID
+                diff = np.diff(stimulus, prepend=-1)
+                run_starts = np.where(diff != 0)[0]
+                run_ends = np.append(run_starts[1:], len(stimulus))
+
+                for i, (start, end) in enumerate(zip(run_starts, run_ends)):
+                    stim_idx = stimulus[start]
+                    rep_idx = repetition[start]
+                    # Convert from int8 to int to prevent overflow
+                    stim_idx = int(stim_idx)
+                    rep_idx = int(rep_idx)
+
+                    if not INCLUDE_REST and stim_idx == 0:
+                        continue
+                    
+                    # We still ignore very short windows
+                    # NOTE: includnig rest is likely to cause label leakage, as distribution of signal lengths is very different for rest vs active periods.
+                    if (end - start) < 200: 
+                        continue
+                    
+                    exercise_id = sess_std['exercise_id']
+                    gesture_id = get_gesture_id(exercise_id, stim_idx)
+
+                    # 3. Handle naming for Rest (Label 0)
+                    # We add a unique counter 'T' for run because Repetition 0 isn't unique
+                    if INCLUDE_REST:
+                        new_run_id = int(rep_idx) + (6 * (gesture_id))
+                    else:
+                        new_run_id = int(rep_idx) + (6 * (gesture_id-1))  # Shift down by 1 to account for excluded rest
+
+                    run_key = f"run-{new_run_id:03d}"  # Zero-pad for consistent sorting
+                    run_group = sess_group.create_group(run_key)
+                    
+                    # Metadata
+                    run_group.attrs['gesture_id'] = gesture_id
+                    run_group.attrs['repetition_id'] = rep_idx
+                    run_group.attrs['exercise_id'] = exercise_id
+
+                    if rep_idx == 2:  # Validation repetition
+                        run_group.attrs['intra_session_split'] = 'val'
+                    elif rep_idx == 5:  # Test repetition
+                        run_group.attrs['intra_session_split'] = 'test'
+                    else:
+                        run_group.attrs['intra_session_split'] = 'train'
+
+                    run_group.attrs['inter_session_split'] = 'n/a'  # NinaPro DB5 doesn't have multiple sessions per subject
+                    run_group.attrs['inter_subject_split'] = subj_group.attrs.get('inter_subject_split', 'unknown')
+                    
+                    for k, v in sess_std.items():
+                        run_group.attrs[k] = v
+
+                    # All modalities are oversampled to 200Hz, so they should be aligned by index
+                    
+                    # 1. EMG (T, 16) 
+                    run_group.create_dataset("emg", data=emg[start:end], compression="lzf")
+                    run_group["emg"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
+                    run_group["emg"].attrs['units'] = 'normalized'
+                    sensor_val = mat.get('sensor', ['unknown'])[0]
+                    # Use np.string_ to ensure it's HDF5-compatible (fixed-width)
+                    run_group["emg"].attrs['sensor_type'] = str(sensor_val)
+                    
+                    # 2. Accel (T, 3)
+                    run_group.create_dataset("accel", data=acc[start:end], compression="lzf")
+                    run_group["accel"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
+                    run_group["accel"].attrs['sensor_type'] = str(sensor_val)
+                    
+                    # 3. Glove (T, 22) - Kinematic ground truth
+                    run_group.create_dataset("glove", data=glove[start:end], compression="lzf")
+                    run_group["glove"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
+                    run_group["glove"].attrs['sensor_type'] = 'cyber_glove'
 
 
 if __name__ == "__main__":

@@ -6,9 +6,9 @@ defaults:
   - _self_
 
 data:
-  window_length: 200
+  window_length: 1000
   split_type: intra_session
-  batch_size: 256
+  batch_size: 16
 
 finetuning:
   freeze_backbone: True
@@ -24,6 +24,6 @@ hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      data.window_length: 200, 1000
+      # data.window_length: 200, 1000
       data.split_type: intra_session, inter_subject
       # finetuning.freeze_backbone: True,False

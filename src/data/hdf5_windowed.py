@@ -25,33 +25,6 @@ import numpy as np
 from omegaconf import DictConfig
 import logging
 
-# @dataclass
-# class HDF5WindowedDataset(BaseDataset):
-#     cfg: DictConfig
-#     mode: str = "train"  # or "val" or "test"
-#     hdf5_path: Path
-#     window_length: int
-#     stride: Optional[int] = None
-#     transforms: Optional[Callable] = None
-
-#     # Define keys for metadata and data to be returned
-#     # Metadata keys
-#     user_metadata_keys: list[str] = field(default_factory=lambda: [
-#         "subject_id"])
-#     session_metadata_keys: list[str] = field(default_factory=lambda: [
-#         "gesture_id"  ])
-    
-#     primary_data_key: str = "emg"
-#     timeseries_keys: list[str] = field(default_factory=lambda: ["accel", "glove"])
-
-#     def __post_init__(self):
-#         self.stride = self.stride if self.stride is not None else self.window_length  # Default to non-overlapping windows
-#         self.global_index = self._build_global_index()
-#         self._file = None
-#         transform_cfgs = cfg.transforms.get(self.mode)
-#         self.transforms = self._build_transform(transform_cfgs) if transform_cfgs else None
-    
-
 
 class HDF5WindowedDataset(BaseDataset):
 
@@ -98,50 +71,60 @@ class HDF5WindowedDataset(BaseDataset):
         index = []
         with h5py.File(self.hdf5_path, 'r') as f:
             root = f[self.root_key] # e.g., "epn612"
-            for user_name in root:
-                user_group = root[user_name]
+            for user_key in root:
+                user_group = root[user_key]
                 
-                for sess_name in user_group:
-                    session_group = user_group[sess_name]
+                for session_key in user_group:
+                    session_group = user_group[session_key]
 
-                    is_match = False
-                    if self.split_type == "inter_subject":
-                        if 'inter_subject_split' in session_group.attrs:
-                            subject_split = session_group.attrs['inter_subject_split']
-                        # elif 'inter_subject_split' in user_group.attrs:
-                        #     subject_split = user_group.attrs['inter_subject_split']
+                    for run_key in session_group:
+                        run_group = session_group[run_key]
+
+                        is_match = False
+                        if self.split_type == "inter_subject":
+                            if "inter_subject_split" in run_group.attrs:
+                                subject_split = run_group.attrs['inter_subject_split']
+                            elif 'inter_subject_split' in session_group.attrs:
+                                subject_split = session_group.attrs['inter_subject_split']
+                            elif 'inter_subject_split' in user_group.attrs:
+                                subject_split = user_group.attrs['inter_subject_split']
+                            else:
+                                raise ValueError(f"Missing 'inter_subject_split' attribute in both session and user groups for {user_key}/{session_key}/{run_key}. Please ensure your HDF5 file has the correct metadata structure.")
+                            is_match = (self.mode == subject_split)
+
+                        elif self.split_type == "inter_session":
+                            if 'inter_session_split' in run_group.attrs:
+                                inter_session_split = run_group.attrs['inter_session_split']
+                            elif "inter_session_split" in session_group.attrs:
+                                inter_session_split = session_group.attrs['inter_session_split']
+                            else:
+                                raise ValueError(f"Missing 'inter_session_split' attribute in session group for {user_key}/{session_key}/{run_key}. Please ensure your HDF5 file has the correct metadata structure.")
+                            is_match = (self.mode == inter_session_split)
+
+
+                        elif self.split_type == "intra_session":
+                            if 'intra_session_split' in run_group.attrs:
+                                intra_session_split = run_group.attrs['intra_session_split']
+                            else:
+                                raise ValueError(f"Missing 'intra_session_split' attribute in session group for {user_key}/{session_key}/{run_key}. Please ensure your HDF5 file has the correct metadata structure.")
+                            is_match = (self.mode == intra_session_split)
+
                         else:
-                            raise ValueError(f"Missing 'inter_subject_split' attribute in both session and user groups for {user_name}/{sess_name}. Please ensure your HDF5 file has the correct metadata structure.")
-                        is_match = (self.mode == subject_split)
+                            raise ValueError(f"Invalid split_type: {self.split_type}. Must be one of 'inter_subject', 'intra_session', or 'inter_session'.")
 
-                    elif self.split_type == "intra_session":
-                        if "intra_session_split" not in session_group.attrs:
-                            raise ValueError(f"Missing 'intra_session_split' attribute in session group for {user_name}/{sess_name}. Please ensure your HDF5 file has the correct metadata structure.")
-                        intra_session_split = session_group.attrs['intra_session_split']
-                        is_match = (self.mode == intra_session_split)
+                        
+                        if is_match:
+                            obj = run_group[self.primary_data_key]
+                            T = obj.shape[0]
 
-                    elif self.split_type == "inter_session":
-                        if "inter_session_split" not in session_group.attrs:
-                            raise ValueError(f"Missing 'inter_session_split' attribute in session group for {user_name}/{sess_name}. Please ensure your HDF5 file has the correct metadata structure.")
-                        inter_session_split = session_group.attrs['inter_session_split']
-                        is_match = (self.mode == inter_session_split)
+                            # If the signal is shorter than the window length, we can still include it as one window (with padding applied in transforms)
+                            if T < self.window_length:
+                                num_windows = 1 
+                            else:
+                                num_windows = (T - self.window_length) // self.stride + 1
 
-                    else:
-                        raise ValueError(f"Invalid split_type: {self.split_type}. Must be one of 'inter_subject', 'intra_session', or 'inter_session'.")
-
-                    
-                    if is_match:
-                        obj = session_group[self.primary_data_key]
-                        T = obj.shape[0]
-
-                        # If the signal is shorter than the window length, we can still include it as one window (with padding applied in transforms)
-                        if T < self.window_length:
-                            num_windows = 1 
-                        else:
-                            num_windows = (T - self.window_length) // self.stride + 1
-
-                        for w in range(num_windows):
-                            index.append((f"{root.name}/{user_name}/{sess_name}", w * self.stride))
+                            for w in range(num_windows):
+                                index.append((f"{root.name}/{user_key}/{session_key}/{run_key}", w * self.stride))
         return index
 
     @property

@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - override /dataset: ninapro_db5
+  - override /dataset: epn612
   - override /model: neurorvq
   - override /transforms: transforms
   - _self_

@@ -149,9 +149,9 @@ def process_metadata(user_info, general_info, subject_id, json_file):
         handedness = 'u'
 
     standardised_user_info = {
-        'subject_id': str(subject_id),
+        'participant_id': f"sub-{subject_id}",
         'age': int(user_info.get('age', -1)),
-        'gender': gender,
+        'sex': gender,
         'handedness': handedness,
         'occupation': user_info.get('occupation', 'unknown'),
         'ethnicity': user_info.get('ethnicGroup', 'unknown'),
@@ -261,7 +261,8 @@ def main(dataset_dir, output_dir=None, download_data=False):
                 gen_info = user_data['generalInfo']
                 user_info = user_data['userInfo']
                 
-                subj_group = root.create_group(f"user{new_subject_id}")
+                
+                subj_group = root.create_group(f"sub-{new_subject_id}")
 
                 # Process metadata to get standardised versions
                 user_std, session_std = process_metadata(user_info, gen_info, new_subject_id, json_file)
@@ -280,25 +281,36 @@ def main(dataset_dir, output_dir=None, download_data=False):
                 subj_group.attrs['inter_subject_split'] = subj_split
                 session_std['inter_subject_split'] = subj_split
 
+                # Create the session group
+                # EPN does not explicitly state that each sample (idx_1, idx_2, etc.) is from a different recording session, 
+                # so we treat them all being from the same session
+                session_key = f'session-001'  # Single session per user
+                session_group = subj_group.create_group(session_key)
+                for k, v in session_std.items():
+                    session_group.attrs[k] = v
+
                 # Again, reallocating session ids to avoid conflicts between training and testing splits
-                new_session_id = 0
+                new_run_id = 0
 
                 gesture_counter = {}  # To track how many times each gesture has been seen 
 
                 training_samples = user_data.get('trainingSamples', {})
-                for original_session_id, session_data in training_samples.items():
-                    new_session_id += 1
-                    session_group = subj_group.create_group(f'session{new_session_id}')
-                    origin_path = f'{str(json_file)}:trainingSamples.{original_session_id}'
-                    process_session(session_std, session_group, session_data, origin_path, new_session_id, gesture_counter, subj_split)
+                for original_run_id, run_data in training_samples.items():
+                    new_run_id += 1
+                    run_key = f"run-{new_run_id:03d}"
+                    run_group = session_group.create_group(run_key)
+                    origin_path = f'{str(json_file)}:trainingSamples.{original_run_id}'
+                    process_session(session_std, run_group, run_data, origin_path, new_run_id, gesture_counter, subj_split)
 
                 testing_samples = user_data.get('testingSamples', {})
                 gesture_counter = {}  # Reset gesture counter for testing samples
-                for original_session_id, session_data in testing_samples.items():
-                    new_session_id += 1
-                    session_group = subj_group.create_group(f'session{new_session_id}')
-                    origin_path = f'{str(json_file)}:testingSamples.{original_session_id}'
-                    process_session(session_std, session_group, session_data, origin_path, new_session_id, gesture_counter, subj_split)
+                for original_run_id, run_data in testing_samples.items():
+                    new_run_id += 1
+                    run_key = f"run-{new_run_id:03d}"
+                    run_group = session_group.create_group(run_key)
+                    origin_path = f'{str(json_file)}:testingSamples.{original_run_id}'
+                    process_session(session_std, run_group, run_data, origin_path, new_run_id, gesture_counter, subj_split)
+
 
 def process_session(session_std, session_group, session_data, origin_path, new_session_id, gesture_counter, subj_split):
     """
