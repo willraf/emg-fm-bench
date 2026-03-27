@@ -1,0 +1,32 @@
+# @package _global_
+data:
+  name: hdf5_windowed
+  root_key: uci_emg
+  primary_data_key: emg
+  timeseries_keys: null
+  hdf5_path: data/uci_emg/uci_emg.hdf5
+  split_type: inter_subject
+  num_channels: 8
+  window_length: 200      
+  sample_rate: 200        # Original sample rate of the (primary) data
+  stride: 50
+  jitter: True
+  num_workers: 5
+  batch_size: 256
+  transforms:
+    train:
+      - ${transforms.standardise}
+      - ${transforms.band_pass}
+      - ${transforms.resample}
+      - ${transforms.random_scale}
+      - ${transforms.channel_dropout}
+      
+    val:
+      - ${transforms.standardise}
+      - ${transforms.band_pass}
+      - ${transforms.resample}
+
+    test: ${data.transforms.val}
+
+  sample_channels: ['c2', 'c4', 'c6', 'c8', 'c10', 'c12', 'c14', 'c16']
+  n_classes: 6

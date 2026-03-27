@@ -60,7 +60,7 @@ class BioFMWrapper(nn.Module):
         # Using branch_idx=0 as EPN uses the first branch logic
         tokens = self.fm(x)
         
-        B, C, N, D = tokens.shape # (B, num_temporal_patches, Channels, Embed_Dim)
+        B, C, N, D = tokens.shape # (B, Channels, num_temporal_patches,Embed_Dim)
 
 
         if self.pooling_type == "mean":

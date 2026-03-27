@@ -40,3 +40,15 @@ transforms:
   per_channel_z_score_normalise:
     _target_: src.data.transforms.PerChannelZScoreNormalise
     field: emg
+
+  global_z_score_normalise:
+    _target_: src.data.transforms.GlobalZScoreNormalise
+    field: emg
+
+  min_max_normalise:
+    _target_: src.data.transforms.MinMaxNormalise
+    field: emg
+
+  peak_normalise:
+    _target_: src.data.transforms.PeakNormalise
+    field: emg

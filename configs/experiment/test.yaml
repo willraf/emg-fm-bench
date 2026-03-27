@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - override /dataset: epn612
+  - override /dataset: uci_emg
   - override /model: neurorvq
   - override /transforms: transforms
   - _self_
@@ -21,6 +21,11 @@ logging:
 
 experiment:
   name: TEST
+
+model:
+  wrapper:
+    pooling_type: concat
+
 
 # hydra:
 #   mode: MULTIRUN

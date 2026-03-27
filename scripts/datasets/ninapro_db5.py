@@ -207,6 +207,8 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
                 for k, v in sess_std.items():
                     sess_group.attrs[k] = v
                 sess_group.attrs['inter_session_split'] = 'n/a'  # NinaPro DB5 doesn't have multiple sessions per subject
+                sess_group.attrs['inter_subject_split'] = subj_group.attrs.get('inter_subject_split', 'unknown')
+                sess_group.attrs['side'] = 'r'  # All right hand movements in NinaPro DB5
             else:
                 sess_group = subj_group[session_key]
 
@@ -232,6 +234,8 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
                 run_group.attrs['inter_session_split'] = 'n/a' 
                 run_group.attrs['intra_session_split'] = 'n/a'  
                 run_group.attrs['inter_subject_split'] = subj_group.attrs.get('inter_subject_split', 'unknown')
+                run_group.attrs['exercise_id'] = exercise_id
+                run_group.attrs['side'] = 'r'  # All right hand movements in NinaPro DB5
 
                 for k, v in sess_std.items():
                     run_group.attrs[k] = v
@@ -305,6 +309,7 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
                     run_group.attrs['gesture_id'] = gesture_id
                     run_group.attrs['repetition_id'] = rep_idx
                     run_group.attrs['exercise_id'] = exercise_id
+                    run_group.attrs['side'] = 'r'  # All right hand movements in NinaPro DB5
 
                     if rep_idx == 2:  # Validation repetition
                         run_group.attrs['intra_session_split'] = 'val'

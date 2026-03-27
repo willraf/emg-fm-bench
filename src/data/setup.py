@@ -103,7 +103,7 @@ def setup_data(data_cfg: OmegaConf, mode: str = "train", distributed: bool = Fal
     logging.info(f"Initialized {mode} dataset with {len(dataset)} samples.")
 
     sampler = DistributedSampler(dataset) if distributed else None
-
+    
     dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
