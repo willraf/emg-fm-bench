@@ -269,7 +269,7 @@ class Trainer:
             vis.plot_loss_curves(train_losses, val_losses, epochs, fpath=self.save_dir / "figures" / "loss_curves.png")
 
 
-    def find_max_batch_size(self, start_bs=8, max_trials=10, safety_factor=0.8) -> int:
+    def find_max_batch_size(self, start_bs=8, max_trials=10, safety_factor=0.9) -> int:
         """
         Utility function to find the maximum batch size that fits in GPU memory.
         Uses a binary search approach, starting from `start_bs` and doubling until OOM, then refining.
@@ -281,55 +281,67 @@ class Trainer:
         Returns:
             int: Maximum batch size that fits in GPU memory with safety margin
         """
+        recommended = 0
 
-        if not self.is_main:
-            return None
+        if self.is_main:
+            logging.info("\n🔍 Starting batch size probe...\n")
 
-        logging.info("\n🔍 Starting batch size probe...\n")
+            batch_size = start_bs
+            last_good = start_bs
 
-        batch_size = start_bs
-        last_good = start_bs
+            for trial in range(max_trials):
+                logging.info(f"Trial {trial+1}/{max_trials}: Testing batch size {batch_size}...")
+                self.cfg.data.batch_size = batch_size
+                loader = setup_data(self.cfg.data, mode="val")
+                
+                batch = next(iter(loader))
 
-        for trial in range(max_trials):
-            logging.info(f"Trial {trial+1}/{max_trials}: Testing batch size {batch_size}...")
-            self.cfg.data.batch_size = batch_size
-            loader = setup_data(self.cfg.data, mode="val")
-            
-            batch = next(iter(loader))
+                try:
+                    torch.cuda.empty_cache()
+                    torch.cuda.reset_peak_memory_stats()
 
-            try:
-                torch.cuda.empty_cache()
-                torch.cuda.reset_peak_memory_stats()
+                    self.task.train_step(batch)
 
-                self.task.train_step(batch)
+                    peak = torch.cuda.max_memory_allocated() / 1e9
+                    logging.info(f"Success | Peak memory {peak:.2f} GB")
 
-                peak = torch.cuda.max_memory_allocated() / 1e9
-                logging.info(f"Success | Peak memory {peak:.2f} GB")
+                    last_good = batch_size
+                    batch_size *= 2
 
-                last_good = batch_size
-                batch_size *= 2
+                except RuntimeError as e:
 
-            except RuntimeError as e:
+                    if "out of memory" in str(e).lower():
+                        logging.info(f"OOM at batch size {batch_size}")
+                        break
+                    else:
+                        raise
 
-                if "out of memory" in str(e).lower():
-                    logging.info(f"OOM at batch size {batch_size}")
-                    break
-                else:
-                    raise
+            recommended = max(1, int(last_good * safety_factor))
+            logging.info(f"\nRecommended per-GPU batch size: {recommended}")
 
-        recommended = max(1, int(last_good * safety_factor))
-        logging.info(f"\nRecommended per-GPU batch size: {recommended}")
+        # Sync GPUs
+        if self.distributed:
+            bs_tensor = torch.tensor(recommended, device=self.device)
+            dist.broadcast(bs_tensor, src=0)
+            recommended = int(bs_tensor.item())
 
         return recommended
-    
+        
 
 def main(cfg, overwrite=False, find_batch_size=False):
     trainer = Trainer(cfg, overwrite=overwrite)
 
-    if find_batch_size and trainer.is_main:
+    if find_batch_size:
         batch_size = trainer.find_max_batch_size()
-    else:
-        trainer.train()
+
+        # Cleanup properly before returning to main.py
+        if trainer.distributed:
+            dist.barrier()
+            destroy_process_group()
+        return batch_size
+
+
+    trainer.train()
 
     if trainer.is_main and trainer.use_wandb:
         wandb.finish()
@@ -337,11 +349,6 @@ def main(cfg, overwrite=False, find_batch_size=False):
     if trainer.distributed:
         dist.barrier()  # Ensure all processes have finished writing results before any process exits
         destroy_process_group()
-
-    if find_batch_size:
-        return batch_size
-    else:
-        return None
     
 
 if __name__ == "__main__":
