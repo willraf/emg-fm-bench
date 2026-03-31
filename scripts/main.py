@@ -46,7 +46,7 @@ def main(cfg=None):
 
         # Adjust learning rate based on batch size (linear scaling rule)
         base_batch_size = cfg.experiment.get('base_batch_size', 128)
-        base_learning_rate = cfg.experiment.get('base_learning_rate', 1e-3)
+        base_learning_rate = cfg.experiment.get('base_learning_rate', 1e-4)
         scaled_learning_rate = base_learning_rate * (batch_size / base_batch_size)
         cfg.finetuning.learning_rate = scaled_learning_rate
         logging.info(f"Scaled learning rate to {scaled_learning_rate} based on batch size {batch_size} and base batch size {base_batch_size}.")
