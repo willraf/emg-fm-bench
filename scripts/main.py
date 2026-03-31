@@ -53,7 +53,7 @@ def main(cfg=None):
 
     OmegaConf.save(cfg, experiment_dir / "config.yaml")
 
-    train_results = train(cfg, overwrite=True, find_batch_size=cfg.experiment.find_batch_size)
+    train_results = train(cfg, overwrite=True, find_batch_size=False)
     logging.info(f"Training completed with results: {train_results}")
 
     if find_batch_size:
