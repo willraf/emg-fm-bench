@@ -55,9 +55,6 @@ class BioFMWrapper(nn.Module):
         Returns:
             logits: (Batch, num_classes)
         """
-        # 1. Get raw tokens from FM (Batch, 256, Embed_Dim)
-        # We set return_patch_tokens=True to avoid the hardcoded mean(1) in their forward
-        # Using branch_idx=0 as EPN uses the first branch logic
         tokens = self.fm(x)
         
         B, C, N, D = tokens.shape # (B, Channels, num_temporal_patches,Embed_Dim)

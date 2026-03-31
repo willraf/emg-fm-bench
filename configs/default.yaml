@@ -18,6 +18,7 @@ experiment:
   random_seed: 42
   plot_examples: True
   save: True
+  find_batch_size: True
 
 training:
   patience: 8

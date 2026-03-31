@@ -1,0 +1,23 @@
+# @package _global_
+model:
+  name: soundstream
+  checkpoint: null
+  n_quantizers: 57
+  codebook_size: 1024
+  embedding_dim: 32
+  channel_multiplier: 100
+  strides:
+  - 2
+  - 4
+  - 4
+  - 6
+
+
+model:
+  name: soundstream
+  checkpoint: null
+  n_quantizers: 57
+  codebook_size: 1024
+  embedding_dim: 32
+  channel_multiplier: 100
+  strides: [2, 4, 4, 6]

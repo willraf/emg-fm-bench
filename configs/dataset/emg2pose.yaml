@@ -1,0 +1,33 @@
+# @package _global_
+data:
+  name: hdf5_windowed
+  root_key: emg2pose
+  primary_data_key: emg
+  timeseries_keys: null
+  hdf5_path: data/emg2pose/emg2pose.hdf5
+  # hdf5_path: /mnt/data/emg2pose_data/emg2pose.hdf5
+  split_type: inter_subject
+  num_channels: 16
+  window_length: 200      
+  sample_rate: 200        # Original sample rate of the (primary) data
+  stride: null
+  jitter: True
+  num_workers: 5
+  batch_size: 32
+  transforms:
+    train:
+      - ${transforms.standardise}
+      - ${transforms.band_pass}
+      - ${transforms.resample}
+      - ${transforms.random_scale}
+      - ${transforms.channel_dropout}
+      
+    val:
+      - ${transforms.standardise}
+      - ${transforms.band_pass}
+      - ${transforms.resample}
+
+    test: ${data.transforms.val}
+
+  sample_channels: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16']
+  n_classes: 29

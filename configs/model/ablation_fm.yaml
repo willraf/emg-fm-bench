@@ -1,0 +1,27 @@
+# @package _global_
+model:
+  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
+  sample_rate: 200
+  fm:
+    name: conv_ablation
+    # checkpoint: pretrained_models/NeuroRVQ/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt
+    checkpoint: Null
+    use_conv_ablation: True
+    # Parameters needed to construct the BioFMWrapper
+    # For some reason, neuroRVQ's real embed dim is 4 times 
+
+    embed_dim: 200
+    n_classes: ${data.n_classes}
+    patch_size: ${model.fm.patch_size}
+    num_channels: ${data.num_channels}
+    pooling_type: concat
+    finetune_spacial_embedding: True
+
+  
+  wrapper:
+    embed_dim: 200
+    n_classes: ${data.n_classes}
+    patch_size: ${model.fm.patch_size}
+    num_channels: ${data.num_channels}
+    pooling_type: concat
+    finetune_spacial_embedding: Falses

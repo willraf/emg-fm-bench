@@ -267,13 +267,17 @@ class PhysioWave(nn.Module):
         return tokens
 
     def forward_features(self, x):
-        """Extract features (encoder part)"""
+        """Extract features (encoder part)
+        
+        Args:
+            x: [B, C, T] - Input time series signal
+        """
         # 1. Wavelet decomposition
-        wave_spec = self.wavelet_decomp(x)
-        wave_2d = wave_spec.unsqueeze(1)
+        wave_spec = self.wavelet_decomp(x)      #[B, (max_level+1)*C, T]
+        wave_2d = wave_spec.unsqueeze(1)        #[B, 1, (max_level+1)*C, T]
         
         # 2. Patch embedding and position encoding
-        tokens = self.prepare_tokens(wave_2d)
+        tokens = self.prepare_tokens(wave_2d)   # [B, num_patches, embed_dim] num_patches = T/patch_size*max_level+1*C
         
         # 3. Transformer encoding
         features = self.encoder(tokens)
@@ -344,7 +348,10 @@ class PhysioWave(nn.Module):
             x = self.resample_channels(x, self.in_channels)
 
         if task == 'features':
-            return self.forward_features(x)
+            features = self.forward_features(x)   # [B, num_patches, embed_dim] num_patches = T/patch_size*max_level+1*C
+            B, N, D = features.shape
+            features = features.reshape(B, C, -1, D)
+            return features
         elif task == 'pretrain':
             return self.forward_pretrain(x, mask_ratio)
         elif task == 'downstream':

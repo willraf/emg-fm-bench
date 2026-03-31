@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
-  - override /dataset: uci_emg
-  - override /model: neurorvq
+  - override /dataset: ninapro_db5
+  - override /model: physiowave
   - override /transforms: transforms
   - _self_
 

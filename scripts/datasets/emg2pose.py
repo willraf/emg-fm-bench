@@ -91,6 +91,7 @@ def convert_emg2pose(src_dir, dest_h5_path):
                 run_grp.attrs['sample_rate'] = attrs['sample_rate']
                 run_grp.attrs['side'] = attrs['side']
                 run_grp.attrs['stage'] = attrs['stage']
+                run_grp.attrs['gesture_id'] = encode_stage(attrs['stage'])
                 run_grp.attrs['moving_hand'] = attrs['moving_hand']
 
                 run_grp.attrs['inter_subject_split'] = subj_split
@@ -103,6 +104,41 @@ def convert_emg2pose(src_dir, dest_h5_path):
                 run_grp.attrs['held_out_stage'] = attrs['held_out_stage']
                 run_grp.attrs['split'] = attrs['split']
 
+
+
+def encode_stage(stage_str):
+    stage_to_idx = {
+        'ThumbsUpDownThumbRotationsCWCCWP': 0,
+        'HandClawGraspFlicks': 1,
+        'ShakaVulcanPeace': 2,
+        'HookEmHornsOKScissors': 3,
+        'TwoHandedFreeStyle': 4,
+        'unconstrained': 5,
+        'OneHandedFreeStyle': 6,
+        'CountingUpDownFaceSideAway': 7,
+        'ThumbsSwipesWholeHand': 8,
+        'FingerWigglingSpreading': 9,
+        'FingerAbductionSeries': 10,
+        'FingerPinchesSingleFingerPinchesMultiple': 11,
+        'FingerFreeform': 12,
+        'IndividualFingerPointingSnap': 13,
+        'GraspPunchCloseFar': 14,
+        'PokeDrawPinchRotateclosefar': 15,
+        'AllFingerPinchesThumbSwipeThumbRotate': 16,
+        'CountingUpDownFingerWigglingSpreading': 17,
+        'IndexPinchesMiddlePinchesThumbswipes': 18,
+        'DoorknobFingerGraspFistGrab': 19,
+        'FastPongFronthandBackhandThrowing': 20,
+        'HandDeskSeparateClaspedChest': 21,
+        'PokePinchCloseFar': 22,
+        'FingerTouchPalmClapmrburns': 23,
+        'WristFlexionAbduction': 24,
+        'PlayBlocksChess': 25,
+        'CoffeePanicPete': 26,
+        'HandOverHandAllFingerPinchesThumbSwipeThumbRotate': 27,
+        'HandOverHandCountingUpDownFingerWigglingSpreading': 28
+    }
+    return stage_to_idx.get(stage_str, -1)  # Return -1 for unknown stages
 
 def download_dataset(dataset_dir, mini=True):
     dataset_dir = Path(dataset_dir)

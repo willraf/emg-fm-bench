@@ -324,11 +324,10 @@ class Trainer:
     
 
 def main(cfg, overwrite=False, find_batch_size=False):
-    
     trainer = Trainer(cfg, overwrite=overwrite)
 
-    if find_batch_size:
-        trainer.find_max_batch_size()
+    if find_batch_size and trainer.is_main:
+        batch_size = trainer.find_max_batch_size()
     else:
         trainer.train()
 
@@ -338,6 +337,11 @@ def main(cfg, overwrite=False, find_batch_size=False):
     if trainer.distributed:
         dist.barrier()  # Ensure all processes have finished writing results before any process exits
         destroy_process_group()
+
+    if find_batch_size:
+        return batch_size
+    else:
+        return None
     
 
 if __name__ == "__main__":
