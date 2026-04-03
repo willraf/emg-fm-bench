@@ -12,6 +12,8 @@ Date:
     10/03/2026
 """
 
+import contextlib
+
 from src.tasks.base_task import BaseTask
 from src.models import setup_model
 import src.utils.visualisation as vis
@@ -35,6 +37,7 @@ class FinetuneClassificationTask(BaseTask):
         lr = cfg.finetuning.learning_rate
         wd = cfg.finetuning.weight_decay
         num_epochs = cfg.training.epochs
+
         warmup_epochs = cfg.finetuning.warmup_epochs
         self.use_amp = cfg.training.get("use_amp", False)
 
@@ -42,6 +45,7 @@ class FinetuneClassificationTask(BaseTask):
 
         freeze_backbone = self.cfg.finetuning.freeze_backbone
         from_scratch = self.cfg.finetuning.from_scratch
+        self.num_accumulation_steps = cfg.training.get("num_accumulation_steps", 1)
         
         self.device = device
         self.distributed = distributed
@@ -102,30 +106,51 @@ class FinetuneClassificationTask(BaseTask):
         self.val_metrics = Metrics(device, distributed, is_main)
         self.test_metrics = Metrics(device, distributed, is_main)
 
-
-    def train_step(self, batch, batch_idx=None, epoch=None):
+    def compute_loss(self, batch):
         emg = batch["emg"].to(self.device)  # (B, C, T)
         targets = batch[self.target_field].long().to(self.device)  # (B,)
 
-        with torch.autocast(device_type=self.device.type, enabled=self.use_amp, dtype=self.amp_dtype):
-            logits = self.model(emg)  
-            loss = self.loss_fn(logits, targets)
+        logits = self.model(emg)  
+        loss = self.loss_fn(logits, targets)
 
+        return loss
+    
+    def update_weights(self, loss):
         self.optimiser.zero_grad(set_to_none=True)
 
-        if self.use_amp and self.amp_dtype == torch.float16:
+        self.scaler.scale(loss).backward()
+        self.scaler.step(self.optimiser)
+        self.scaler.update()
+
+
+    def train_step(self, batch, is_update_step=True, batch_idx=None, epoch=None):
+        emg = batch["emg"].to(self.device)  # (B, C, T)
+        targets = batch[self.target_field].long().to(self.device)  # (B,)
+
+        # This basically means "don't sync gradients across processes during the backward pass if this isn't an update step"
+        # It allows gradient accumulation with DDP training
+        maybe_no_sync = self.model.no_sync() if (self.distributed and not is_update_step) else contextlib.nullcontext()
+        with maybe_no_sync:
+            # This stuff is for amp scaling for memory efficiency
+            with torch.autocast(device_type=self.device.type, enabled=self.use_amp, dtype=self.amp_dtype):
+                logits = self.model(emg)  
+                loss = self.loss_fn(logits, targets) / self.num_accumulation_steps
+
+            # Always perform (scaled) backward pass, even if not updating weights yet.
+            # Prevents needing to store multiple forward passes in memory
             self.scaler.scale(loss).backward()
+
+        # Only update weights if its an update step
+        if is_update_step:
+            # self.scaler.unscale_(optimizer)
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.)
             self.scaler.step(self.optimiser)
             self.scaler.update()
-        else:
-            # For BF16 or FP32
-            loss.backward()
-            self.optimiser.step()
+            self.optimiser.zero_grad(set_to_none=True)
 
         with torch.no_grad():
             preds = logits.argmax(dim=1)
-
-        self.train_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
+            self.train_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
 
         return loss.item()     
 

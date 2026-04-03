@@ -1,13 +1,13 @@
 # @package _global_
 defaults:
   - override /dataset: ninapro_db5
-  - override /model: physiowave
+  - override /model: neurorvq
   - override /transforms: transforms
   - _self_
 
 data:
-  window_length: 200
-  split_type: intra_session
+  window_length: 1000
+  split_type: inter_subject
   batch_size: 32
 
 finetuning:

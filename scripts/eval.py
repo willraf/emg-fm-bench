@@ -25,6 +25,7 @@ from typing import Union, Optional, Callable
 
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
+from tqdm import tqdm
 
 from src.utils.utils import *
 import src.utils.visualisation as vis
@@ -94,12 +95,20 @@ class Evaluator:
         total_loss = 0.0
         num_batches = len(self.test_loader)
 
-        with torch.no_grad():
-            for batch_idx, batch in enumerate(self.test_loader):
-                total_loss += self.task.eval_step(batch)
-            
-        avg_loss = total_loss / num_batches
 
+        pbar = tqdm(
+            self.test_loader, 
+            disable=(not self.is_main), 
+            ncols=100
+        )
+
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(pbar):
+                loss = self.task.eval_step(batch)
+
+                if self.is_main:
+                    pbar.set_postfix({"loss": f"{loss:.4f}"})
+            
         test_metrics = self.task.test_metrics.compute()
         self.task.test_metrics.reset()
 

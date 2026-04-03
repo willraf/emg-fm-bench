@@ -19,11 +19,17 @@ experiment:
   plot_examples: True
   save: True
   find_batch_size: True
+  # For automatic batch size finding and lr scaling
+  base_batch_size: 128
+  base_learning_rate: 0.0001
+  # If batch size found is less than this, gradient acumulation will be used to simulate larger batch sizes
+  min_batch_size: 32
 
 training:
   patience: 8
   epochs: 100
   use_amp: True
+  num_accumulation_steps: 1   # No gradient accumulation by default
 
 # TODO split params into their own section
 finetuning:

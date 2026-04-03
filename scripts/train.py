@@ -97,6 +97,9 @@ class Trainer:
         if self.distributed:
             self.task.wrap_distributed(self.local_rank)
 
+        # Gradient accumulation
+        self.num_accumulation_steps = cfg.training.get("num_accumulation_steps", 1)
+
         # Initialise weights and biases
         if self.is_main and cfg.logging.get("use_wandb", False):
             wandb.init(
@@ -179,10 +182,10 @@ class Trainer:
             ncols=100
         )
         
-        # for batch_idx, batch in enumerate(self.train_loader):
-        for batch in pbar:
-            
-            loss = self.task.train_step(batch)
+        for batch_idx, batch in enumerate(pbar):
+            # Might be using gradient accumulation. Only update weights and log every num_accumulation_steps batches, or on the last batch
+            is_update_step = ((batch_idx + 1) % self.num_accumulation_steps == 0) or (batch_idx == len(self.train_loader) - 1)
+            loss = self.task.train_step(batch, is_update_step)
 
             if self.is_main:
                 pbar.set_postfix({"loss": f"{loss:.4f}"})
@@ -269,14 +272,14 @@ class Trainer:
             vis.plot_loss_curves(train_losses, val_losses, epochs, fpath=self.save_dir / "figures" / "loss_curves.png")
 
 
-    def find_max_batch_size(self, start_bs=8, max_trials=10, safety_factor=0.9) -> int:
+    def find_max_batch_size(self, start_bs=4, max_batch_size=256, safety_factor=0.9) -> int:
         """
         Utility function to find the maximum batch size that fits in GPU memory.
         Uses a binary search approach, starting from `start_bs` and doubling until OOM, then refining.
 
         Args:
             start_bs (int): Initial batch size to try
-            max_trials (int): Maximum number of trials to find the optimal batch size
+            max_batch_size (int): Maximum batch size to test
             safety_factor (float): Factor to reduce the found batch size by for safety margin
         Returns:
             int: Maximum batch size that fits in GPU memory with safety margin
@@ -288,9 +291,11 @@ class Trainer:
 
             batch_size = start_bs
             last_good = start_bs
+            trial = 0
 
-            for trial in range(max_trials):
-                logging.info(f"Trial {trial+1}/{max_trials}: Testing batch size {batch_size}...")
+            while batch_size <= max_batch_size:
+
+                logging.info(f"Trial {trial+1}: Testing batch size {batch_size}...")
                 self.cfg.data.batch_size = batch_size
                 loader = setup_data(self.cfg.data, mode="val")
                 
@@ -307,6 +312,7 @@ class Trainer:
 
                     last_good = batch_size
                     batch_size *= 2
+                    trial += 1
 
                 except RuntimeError as e:
 

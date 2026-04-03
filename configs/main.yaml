@@ -5,19 +5,24 @@ logging:
   use_wandb: true
   wandb_project: neurorvq_ninaprodb5
 experiment:
-  name: 2026-03-19_17-41-17_neuro_rvq_fm_ninapro_db5_200_intra_session_True_concat
-  random_seed: 42
+  name: 2026-04-01_23-31-51_neuro_rvq_fm_ninapro_db5_200_inter_subject_True_concat
+  random_seed: 2
   plot_examples: true
   save: true
+  find_batch_size: true
+  base_batch_size: 128
+  base_learning_rate: 0.0001
+  min_batch_size: 32
 training:
   patience: 8
   epochs: 100
   use_amp: true
+  num_accumulation_steps: 1
 finetuning:
   target_field: gesture_id
   freeze_backbone: true
   from_scratch: false
-  learning_rate: 0.0001
+  learning_rate: 0.0001796875
   weight_decay: 0.001
   warmup_epochs: 5
 data:
@@ -26,14 +31,14 @@ data:
   primary_data_key: emg
   timeseries_keys: null
   hdf5_path: data/ninapro_db5/ninapro_db5.hdf5
-  split_type: intra_session
+  split_type: inter_subject
   num_channels: 16
   window_length: 200
   sample_rate: 200
   stride: 50
   jitter: true
   num_workers: 10
-  batch_size: 256
+  batch_size: 230
   transforms:
     train:
     - _target_: src.data.transforms.StandardiseSignal
@@ -97,7 +102,7 @@ data:
   - c16
   n_classes: 53
 model:
-  checkpoint: experiments/2026-03-19_17-41-17_neuro_rvq_fm_ninapro_db5_200_intra_session_True_concat/train/checkpoints/best_model.pt
+  checkpoint: experiments/2026-04-01_23-31-51_neuro_rvq_fm_ninapro_db5_200_inter_subject_True_concat/train/checkpoints/best_model.pt
   sample_rate: 1000
   fm:
     name: neuro_rvq_fm
@@ -178,3 +183,15 @@ transforms:
     _target_: src.data.transforms.RandomChannelDropout
     field: emg
     dropout_prob: 0.05
+  per_channel_z_score_normalise:
+    _target_: src.data.transforms.PerChannelZScoreNormalise
+    field: emg
+  global_z_score_normalise:
+    _target_: src.data.transforms.GlobalZScoreNormalise
+    field: emg
+  min_max_normalise:
+    _target_: src.data.transforms.MinMaxNormalise
+    field: emg
+  peak_normalise:
+    _target_: src.data.transforms.PeakNormalise
+    field: emg
