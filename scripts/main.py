@@ -73,7 +73,7 @@ def main(cfg=None):
 
         if find_batch_size:
             # Optimization: Eval can usually handle 2x the training batch size
-            cfg.data.batch_size = batch_size * 2
+            cfg.data.batch_size = batch_size # * 2
             logging.info(f"Set evaluation batch size to {cfg.data.batch_size} based on discovered training batch size.")
 
         eval_results = evaluate(cfg, overwrite=True)

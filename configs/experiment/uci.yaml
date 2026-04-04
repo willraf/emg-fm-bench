@@ -1,0 +1,31 @@
+# @package _global_
+defaults:
+  - override /dataset: uci_emg
+  - override /model: physiowave
+  - override /transforms: transforms
+  - _self_
+
+data:
+  window_length: 1000
+  split_type: inter_subject
+
+finetuning:
+  freeze_backbone: True
+
+experiment:
+  name: ${data.root_key}/${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+
+logging:
+  log_interval: 10
+  use_wandb: True
+  wandb_project: "neurorvq_uci_emg"
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      # data.split_type: inter_subject, intra_session
+      data.window_length: 200, 1000
+      finetuning.freeze_backbone: True,False
+      experiment.random_seed: 2, 50, 100
+      

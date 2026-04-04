@@ -21,6 +21,7 @@ import torch.nn as nn
 
 import os
 from torch.distributed import init_process_group, destroy_process_group
+import torch.distributed as dist
 
 
 def setup_distributed():
@@ -33,6 +34,15 @@ def setup_distributed():
         rank (int)
         local_rank (int)
     """
+
+    # Check if already initialized
+    if dist.is_initialized():
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+        local_rank = int(os.environ.get("LOCAL_RANK", 0))
+        device = torch.device(f"cuda:{local_rank}")
+        
+        return True, device, rank, local_rank
 
     rank = int(os.environ.get("RANK", 0))
     local_rank = int(os.environ.get("LOCAL_RANK", 0))

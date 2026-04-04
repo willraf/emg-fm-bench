@@ -1,6 +1,6 @@
 # @package _global_
 defaults:
-  - override /dataset: ninapro_db5
+  - override /dataset: uci_emg
   - override /model: neurorvq
   - override /transforms: transforms
   - _self_
@@ -17,7 +17,7 @@ finetuning:
 logging:
   log_interval: 10
   use_wandb: False
-  wandb_project: "neurorvq_ninaprodb5"
+  wandb_project: "neurorvq_uci_emg"
 
 experiment:
   name: TEST

@@ -7,6 +7,8 @@ model:
   fm:
     name: tiny_myo
     checkpoint: pretrained_models/TinyMyo/pretraining/base.safetensors
+    # checkpoint: pretrained_models/TinyMyo/UCI_EMG/UCI_EMG.safetensors
+    # checkpoint: pretrained_models/TinyMyo/DB5/DB5.safetensors
     img_size: ${data.window_length}
     patch_size: 20
     in_chans: ${data.num_channels}
