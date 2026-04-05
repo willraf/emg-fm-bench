@@ -37,3 +37,21 @@ model:
     num_channels: ${data.num_channels}
     pooling_type: concat
     finetune_spacial_embedding: False
+
+
+data:
+  # No band pass filter, per channel z score normalisation and resampling to test original method done by physiowave
+  transforms:
+    train:
+      - ${transforms.standardise}
+      - ${transforms.per_channel_z_score_normalise}
+      - ${transforms.resample}
+      - ${transforms.random_scale}
+      - ${transforms.channel_dropout}
+      
+    val:
+      - ${transforms.standardise}
+      - ${transforms.per_channel_z_score_normalise}
+      - ${transforms.resample}
+
+    test: ${data.transforms.val}

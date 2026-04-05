@@ -113,5 +113,7 @@ def setup_data(data_cfg: OmegaConf, mode: str = "train", distributed: bool = Fal
         sampler=sampler,
     )
 
+    logging.info(f"Created DataLoader for {mode} with batch size {batch_size}, num_workers {num_workers}, distributed={distributed}.")
+
     return dataloader
  

@@ -177,10 +177,12 @@ class FinetuneClassificationTask(BaseTask):
         Standardized evaluation step. Returns raw outputs and targets.
         """
         emg = batch["emg"].to(self.device)
-        targets = batch[self.target_field].to(self.device)
+        targets = batch[self.target_field].long().to(self.device)
 
-        logits = self.model(emg)
-        loss = self.loss_fn(logits, targets)
+        with torch.autocast(device_type=self.device.type, enabled=self.use_amp, dtype=self.amp_dtype):
+            logits = self.model(emg)
+            loss = self.loss_fn(logits, targets)
+
         preds = logits.argmax(dim=1)
         
         self.test_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))

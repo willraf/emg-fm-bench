@@ -34,10 +34,6 @@ from src.tasks import setup_task
 
 import wandb
 
-use_cuda = torch.cuda.is_available()
-device = torch.device('cuda' if use_cuda else 'cpu')
-
-
 class Evaluator:
     
     def __init__(self, cfg, overwrite=False):
@@ -148,11 +144,80 @@ class Evaluator:
             if self.cfg.experiment.plot_examples and "confusion_matrix" in metrics:
                 vis.plot_confusion_matrix(metrics["confusion_matrix"], class_names=self.cfg.data.get("class_names", None), fpath=self.save_dir / "figures" / "confusion_matrix.png")
 
+    def find_max_batch_size(self, start_bs=2, max_batch_size=256, safety_factor=0.9) -> int:
+        """
+        Utility function to find the maximum batch size that fits in GPU memory.
+        Uses a binary search approach, starting from `start_bs` and doubling until OOM, then refining.
 
+        Args:
+            start_bs (int): Initial batch size to try
+            max_batch_size (int): Maximum batch size to test
+            safety_factor (float): Factor to reduce the found batch size by for safety margin
+        Returns:
+            int: Maximum batch size that fits in GPU memory with safety margin
+        """
+        recommended = 0
 
-def main(cfg, overwrite=False):
+        if self.is_main:
+            logging.info("\n🔍 Starting batch size probe...\n")
+
+            batch_size = start_bs
+            last_good = start_bs
+            trial = 0
+
+            while batch_size <= max_batch_size:
+
+                logging.info(f"Trial {trial+1}: Testing batch size {batch_size}...")
+                self.cfg.data.batch_size = batch_size
+                loader = setup_data(self.cfg.data, mode="test")
+                
+                batch = next(iter(loader))
+
+                try:
+                    torch.cuda.empty_cache()
+                    torch.cuda.reset_peak_memory_stats()
+
+                    self.task.eval_step(batch)
+
+                    peak = torch.cuda.max_memory_allocated() / 1e9
+                    logging.info(f"Success | Peak memory {peak:.2f} GB")
+
+                    last_good = batch_size
+                    batch_size *= 2
+                    trial += 1
+
+                except RuntimeError as e:
+
+                    if "out of memory" in str(e).lower():
+                        logging.info(f"OOM at batch size {batch_size}")
+                        break
+                    else:
+                        raise
+
+            recommended = max(1, int(last_good * safety_factor))
+            logging.info(f"\nRecommended per-GPU batch size: {recommended}")
+
+        # Sync GPUs
+        if self.distributed:
+            bs_tensor = torch.tensor(recommended, device=self.device)
+            dist.broadcast(bs_tensor, src=0)
+            recommended = int(bs_tensor.item())
+
+        return recommended
+
+def main(cfg, overwrite=False, find_batch_size=False):
 
     evaluator = Evaluator(cfg, overwrite=overwrite)
+
+    if find_batch_size:
+        batch_size = evaluator.find_max_batch_size()
+
+        # Cleanup properly before returning to main.py
+        if evaluator.distributed:
+            dist.barrier()
+            destroy_process_group()
+        return batch_size
+
     evaluator.evaluate()
 
     if evaluator.is_main and evaluator.use_wandb:
@@ -168,10 +233,11 @@ if __name__ == "__main__":
     parser.add_argument('--config', type=str, required=True)
     parser.add_argument('--default', type=str, required=False, default="configs/default.yaml")
     parser.add_argument('--overwrite', action='store_true')
+    parser.add_argument('--find_batch_size', action='store_true', required=False, default=False, help="Run batch size finder instead of training")
     args = parser.parse_args()
 
     cfg = load_config(args.config, default_path=args.default)
     setup_logging()
     
-    main(cfg, overwrite=args.overwrite)
+    main(cfg, overwrite=args.overwrite, find_batch_size=args.find_batch_size)
 

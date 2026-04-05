@@ -32,6 +32,8 @@ from scripts.eval import main as evaluate
 from scripts.predict import main as predict
 
 import hydra
+import torch
+import gc
 
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg=None):
@@ -72,9 +74,15 @@ def main(cfg=None):
         logging.info(f"Training completed with results: {train_results}")
 
         if find_batch_size:
+
+            cfg.data.batch_size = evaluate(cfg, overwrite=True, find_batch_size=True)
             # Optimization: Eval can usually handle 2x the training batch size
-            cfg.data.batch_size = batch_size # * 2
+            # cfg.data.batch_size = batch_size * 2
             logging.info(f"Set evaluation batch size to {cfg.data.batch_size} based on discovered training batch size.")
+
+        # Clear GPU memory before evaluation
+        gc.collect()
+        torch.cuda.empty_cache()
 
         eval_results = evaluate(cfg, overwrite=True)
         logging.info(f"Evaluation completed with results: {eval_results}")

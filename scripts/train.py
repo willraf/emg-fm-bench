@@ -272,7 +272,7 @@ class Trainer:
             vis.plot_loss_curves(train_losses, val_losses, epochs, fpath=self.save_dir / "figures" / "loss_curves.png")
 
 
-    def find_max_batch_size(self, start_bs=4, max_batch_size=256, safety_factor=0.9) -> int:
+    def find_max_batch_size(self, start_bs=2, max_batch_size=256, safety_factor=0.9) -> int:
         """
         Utility function to find the maximum batch size that fits in GPU memory.
         Uses a binary search approach, starting from `start_bs` and doubling until OOM, then refining.
@@ -351,6 +351,9 @@ def main(cfg, overwrite=False, find_batch_size=False):
 
     if trainer.is_main and trainer.use_wandb:
         wandb.finish()
+
+    trainer.task.train_metrics.reset() 
+    trainer.task.val_metrics.reset()
 
     if trainer.distributed:
         dist.barrier()  # Ensure all processes have finished writing results before any process exits

@@ -14,7 +14,7 @@ logging:
 
 # Global experiment settings that use interpolation
 experiment:
-  name: ${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}
+  name: ${data.root_key}/${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
   random_seed: 42
   plot_examples: True
   save: True
