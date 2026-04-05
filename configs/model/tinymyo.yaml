@@ -38,7 +38,6 @@ model:
     pooling_type: concat
     finetune_spacial_embedding: False
 
-
 data:
   # No band pass filter, per channel z score normalisation and resampling to test original method done by physiowave
   transforms:
