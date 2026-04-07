@@ -16,15 +16,6 @@ Date:
     19/02/2026
 """
 
-
-
-def main():
-    pass
-
-if __name__ == '__main__':
-    main()
-
-
 import h5py
 import scipy.io
 import numpy as np
