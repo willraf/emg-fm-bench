@@ -144,7 +144,7 @@ class Evaluator:
             if self.cfg.experiment.plot_examples and "confusion_matrix" in metrics:
                 vis.plot_confusion_matrix(metrics["confusion_matrix"], class_names=self.cfg.data.get("class_names", None), fpath=self.save_dir / "figures" / "confusion_matrix.png")
 
-    def find_max_batch_size(self, start_bs=2, max_batch_size=256, safety_factor=0.9) -> int:
+    def find_max_batch_size(self, start_bs=2, max_batch_size=1024, safety_factor=0.8) -> int:
         """
         Utility function to find the maximum batch size that fits in GPU memory.
         Uses a binary search approach, starting from `start_bs` and doubling until OOM, then refining.

@@ -182,7 +182,7 @@ def add_log_file(log_fpath: Union[str, Path], is_main_process: bool = True):
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
     
-    logging.info(f"Log file changed to: {log_fpath}")
+    logging.info(f"Log file added: {log_fpath}")
 
 
 def setup_save_dir(cfg: OmegaConf,

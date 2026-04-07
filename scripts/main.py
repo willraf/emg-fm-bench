@@ -25,7 +25,7 @@ import traceback
 
 from omegaconf import OmegaConf
 
-from src.utils.utils import load_config, get_experiment_directory, setup_logging
+from src.utils.utils import add_log_file, load_config, get_experiment_directory, setup_logging
 
 from scripts.train import main as train
 from scripts.eval import main as evaluate
@@ -44,6 +44,8 @@ def main(cfg=None):
         base_learning_rate = cfg.experiment.base_learning_rate
 
         experiment_dir = get_experiment_directory(cfg)
+        add_log_file(experiment_dir / "main.log")
+        logging.info(f"Experiment directory: {experiment_dir}")
 
         if find_batch_size:
             """

@@ -272,7 +272,7 @@ class Trainer:
             vis.plot_loss_curves(train_losses, val_losses, epochs, fpath=self.save_dir / "figures" / "loss_curves.png")
 
 
-    def find_max_batch_size(self, start_bs=2, max_batch_size=256, safety_factor=0.9) -> int:
+    def find_max_batch_size(self, start_bs=2, max_batch_size=256, safety_factor=0.8) -> int:
         """
         Utility function to find the maximum batch size that fits in GPU memory.
         Uses a binary search approach, starting from `start_bs` and doubling until OOM, then refining.
