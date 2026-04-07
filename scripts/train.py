@@ -339,26 +339,12 @@ def main(cfg, overwrite=False, find_batch_size=False):
 
     if find_batch_size:
         batch_size = trainer.find_max_batch_size()
-
-        # Cleanup properly before returning to main.py
-        if trainer.distributed:
-            dist.barrier()
-            destroy_process_group()
         return batch_size
-
 
     trainer.train()
 
     if trainer.is_main and trainer.use_wandb:
         wandb.finish()
-
-    trainer.task.train_metrics.reset() 
-    trainer.task.val_metrics.reset()
-
-    if trainer.distributed:
-        dist.barrier()  # Ensure all processes have finished writing results before any process exits
-        destroy_process_group()
-    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a model with a YAML config file")
@@ -372,3 +358,8 @@ if __name__ == "__main__":
     setup_logging()
     
     main(cfg, overwrite=args.overwrite, find_batch_size=args.find_batch_size)
+
+    # Cleanup distributed properly
+    if dist.is_initialized():
+        dist.barrier()
+        destroy_process_group()

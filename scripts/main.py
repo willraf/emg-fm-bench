@@ -33,6 +33,8 @@ from scripts.predict import main as predict
 
 import hydra
 import torch
+import torch.distributed as dist
+from torch.distributed import destroy_process_group
 import gc
 
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
@@ -107,6 +109,13 @@ def main(cfg=None):
             
         # Re-raise if you want Hydra to acknowledge the failure
         raise e
+    
+    finally:
+        # This ensures cleanup happens for EVERY seed in the sweep
+        if torch.distributed.is_initialized():
+            torch.distributed.barrier()
+            torch.distributed.destroy_process_group()
+            logging.info("Distributed process group destroyed.")
 
     return {
         "train_results": train_results,
@@ -117,3 +126,8 @@ def main(cfg=None):
 if __name__ == "__main__":
     setup_logging()
     main()
+    # Cleanup distributed properly
+    if dist.is_initialized():
+        dist.barrier()
+        destroy_process_group()
+
