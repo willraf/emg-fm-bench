@@ -80,7 +80,7 @@ def main(cfg=None):
         # (Optionally) Find max per-GPU batch size
         if find_batch_size:
 
-            finder = Trainer(cfg, overwrite=False)
+            finder = Trainer(cfg, overwrite=True)
             world_size = dist.get_world_size() if dist.is_initialized() else 1
             per_gpu_batch_size = finder.find_max_batch_size()
 

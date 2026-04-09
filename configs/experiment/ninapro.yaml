@@ -28,5 +28,6 @@ hydra:
     params:
       # data.split_type: inter_subject, intra_session
       # data.window_length: 200, 1000
-      finetuning.freeze_backbone: True,False
-      experiment.random_seed: 2, 50, 100
+      # finetuning.freeze_backbone: True,False
+      # experiment.random_seed: 2, 50, 100
+      experiment.random_seed: 50, 100

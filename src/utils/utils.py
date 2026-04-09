@@ -209,12 +209,17 @@ def setup_save_dir(cfg: OmegaConf,
     experiment_dir = Path(get_experiment_directory(cfg))
     save_dir = experiment_dir / mode 
 
+    # Check if we are resuming from a checkpoint
+    is_resuming = cfg.model.get("checkpoint") is not None
+
     # Handle existing training directory
     if save_dir.exists():
         logging.warning(f"Directory {save_dir} already exists.")
-
-        if overwrite:
-            logging.info("Overwriting existing directory.")
+        if is_resuming:
+            logging.info(f"Resuming training in existing directory: {save_dir}")
+            # We don't delete; we just ensure sub-dirs exist
+        elif overwrite:
+            logging.warning("Overwriting existing directory.")
             shutil.rmtree(save_dir)
         else:
             response = input(f"Directory '{save_dir}' already exists. Overwrite? [y/N]: ").strip().lower()
@@ -225,7 +230,7 @@ def setup_save_dir(cfg: OmegaConf,
                 shutil.rmtree(save_dir)
 
     # Create necessary directories
-    save_dir.mkdir(parents=True, exist_ok=False)
+    save_dir.mkdir(parents=True, exist_ok=True)
     (save_dir / "figures").mkdir(exist_ok=True)
 
     # Save logger to file

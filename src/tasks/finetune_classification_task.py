@@ -131,17 +131,14 @@ class FinetuneClassificationTask(BaseTask):
         # It allows gradient accumulation with DDP training
         maybe_no_sync = self.model.no_sync() if (self.distributed and not is_update_step) else contextlib.nullcontext()
         with maybe_no_sync:
-            logging.info(f"Task.py: Training step: Epoch {epoch}, Batch {batch_idx}, Update Step: {is_update_step}")
             # This stuff is for amp scaling for memory efficiency
             with torch.autocast(device_type=self.device.type, enabled=self.use_amp, dtype=self.amp_dtype):
                 logits = self.model(emg)  
                 loss = self.loss_fn(logits, targets) / self.num_accumulation_steps
-                logging.info(f"Task.py: Computed loss: {loss.item():.4f} (scaled by accumulation steps)")
 
             # Always perform (scaled) backward pass, even if not updating weights yet.
             # Prevents needing to store multiple forward passes in memory
             self.scaler.scale(loss).backward()
-            logging.info(f"Task.py: Completed backward pass for Epoch {epoch}, Batch {batch_idx}")
 
         # Only update weights if its an update step
         if is_update_step:
@@ -150,12 +147,10 @@ class FinetuneClassificationTask(BaseTask):
             self.scaler.step(self.optimiser)
             self.scaler.update()
             self.optimiser.zero_grad(set_to_none=True)
-            logging.info(f"Task.py: Updated weights at Epoch {epoch}, Batch {batch_idx}")
 
         with torch.no_grad():
             preds = logits.argmax(dim=1)
             self.train_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
-            logging.info(f"Task.py: Updated training metrics for Epoch {epoch}, Batch {batch_idx}")
 
         return loss.item()     
 
