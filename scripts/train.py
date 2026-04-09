@@ -284,18 +284,17 @@ class Trainer:
         Returns:
             int: Maximum batch size that fits in GPU memory with safety margin
         """
-        recommended = 0
+        recommended = torch.tensor(0, device=self.device)
 
         if self.is_main:
             logging.info("\n🔍 Starting batch size probe...\n")
 
             batch_size = start_bs
             last_good = start_bs
-            trial = 0
 
             while batch_size <= max_batch_size:
 
-                logging.info(f"Trial {trial+1}: Testing batch size {batch_size}...")
+                logging.info(f"Testing batch size {batch_size}...")
                 self.cfg.data.batch_size = batch_size
                 loader = setup_data(self.cfg.data, mode="val")
                 
@@ -312,7 +311,6 @@ class Trainer:
 
                     last_good = batch_size
                     batch_size *= 2
-                    trial += 1
 
                 except RuntimeError as e:
 
@@ -322,16 +320,17 @@ class Trainer:
                     else:
                         raise
 
-            recommended = max(1, int(last_good * safety_factor))
+            found = max(1, int(last_good * safety_factor))
             logging.info(f"\nRecommended per-GPU batch size: {recommended}")
+            recommended = torch.tensor(found, device=self.device)
 
         # Sync GPUs
         if self.distributed:
-            bs_tensor = torch.tensor(recommended, device=self.device)
-            dist.broadcast(bs_tensor, src=0)
-            recommended = int(bs_tensor.item())
+            print(f'Process {self.rank} recommended batch size {recommended.item()}')
+            dist.broadcast(recommended, src=0)
+            print(f'After sync: Process {self.rank} recommended batch size {recommended.item()}')
 
-        return recommended
+        return int(recommended.item())
         
 
 def main(cfg, overwrite=False, find_batch_size=False):

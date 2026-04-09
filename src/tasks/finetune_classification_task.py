@@ -131,51 +131,37 @@ class FinetuneClassificationTask(BaseTask):
         # It allows gradient accumulation with DDP training
         maybe_no_sync = self.model.no_sync() if (self.distributed and not is_update_step) else contextlib.nullcontext()
         with maybe_no_sync:
+            logging.info(f"Task.py: Training step: Epoch {epoch}, Batch {batch_idx}, Update Step: {is_update_step}")
             # This stuff is for amp scaling for memory efficiency
             with torch.autocast(device_type=self.device.type, enabled=self.use_amp, dtype=self.amp_dtype):
                 logits = self.model(emg)  
                 loss = self.loss_fn(logits, targets) / self.num_accumulation_steps
+                logging.info(f"Task.py: Computed loss: {loss.item():.4f} (scaled by accumulation steps)")
 
             # Always perform (scaled) backward pass, even if not updating weights yet.
             # Prevents needing to store multiple forward passes in memory
             self.scaler.scale(loss).backward()
+            logging.info(f"Task.py: Completed backward pass for Epoch {epoch}, Batch {batch_idx}")
 
         # Only update weights if its an update step
         if is_update_step:
-            # self.scaler.unscale_(optimizer)
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.)
+            self.scaler.unscale_(self.optimizer)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.)
             self.scaler.step(self.optimiser)
             self.scaler.update()
             self.optimiser.zero_grad(set_to_none=True)
+            logging.info(f"Task.py: Updated weights at Epoch {epoch}, Batch {batch_idx}")
 
         with torch.no_grad():
             preds = logits.argmax(dim=1)
             self.train_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
+            logging.info(f"Task.py: Updated training metrics for Epoch {epoch}, Batch {batch_idx}")
 
         return loss.item()     
 
 
     @torch.no_grad()
-    def val_step(self, batch, batch_idx=None, epoch=None):
-        emg = batch["emg"].to(self.device)  # (B, C, T)
-        targets = batch[self.target_field].long().to(self.device)  # (B,)
-
-        with torch.autocast(device_type=self.device.type, enabled=self.use_amp, dtype=self.amp_dtype):
-            logits = self.model(emg)
-            loss = self.loss_fn(logits, targets)
-
-        preds = logits.argmax(dim=1)
-        
-        self.val_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
-
-        return loss.item()     
-
-
-    @torch.no_grad()
-    def eval_step(self, batch):
-        """
-        Standardized evaluation step. Returns raw outputs and targets.
-        """
+    def _inference_step(self, batch, metrics):
         emg = batch["emg"].to(self.device)
         targets = batch[self.target_field].long().to(self.device)
 
@@ -184,10 +170,14 @@ class FinetuneClassificationTask(BaseTask):
             loss = self.loss_fn(logits, targets)
 
         preds = logits.argmax(dim=1)
-        
-        self.test_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
-        
+        metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
         return loss.item()
+
+    def val_step(self, batch, **kwargs):
+        return self._inference_step(batch, self.val_metrics)
+
+    def eval_step(self, batch, **kwargs):
+        return self._inference_step(batch, self.test_metrics)
 
 
     def save_checkpoint(self, checkpoint_path, epoch, val_loss):
@@ -208,13 +198,18 @@ class FinetuneClassificationTask(BaseTask):
         if not path.exists():
             logging.warning(f"Checkpoint not found: {path}")
             return {}
+    
+        checkpoint = torch.load(path, map_location=self.device)
+        state_dict = checkpoint['model_state_dict']
         
-        checkpoint = torch.load(path)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
+        # Strip DDP prefix if present (defensive)
+        if any(k.startswith('module.') for k in state_dict):
+            state_dict = {k.removeprefix('module.'): v for k, v in state_dict.items()}
+        
+        self.model.load_state_dict(state_dict)
         self.optimiser.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         return checkpoint
-
 
     def wrap_distributed(self, local_rank):
         self.model = DDP(self.model, 
@@ -229,6 +224,8 @@ class FinetuneClassificationTask(BaseTask):
         Groups parameters: 
         - Blacklist: Biases, Normalization (LayerNorm, BatchNorm), and Embeddings (WD=0)
         - All others: Receive weight decay.
+
+        Must be called before wrap_distributed() — operates on the unwrapped model.
         """
         decay = set()
         no_decay = set()

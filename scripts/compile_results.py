@@ -177,7 +177,7 @@ def generate_latex_table(df):
     }
     dataset_map = {
         "epn612": "EPN-612 (5s)",
-        "ninapro_db5": "NinaPro DB5 (1s)",
+        "ninapro_db5": "NinaPro DB5 (5s)",
         "uci_emg": "UCI-EMG (1s)"
     }
     
@@ -262,7 +262,7 @@ def generate_paper_table(df):
     
     # 2. Refine constraints
     mask_epn = (df['dataset'] == 'epn612') & (df['window_duration'] == 5)
-    mask_nina = (df['dataset'] == 'ninapro_db5') & (df['window_duration'] == 1)
+    mask_nina = (df['dataset'] == 'ninapro_db5') & (df['window_duration'] == 5)
     mask_uci = (df['dataset'] == 'uci_emg') & (df['window_duration'] == 1)
     mask_split = (df['split'] == 'inter_subject')
     df_refined = df[(mask_epn | mask_nina | mask_uci) & mask_split].copy()

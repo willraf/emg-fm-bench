@@ -31,97 +31,131 @@ from scripts.train import main as train
 from scripts.eval import main as evaluate
 from scripts.predict import main as predict
 
+from scripts.train import Trainer
+
 import hydra
 import torch
 import torch.distributed as dist
 from torch.distributed import destroy_process_group
 import gc
 
+def find_batch_size(cfg):
+    """
+    Find the maximum batch size that its in memory. Use gradient accumulation if less than minimum.
+    Adjust learning rate according to linear scaling.
+    """
+    batch_size = train(cfg, overwrite=True, find_batch_size=True)
+    logging.info(f"Found maximum batch size: {batch_size}")
+
+    if batch_size < min_batch_size:
+        logging.warning(f"Found batch size {batch_size} is less than minimum {min_batch_size}. Gradient accumulation will be used.")
+        num_accumulation_steps = (min_batch_size + batch_size - 1) // batch_size  # Equivalent to math.ceil(min_batch_size / batch_size)
+        cfg.training.num_accumulation_steps = num_accumulation_steps
+        logging.info(f"Set num_accumulation_steps to {num_accumulation_steps}")
+        effective_batch_size = batch_size * num_accumulation_steps
+    else:
+        effective_batch_size = batch_size
+
+    cfg.data.batch_size = batch_size
+
+    # Adjust learning rate based on batch size (linear scaling rule)
+    scaled_learning_rate = base_learning_rate * (effective_batch_size / base_batch_size)
+    cfg.finetuning.learning_rate = scaled_learning_rate
+    logging.info(f"Scaled learning rate to {scaled_learning_rate} based on batch size {effective_batch_size} and base batch size {base_batch_size}.")
+
+    return effective_batch_size
+
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg=None):
+    experiment_dir = get_experiment_directory(cfg)
+    add_log_file(experiment_dir / "main.log")
+    logging.info(f"Experiment directory: {experiment_dir}")
+
     try:
         find_batch_size = cfg.experiment.find_batch_size
         min_batch_size = cfg.experiment.min_batch_size
         base_batch_size = cfg.experiment.base_batch_size
         base_learning_rate = cfg.experiment.base_learning_rate
-
-        experiment_dir = get_experiment_directory(cfg)
-        add_log_file(experiment_dir / "main.log")
-        logging.info(f"Experiment directory: {experiment_dir}")
-
+        
+        # (Optionally) Find max per-GPU batch size
         if find_batch_size:
-            """
-            Find the maximum batch size for memory, scale learning rate accordingly, and use gradient accumulation if necessary to simulate larger batch sizes.
-            """
-            batch_size = train(cfg, overwrite=True, find_batch_size=True)
-            logging.info(f"Found maximum batch size: {batch_size}")
 
-            if batch_size < min_batch_size:
-                logging.warning(f"Found batch size {batch_size} is less than minimum {min_batch_size}. Gradient accumulation will be used.")
-                num_accumulation_steps = (min_batch_size + batch_size - 1) // batch_size  # Equivalent to math.ceil(min_batch_size / batch_size)
-                cfg.training.num_accumulation_steps = num_accumulation_steps
-                logging.info(f"Set num_accumulation_steps to {num_accumulation_steps}")
-                effective_batch_size = batch_size * num_accumulation_steps
+            finder = Trainer(cfg, overwrite=False)
+            world_size = dist.get_world_size() if dist.is_initialized() else 1
+            per_gpu_batch_size = finder.find_max_batch_size()
+
+            # Gradient accumulation if per-GPU batch size is too small
+            if per_gpu_batch_size < min_batch_size:
+                accum_steps = (min_batch_size + per_gpu_batch_size - 1) // per_gpu_batch_size
+                logging.warning(
+                    f"Per-GPU batch size {per_gpu_batch_size} < minimum {min_batch_size}. "
+                    f"Using {accum_steps} gradient accumulation steps."
+                )
             else:
-                effective_batch_size = batch_size
+                accum_steps = 1
 
-            cfg.data.batch_size = batch_size
+            cfg.data.batch_size = per_gpu_batch_size
+            cfg.training.num_accumulation_steps = accum_steps   
 
-            # Adjust learning rate based on batch size (linear scaling rule)
-            scaled_learning_rate = base_learning_rate * (effective_batch_size / base_batch_size)
-            cfg.finetuning.learning_rate = scaled_learning_rate
-            logging.info(f"Scaled learning rate to {scaled_learning_rate} based on batch size {effective_batch_size} and base batch size {base_batch_size}.")
+            # Scale learning rate by effective batch size 
+            effective_batch_size = per_gpu_batch_size * accum_steps * world_size
+            scaled_lr = base_learning_rate * (effective_batch_size / base_batch_size)
+            cfg.finetuning.learning_rate = scaled_lr
+            logging.info(
+                f"Effective batch size: {per_gpu_batch_size} (per-GPU) "
+                f"× {accum_steps} (accum) × {world_size} (GPUs) = {effective_batch_size}. "
+                f"LR scaled from {base_learning_rate} → {scaled_lr:.6f}."
+            )
 
-        OmegaConf.save(cfg, experiment_dir / "config.yaml")
+            # Save config after batch-size discovery, before training
+            OmegaConf.save(cfg, experiment_dir / "config.yaml")
 
+            # Clean up the finder trainer before building the real one
+            del finder
+            gc.collect()
+            torch.cuda.empty_cache()
+
+        else:
+            OmegaConf.save(cfg, experiment_dir / "config.yaml")
+        
         train_results = train(cfg, overwrite=True, find_batch_size=False)
         logging.info(f"Training completed with results: {train_results}")
-
-        if find_batch_size:
-
-            cfg.data.batch_size = evaluate(cfg, overwrite=True, find_batch_size=True)
-            # Optimization: Eval can usually handle 2x the training batch size
-            # cfg.data.batch_size = batch_size * 2
-            logging.info(f"Set evaluation batch size to {cfg.data.batch_size} based on discovered training batch size.")
 
         # Clear GPU memory before evaluation
         gc.collect()
         torch.cuda.empty_cache()
 
+        if find_batch_size:
+            eval_finder = Trainer(cfg, overwrite=False)
+            eval_batch_size = eval_finder.find_max_batch_size()
+            cfg.data.batch_size = eval_batch_size
+            logging.info(f"Eval batch size: {eval_batch_size}")
+            del eval_finder
+            gc.collect()
+            torch.cuda.empty_cache()
+
         eval_results = evaluate(cfg, overwrite=True)
         logging.info(f"Evaluation completed with results: {eval_results}")
-
-        # infer_results = predict(cfg, overwrite=overwrite)
-        # logging.info(f"Inference completed with results: {infer_results}")
 
     except Exception as e:
         # Capture the full traceback
         error_msg = traceback.format_exc()
         logging.error(f"Job failed with error:\n{error_msg}")
-        
-        # Optional: Save error to a dedicated file in the exp folder
-        # Note: only works if experiment_dir was successfully created
         try:
             with open(experiment_dir / "error.log", "w") as f:
                 f.write(error_msg)
         except:
             pass
-            
-        # Re-raise if you want Hydra to acknowledge the failure
+        # Re-raise for Hydra to acknowledge the failure
         raise e
     
     finally:
-        # This ensures cleanup happens for EVERY seed in the sweep
-        if torch.distributed.is_initialized():
-            torch.distributed.barrier()
-            torch.distributed.destroy_process_group()
+        if dist.is_initialized():
+            dist.barrier()
+            dist.destroy_process_group()
             logging.info("Distributed process group destroyed.")
 
-    return {
-        "train_results": train_results,
-        "eval_results": eval_results,
-        # "infer_results": infer_results
-    }
+    return {"train_results": train_results, "eval_results": eval_results}
 
 if __name__ == "__main__":
     setup_logging()

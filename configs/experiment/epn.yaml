@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - override /dataset: epn612
-  - override /model: neurorvq
+  - override /model: tinymyo
   - override /transforms: transforms
   - _self_
 
