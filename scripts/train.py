@@ -215,7 +215,7 @@ class Trainer:
 
         with torch.no_grad():
             for batch_idx, batch in enumerate(self.val_loader):
-                total_loss += self.task.val_step(batch, batch_idx, epoch)
+                total_loss += self.task.val_step(batch)
             
         avg_loss = total_loss / num_batches
 

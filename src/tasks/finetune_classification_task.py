@@ -173,10 +173,10 @@ class FinetuneClassificationTask(BaseTask):
         metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
         return loss.item()
 
-    def val_step(self, batch, **kwargs):
+    def val_step(self, batch):
         return self._inference_step(batch, self.val_metrics)
 
-    def eval_step(self, batch, **kwargs):
+    def eval_step(self, batch):
         return self._inference_step(batch, self.test_metrics)
 
 
