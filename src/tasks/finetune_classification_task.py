@@ -145,7 +145,7 @@ class FinetuneClassificationTask(BaseTask):
 
         # Only update weights if its an update step
         if is_update_step:
-            self.scaler.unscale_(self.optimizer)
+            self.scaler.unscale_(self.optimiser)
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.)
             self.scaler.step(self.optimiser)
             self.scaler.update()
