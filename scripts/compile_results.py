@@ -2,6 +2,7 @@ import pandas as pd
 from pathlib import Path
 from omegaconf import OmegaConf
 import logging
+import argparse
 
 experiment_list = [
 "experiments/2026-03-31_12-28-19_physio_wave_epn612_200_inter_subject_True_concat",
@@ -250,7 +251,7 @@ def generate_paper_table(df):
     }
     dataset_map = {
         "epn612": "EPN-612 (5s)",
-        "ninapro_db5": "NinaPro DB5 (1s)",
+        "ninapro_db5": "NinaPro DB5 (5s)",
         "uci_emg": "UCI-EMG (1s)"
     }
 
@@ -348,7 +349,12 @@ def generate_paper_table(df):
 
 
 if __name__ == "__main__":
-    df = compile_benchmarks()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset_dir", type=str, default="experiments/")
+    args = parser.parse_args()
+
+    df = compile_benchmarks(args.dataset_dir)
     
     # Save the raw dataframe
     df.to_csv("master_results.csv", index=False)
