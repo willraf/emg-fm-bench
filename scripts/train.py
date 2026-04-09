@@ -321,7 +321,7 @@ class Trainer:
                         raise
 
             found = max(1, int(last_good * safety_factor))
-            logging.info(f"\nRecommended per-GPU batch size: {recommended}")
+            logging.info(f"\nRecommended per-GPU batch size: {found}")
             recommended = torch.tensor(found, device=self.device)
 
         # Sync GPUs
