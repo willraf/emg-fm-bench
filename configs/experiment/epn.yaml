@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - override /dataset: epn612
-  - override /model: tinymyo
+  - override /model: physiowave
   - override /transforms: transforms
   - _self_
 
@@ -10,7 +10,7 @@ data:
   split_type: inter_subject
 
 finetuning:
-  freeze_backbone: True
+  freeze_backbone: False
 
 experiment:
   name: ${data.root_key}/${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
@@ -26,6 +26,6 @@ hydra:
     params:
       # data.split_type: inter_subject, intra_session
       # data.window_length: 200, 1000
-      finetuning.freeze_backbone: True,False
+      # finetuning.freeze_backbone: True,False
       experiment.random_seed: 2, 50, 100
       

@@ -351,10 +351,10 @@ def generate_paper_table(df):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_dir", type=str, default="experiments/")
+    parser.add_argument("--results_dir", type=str, default="experiments/")
     args = parser.parse_args()
 
-    df = compile_benchmarks(args.dataset_dir)
+    df = compile_benchmarks(args.results_dir)
     
     # Save the raw dataframe
     df.to_csv("master_results.csv", index=False)
