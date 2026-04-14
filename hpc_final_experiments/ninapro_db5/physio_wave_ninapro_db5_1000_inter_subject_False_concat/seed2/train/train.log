@@ -1,0 +1,475 @@
+2026-04-09 20:19:13,033 - INFO - Log file added: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/train.log
+2026-04-09 20:19:35,372 - INFO - Model [physio_wave] standardized. Unpacking parameters.
+2026-04-09 20:19:35,591 - INFO - model [PhysioWave] was created
+2026-04-09 20:19:35,596 - INFO - Loading foundation model from checkpoint: pretrained_models/PhysioWave/emg.pth
+2026-04-09 20:19:36,448 - INFO - Foundation model parameters: 4,854,486
+2026-04-09 20:19:36,453 - INFO - Total model parameters: 5,079,819 | Trainable parameters: 5,079,819
+2026-04-09 20:19:36,455 - INFO - Optimiser groups: 71 params with WD, 83 params without.
+2026-04-09 20:19:36,455 - INFO - Task [FinetuneClassificationTask] was created
+2026-04-09 20:19:40,639 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-09 20:19:43,201 - INFO - Memory size of global index: 68742 bytes
+2026-04-09 20:19:43,201 - INFO - train dataset initialized with 2452 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-09 20:19:43,201 - INFO - Initialized train dataset with 2452 samples.
+2026-04-09 20:19:43,202 - INFO - Created DataLoader for train with batch size 32, num_workers 10, distributed=False.
+2026-04-09 20:19:43,202 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-09 20:19:43,539 - INFO - Memory size of global index: 9775 bytes
+2026-04-09 20:19:43,539 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-09 20:19:43,539 - INFO - Initialized val dataset with 346 samples.
+2026-04-09 20:19:43,539 - INFO - Created DataLoader for val with batch size 32, num_workers 10, distributed=False.
+2026-04-09 20:19:43,559 - WARNING - Checkpoint not found: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 20:19:51,543 - INFO - 
+🔍 Starting batch size probe...
+
+2026-04-09 20:19:51,543 - INFO - Testing batch size 2...
+2026-04-09 20:19:51,544 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-09 20:19:53,299 - INFO - Memory size of global index: 9775 bytes
+2026-04-09 20:19:53,300 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-09 20:19:53,301 - INFO - Initialized val dataset with 346 samples.
+2026-04-09 20:19:53,301 - INFO - Created DataLoader for val with batch size 2, num_workers 10, distributed=False.
+2026-04-09 20:20:01,804 - INFO - Success | Peak memory 33.51 GB
+2026-04-09 20:20:01,804 - INFO - Testing batch size 4...
+2026-04-09 20:20:01,805 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-09 20:20:03,274 - INFO - Memory size of global index: 9775 bytes
+2026-04-09 20:20:03,274 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-09 20:20:03,275 - INFO - Initialized val dataset with 346 samples.
+2026-04-09 20:20:03,275 - INFO - Created DataLoader for val with batch size 4, num_workers 10, distributed=False.
+2026-04-09 20:20:04,405 - INFO - OOM at batch size 4
+2026-04-09 20:20:04,407 - INFO - 
+Recommended per-GPU batch size: 1
+2026-04-09 20:20:04,408 - WARNING - Per-GPU batch size 1 < minimum 32. Using 32 gradient accumulation steps.
+2026-04-09 20:20:04,409 - INFO - Effective batch size: 1 (per-GPU) × 32 (accum) × 1 (GPUs) = 32. LR scaled from 0.0001 → 0.000025.
+2026-04-09 20:20:04,659 - WARNING - Directory experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train already exists.
+2026-04-09 20:20:04,661 - INFO - Resuming training in existing directory: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train
+2026-04-09 20:20:04,662 - INFO - Log file added: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/train.log
+2026-04-09 20:20:04,662 - INFO - Log file added: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/train.log
+2026-04-09 20:20:04,690 - INFO - Model [physio_wave] standardized. Unpacking parameters.
+2026-04-09 20:20:04,690 - INFO - Model [physio_wave] standardized. Unpacking parameters.
+2026-04-09 20:20:04,794 - INFO - model [PhysioWave] was created
+2026-04-09 20:20:04,794 - INFO - model [PhysioWave] was created
+2026-04-09 20:20:04,796 - INFO - Loading foundation model from checkpoint: pretrained_models/PhysioWave/emg.pth
+2026-04-09 20:20:04,796 - INFO - Loading foundation model from checkpoint: pretrained_models/PhysioWave/emg.pth
+2026-04-09 20:20:05,463 - INFO - Foundation model parameters: 4,854,486
+2026-04-09 20:20:05,463 - INFO - Foundation model parameters: 4,854,486
+2026-04-09 20:20:05,467 - INFO - Total model parameters: 5,079,819 | Trainable parameters: 5,079,819
+2026-04-09 20:20:05,467 - INFO - Total model parameters: 5,079,819 | Trainable parameters: 5,079,819
+2026-04-09 20:20:05,469 - INFO - Optimiser groups: 71 params with WD, 83 params without.
+2026-04-09 20:20:05,469 - INFO - Optimiser groups: 71 params with WD, 83 params without.
+2026-04-09 20:20:05,469 - INFO - Task [FinetuneClassificationTask] was created
+2026-04-09 20:20:05,469 - INFO - Task [FinetuneClassificationTask] was created
+2026-04-09 20:20:05,469 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-09 20:20:05,469 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-09 20:20:06,024 - INFO - Memory size of global index: 68742 bytes
+2026-04-09 20:20:06,024 - INFO - Memory size of global index: 68742 bytes
+2026-04-09 20:20:06,025 - INFO - train dataset initialized with 2452 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-09 20:20:06,025 - INFO - train dataset initialized with 2452 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-09 20:20:06,025 - INFO - Initialized train dataset with 2452 samples.
+2026-04-09 20:20:06,025 - INFO - Initialized train dataset with 2452 samples.
+2026-04-09 20:20:06,025 - INFO - Created DataLoader for train with batch size 1, num_workers 10, distributed=False.
+2026-04-09 20:20:06,025 - INFO - Created DataLoader for train with batch size 1, num_workers 10, distributed=False.
+2026-04-09 20:20:06,026 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-09 20:20:06,026 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-09 20:20:06,348 - INFO - Memory size of global index: 9775 bytes
+2026-04-09 20:20:06,348 - INFO - Memory size of global index: 9775 bytes
+2026-04-09 20:20:06,348 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-09 20:20:06,348 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-09 20:20:06,349 - INFO - Initialized val dataset with 346 samples.
+2026-04-09 20:20:06,349 - INFO - Initialized val dataset with 346 samples.
+2026-04-09 20:20:06,349 - INFO - Created DataLoader for val with batch size 1, num_workers 10, distributed=False.
+2026-04-09 20:20:06,349 - INFO - Created DataLoader for val with batch size 1, num_workers 10, distributed=False.
+2026-04-09 20:20:06,353 - WARNING - Checkpoint not found: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 20:20:06,353 - WARNING - Checkpoint not found: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 20:33:05,176 - INFO - End of Epoch 0 - Learning Rate: 0.000005
+2026-04-09 20:33:05,176 - INFO - End of Epoch 0 - Learning Rate: 0.000005
+2026-04-09 20:33:05,285 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 20:33:05,285 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 20:33:05,286 - INFO - Epoch 0 Train| epoch: 0.0000 | best_val_loss: 4.0753 | train_loss: 0.1281 | train_acc: 0.0175 | train_f1: 0.0010 | train_precision: 0.0005 | train_recall: 0.0197 | val_loss: 4.0753 | val_acc: 0.0173 | val_f1: 0.0013 | val_precision: 0.0007 | val_recall: 0.0174
+2026-04-09 20:33:05,286 - INFO - Epoch 0 Train| epoch: 0.0000 | best_val_loss: 4.0753 | train_loss: 0.1281 | train_acc: 0.0175 | train_f1: 0.0010 | train_precision: 0.0005 | train_recall: 0.0197 | val_loss: 4.0753 | val_acc: 0.0173 | val_f1: 0.0013 | val_precision: 0.0007 | val_recall: 0.0174
+2026-04-09 20:33:05,684 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 20:33:05,684 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 20:46:04,394 - INFO - End of Epoch 1 - Learning Rate: 0.000010
+2026-04-09 20:46:04,394 - INFO - End of Epoch 1 - Learning Rate: 0.000010
+2026-04-09 20:46:04,513 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 20:46:04,513 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 20:46:04,513 - INFO - Epoch 1 Train| epoch: 1.0000 | best_val_loss: 3.9316 | train_loss: 0.1239 | train_acc: 0.0383 | train_f1: 0.0057 | train_precision: 0.0052 | train_recall: 0.0210 | val_loss: 3.9316 | val_acc: 0.0318 | val_f1: 0.0023 | val_precision: 0.0012 | val_recall: 0.0267
+2026-04-09 20:46:04,513 - INFO - Epoch 1 Train| epoch: 1.0000 | best_val_loss: 3.9316 | train_loss: 0.1239 | train_acc: 0.0383 | train_f1: 0.0057 | train_precision: 0.0052 | train_recall: 0.0210 | val_loss: 3.9316 | val_acc: 0.0318 | val_f1: 0.0023 | val_precision: 0.0012 | val_recall: 0.0267
+2026-04-09 20:46:04,583 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 20:46:04,583 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 20:59:03,322 - INFO - End of Epoch 2 - Learning Rate: 0.000015
+2026-04-09 20:59:03,322 - INFO - End of Epoch 2 - Learning Rate: 0.000015
+2026-04-09 20:59:03,462 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 20:59:03,462 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 20:59:03,463 - INFO - Epoch 2 Train| epoch: 2.0000 | best_val_loss: 3.7915 | train_loss: 0.1191 | train_acc: 0.0534 | train_f1: 0.0102 | train_precision: 0.0106 | train_recall: 0.0279 | val_loss: 3.7915 | val_acc: 0.0462 | val_f1: 0.0151 | val_precision: 0.0136 | val_recall: 0.0451
+2026-04-09 20:59:03,463 - INFO - Epoch 2 Train| epoch: 2.0000 | best_val_loss: 3.7915 | train_loss: 0.1191 | train_acc: 0.0534 | train_f1: 0.0102 | train_precision: 0.0106 | train_recall: 0.0279 | val_loss: 3.7915 | val_acc: 0.0462 | val_f1: 0.0151 | val_precision: 0.0136 | val_recall: 0.0451
+2026-04-09 20:59:03,537 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 20:59:03,537 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 21:12:02,371 - INFO - End of Epoch 3 - Learning Rate: 0.000020
+2026-04-09 21:12:02,371 - INFO - End of Epoch 3 - Learning Rate: 0.000020
+2026-04-09 21:12:02,490 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 21:12:02,490 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 21:12:02,491 - INFO - Epoch 3 Train| epoch: 3.0000 | best_val_loss: 3.6670 | train_loss: 0.1153 | train_acc: 0.0665 | train_f1: 0.0293 | train_precision: 0.0410 | train_recall: 0.0444 | val_loss: 3.6670 | val_acc: 0.0694 | val_f1: 0.0360 | val_precision: 0.0401 | val_recall: 0.0699
+2026-04-09 21:12:02,491 - INFO - Epoch 3 Train| epoch: 3.0000 | best_val_loss: 3.6670 | train_loss: 0.1153 | train_acc: 0.0665 | train_f1: 0.0293 | train_precision: 0.0410 | train_recall: 0.0444 | val_loss: 3.6670 | val_acc: 0.0694 | val_f1: 0.0360 | val_precision: 0.0401 | val_recall: 0.0699
+2026-04-09 21:12:02,559 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 21:12:02,559 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 21:25:01,366 - INFO - End of Epoch 4 - Learning Rate: 0.000025
+2026-04-09 21:25:01,366 - INFO - End of Epoch 4 - Learning Rate: 0.000025
+2026-04-09 21:25:01,491 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 21:25:01,491 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 21:25:01,491 - INFO - Epoch 4 Train| epoch: 4.0000 | best_val_loss: 3.5501 | train_loss: 0.1121 | train_acc: 0.0856 | train_f1: 0.0461 | train_precision: 0.0598 | train_recall: 0.0655 | val_loss: 3.5501 | val_acc: 0.0838 | val_f1: 0.0346 | val_precision: 0.0294 | val_recall: 0.0862
+2026-04-09 21:25:01,491 - INFO - Epoch 4 Train| epoch: 4.0000 | best_val_loss: 3.5501 | train_loss: 0.1121 | train_acc: 0.0856 | train_f1: 0.0461 | train_precision: 0.0598 | train_recall: 0.0655 | val_loss: 3.5501 | val_acc: 0.0838 | val_f1: 0.0346 | val_precision: 0.0294 | val_recall: 0.0862
+2026-04-09 21:25:01,560 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 21:25:01,560 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 21:37:59,645 - INFO - End of Epoch 5 - Learning Rate: 0.000025
+2026-04-09 21:37:59,645 - INFO - End of Epoch 5 - Learning Rate: 0.000025
+2026-04-09 21:37:59,771 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 21:37:59,771 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 21:37:59,772 - INFO - Epoch 5 Train| epoch: 5.0000 | best_val_loss: 3.5497 | train_loss: 0.1081 | train_acc: 0.1032 | train_f1: 0.0554 | train_precision: 0.0739 | train_recall: 0.0846 | val_loss: 3.5497 | val_acc: 0.0665 | val_f1: 0.0358 | val_precision: 0.0350 | val_recall: 0.0665
+2026-04-09 21:37:59,772 - INFO - Epoch 5 Train| epoch: 5.0000 | best_val_loss: 3.5497 | train_loss: 0.1081 | train_acc: 0.1032 | train_f1: 0.0554 | train_precision: 0.0739 | train_recall: 0.0846 | val_loss: 3.5497 | val_acc: 0.0665 | val_f1: 0.0358 | val_precision: 0.0350 | val_recall: 0.0665
+2026-04-09 21:37:59,837 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 21:37:59,837 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 21:50:58,331 - INFO - End of Epoch 6 - Learning Rate: 0.000025
+2026-04-09 21:50:58,331 - INFO - End of Epoch 6 - Learning Rate: 0.000025
+2026-04-09 21:50:58,454 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 21:50:58,454 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 21:50:58,455 - INFO - Epoch 6 Train| epoch: 6.0000 | best_val_loss: 3.4461 | train_loss: 0.1049 | train_acc: 0.1166 | train_f1: 0.0739 | train_precision: 0.0753 | train_recall: 0.0994 | val_loss: 3.4461 | val_acc: 0.1214 | val_f1: 0.0776 | val_precision: 0.0867 | val_recall: 0.1239
+2026-04-09 21:50:58,455 - INFO - Epoch 6 Train| epoch: 6.0000 | best_val_loss: 3.4461 | train_loss: 0.1049 | train_acc: 0.1166 | train_f1: 0.0739 | train_precision: 0.0753 | train_recall: 0.0994 | val_loss: 3.4461 | val_acc: 0.1214 | val_f1: 0.0776 | val_precision: 0.0867 | val_recall: 0.1239
+2026-04-09 21:50:58,523 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 21:50:58,523 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 22:03:56,367 - INFO - End of Epoch 7 - Learning Rate: 0.000025
+2026-04-09 22:03:56,367 - INFO - End of Epoch 7 - Learning Rate: 0.000025
+2026-04-09 22:03:56,718 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 22:03:56,718 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 22:03:56,719 - INFO - Epoch 7 Train| epoch: 7.0000 | best_val_loss: 3.4038 | train_loss: 0.1016 | train_acc: 0.1387 | train_f1: 0.0900 | train_precision: 0.0858 | train_recall: 0.1202 | val_loss: 3.4038 | val_acc: 0.1387 | val_f1: 0.0995 | val_precision: 0.1121 | val_recall: 0.1445
+2026-04-09 22:03:56,719 - INFO - Epoch 7 Train| epoch: 7.0000 | best_val_loss: 3.4038 | train_loss: 0.1016 | train_acc: 0.1387 | train_f1: 0.0900 | train_precision: 0.0858 | train_recall: 0.1202 | val_loss: 3.4038 | val_acc: 0.1387 | val_f1: 0.0995 | val_precision: 0.1121 | val_recall: 0.1445
+2026-04-09 22:03:56,788 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 22:03:56,788 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 22:16:54,855 - INFO - End of Epoch 8 - Learning Rate: 0.000025
+2026-04-09 22:16:54,855 - INFO - End of Epoch 8 - Learning Rate: 0.000025
+2026-04-09 22:16:55,004 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 22:16:55,004 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 22:16:55,005 - INFO - Epoch 8 Train| epoch: 8.0000 | best_val_loss: 3.2976 | train_loss: 0.0985 | train_acc: 0.1603 | train_f1: 0.1171 | train_precision: 0.1268 | train_recall: 0.1452 | val_loss: 3.2976 | val_acc: 0.1705 | val_f1: 0.1252 | val_precision: 0.1424 | val_recall: 0.1753
+2026-04-09 22:16:55,005 - INFO - Epoch 8 Train| epoch: 8.0000 | best_val_loss: 3.2976 | train_loss: 0.0985 | train_acc: 0.1603 | train_f1: 0.1171 | train_precision: 0.1268 | train_recall: 0.1452 | val_loss: 3.2976 | val_acc: 0.1705 | val_f1: 0.1252 | val_precision: 0.1424 | val_recall: 0.1753
+2026-04-09 22:16:55,092 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 22:16:55,092 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 22:29:52,722 - INFO - End of Epoch 9 - Learning Rate: 0.000025
+2026-04-09 22:29:52,722 - INFO - End of Epoch 9 - Learning Rate: 0.000025
+2026-04-09 22:29:52,848 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 22:29:52,848 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 22:29:52,848 - INFO - Epoch 9 Train| epoch: 9.0000 | best_val_loss: 3.2565 | train_loss: 0.0952 | train_acc: 0.1676 | train_f1: 0.1227 | train_precision: 0.1222 | train_recall: 0.1532 | val_loss: 3.2565 | val_acc: 0.1329 | val_f1: 0.1011 | val_precision: 0.1134 | val_recall: 0.1354
+2026-04-09 22:29:52,848 - INFO - Epoch 9 Train| epoch: 9.0000 | best_val_loss: 3.2565 | train_loss: 0.0952 | train_acc: 0.1676 | train_f1: 0.1227 | train_precision: 0.1222 | train_recall: 0.1532 | val_loss: 3.2565 | val_acc: 0.1329 | val_f1: 0.1011 | val_precision: 0.1134 | val_recall: 0.1354
+2026-04-09 22:29:53,077 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 22:29:53,077 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 22:42:47,309 - INFO - End of Epoch 10 - Learning Rate: 0.000025
+2026-04-09 22:42:47,309 - INFO - End of Epoch 10 - Learning Rate: 0.000025
+2026-04-09 22:42:47,310 - INFO - Epoch 10 Train| epoch: 10.0000 | best_val_loss: 3.2565 | train_loss: 0.0928 | train_acc: 0.1884 | train_f1: 0.1453 | train_precision: 0.1535 | train_recall: 0.1705 | val_loss: 3.2615 | val_acc: 0.1647 | val_f1: 0.1375 | val_precision: 0.1685 | val_recall: 0.1705
+2026-04-09 22:42:47,310 - INFO - Epoch 10 Train| epoch: 10.0000 | best_val_loss: 3.2565 | train_loss: 0.0928 | train_acc: 0.1884 | train_f1: 0.1453 | train_precision: 0.1535 | train_recall: 0.1705 | val_loss: 3.2615 | val_acc: 0.1647 | val_f1: 0.1375 | val_precision: 0.1685 | val_recall: 0.1705
+2026-04-09 22:42:47,484 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 22:42:47,484 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 22:55:40,038 - INFO - End of Epoch 11 - Learning Rate: 0.000025
+2026-04-09 22:55:40,038 - INFO - End of Epoch 11 - Learning Rate: 0.000025
+2026-04-09 22:55:40,148 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 22:55:40,148 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 22:55:40,148 - INFO - Epoch 11 Train| epoch: 11.0000 | best_val_loss: 3.2227 | train_loss: 0.0900 | train_acc: 0.2084 | train_f1: 0.1644 | train_precision: 0.1751 | train_recall: 0.1903 | val_loss: 3.2227 | val_acc: 0.1850 | val_f1: 0.1527 | val_precision: 0.1833 | val_recall: 0.1870
+2026-04-09 22:55:40,148 - INFO - Epoch 11 Train| epoch: 11.0000 | best_val_loss: 3.2227 | train_loss: 0.0900 | train_acc: 0.2084 | train_f1: 0.1644 | train_precision: 0.1751 | train_recall: 0.1903 | val_loss: 3.2227 | val_acc: 0.1850 | val_f1: 0.1527 | val_precision: 0.1833 | val_recall: 0.1870
+2026-04-09 22:55:40,245 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 22:55:40,245 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 23:08:34,541 - INFO - End of Epoch 12 - Learning Rate: 0.000025
+2026-04-09 23:08:34,541 - INFO - End of Epoch 12 - Learning Rate: 0.000025
+2026-04-09 23:08:34,640 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 23:08:34,640 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 23:08:34,641 - INFO - Epoch 12 Train| epoch: 12.0000 | best_val_loss: 3.1329 | train_loss: 0.0874 | train_acc: 0.2316 | train_f1: 0.1882 | train_precision: 0.1962 | train_recall: 0.2143 | val_loss: 3.1329 | val_acc: 0.1532 | val_f1: 0.1243 | val_precision: 0.1550 | val_recall: 0.1502
+2026-04-09 23:08:34,641 - INFO - Epoch 12 Train| epoch: 12.0000 | best_val_loss: 3.1329 | train_loss: 0.0874 | train_acc: 0.2316 | train_f1: 0.1882 | train_precision: 0.1962 | train_recall: 0.2143 | val_loss: 3.1329 | val_acc: 0.1532 | val_f1: 0.1243 | val_precision: 0.1550 | val_recall: 0.1502
+2026-04-09 23:08:34,707 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 23:08:34,707 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 23:21:28,447 - INFO - End of Epoch 13 - Learning Rate: 0.000024
+2026-04-09 23:21:28,447 - INFO - End of Epoch 13 - Learning Rate: 0.000024
+2026-04-09 23:21:28,448 - INFO - Epoch 13 Train| epoch: 13.0000 | best_val_loss: 3.1329 | train_loss: 0.0849 | train_acc: 0.2435 | train_f1: 0.1990 | train_precision: 0.2079 | train_recall: 0.2259 | val_loss: 3.1482 | val_acc: 0.1850 | val_f1: 0.1403 | val_precision: 0.1446 | val_recall: 0.1890
+2026-04-09 23:21:28,448 - INFO - Epoch 13 Train| epoch: 13.0000 | best_val_loss: 3.1329 | train_loss: 0.0849 | train_acc: 0.2435 | train_f1: 0.1990 | train_precision: 0.2079 | train_recall: 0.2259 | val_loss: 3.1482 | val_acc: 0.1850 | val_f1: 0.1403 | val_precision: 0.1446 | val_recall: 0.1890
+2026-04-09 23:21:28,542 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 23:21:28,542 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 23:34:25,848 - INFO - End of Epoch 14 - Learning Rate: 0.000024
+2026-04-09 23:34:25,848 - INFO - End of Epoch 14 - Learning Rate: 0.000024
+2026-04-09 23:34:26,004 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 23:34:26,004 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 23:34:26,005 - INFO - Epoch 14 Train| epoch: 14.0000 | best_val_loss: 3.0901 | train_loss: 0.0832 | train_acc: 0.2655 | train_f1: 0.2219 | train_precision: 0.2446 | train_recall: 0.2459 | val_loss: 3.0901 | val_acc: 0.2341 | val_f1: 0.2017 | val_precision: 0.2318 | val_recall: 0.2431
+2026-04-09 23:34:26,005 - INFO - Epoch 14 Train| epoch: 14.0000 | best_val_loss: 3.0901 | train_loss: 0.0832 | train_acc: 0.2655 | train_f1: 0.2219 | train_precision: 0.2446 | train_recall: 0.2459 | val_loss: 3.0901 | val_acc: 0.2341 | val_f1: 0.2017 | val_precision: 0.2318 | val_recall: 0.2431
+2026-04-09 23:34:26,084 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 23:34:26,084 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 23:47:24,543 - INFO - End of Epoch 15 - Learning Rate: 0.000024
+2026-04-09 23:47:24,543 - INFO - End of Epoch 15 - Learning Rate: 0.000024
+2026-04-09 23:47:24,676 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 23:47:24,676 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-09 23:47:24,676 - INFO - Epoch 15 Train| epoch: 15.0000 | best_val_loss: 3.0834 | train_loss: 0.0810 | train_acc: 0.2851 | train_f1: 0.2407 | train_precision: 0.2559 | train_recall: 0.2686 | val_loss: 3.0834 | val_acc: 0.2225 | val_f1: 0.1742 | val_precision: 0.1806 | val_recall: 0.2290
+2026-04-09 23:47:24,676 - INFO - Epoch 15 Train| epoch: 15.0000 | best_val_loss: 3.0834 | train_loss: 0.0810 | train_acc: 0.2851 | train_f1: 0.2407 | train_precision: 0.2559 | train_recall: 0.2686 | val_loss: 3.0834 | val_acc: 0.2225 | val_f1: 0.1742 | val_precision: 0.1806 | val_recall: 0.2290
+2026-04-09 23:47:24,779 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-09 23:47:24,779 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 00:00:22,799 - INFO - End of Epoch 16 - Learning Rate: 0.000024
+2026-04-10 00:00:22,799 - INFO - End of Epoch 16 - Learning Rate: 0.000024
+2026-04-10 00:00:22,800 - INFO - Epoch 16 Train| epoch: 16.0000 | best_val_loss: 3.0834 | train_loss: 0.0782 | train_acc: 0.3002 | train_f1: 0.2631 | train_precision: 0.2678 | train_recall: 0.2869 | val_loss: 3.1245 | val_acc: 0.2081 | val_f1: 0.1658 | val_precision: 0.2093 | val_recall: 0.2141
+2026-04-10 00:00:22,800 - INFO - Epoch 16 Train| epoch: 16.0000 | best_val_loss: 3.0834 | train_loss: 0.0782 | train_acc: 0.3002 | train_f1: 0.2631 | train_precision: 0.2678 | train_recall: 0.2869 | val_loss: 3.1245 | val_acc: 0.2081 | val_f1: 0.1658 | val_precision: 0.2093 | val_recall: 0.2141
+2026-04-10 00:00:22,891 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 00:00:22,891 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 00:13:20,220 - INFO - End of Epoch 17 - Learning Rate: 0.000024
+2026-04-10 00:13:20,220 - INFO - End of Epoch 17 - Learning Rate: 0.000024
+2026-04-10 00:13:20,357 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-10 00:13:20,357 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-10 00:13:20,358 - INFO - Epoch 17 Train| epoch: 17.0000 | best_val_loss: 3.0265 | train_loss: 0.0768 | train_acc: 0.3173 | train_f1: 0.2772 | train_precision: 0.2897 | train_recall: 0.3030 | val_loss: 3.0265 | val_acc: 0.2341 | val_f1: 0.2034 | val_precision: 0.2179 | val_recall: 0.2397
+2026-04-10 00:13:20,358 - INFO - Epoch 17 Train| epoch: 17.0000 | best_val_loss: 3.0265 | train_loss: 0.0768 | train_acc: 0.3173 | train_f1: 0.2772 | train_precision: 0.2897 | train_recall: 0.3030 | val_loss: 3.0265 | val_acc: 0.2341 | val_f1: 0.2034 | val_precision: 0.2179 | val_recall: 0.2397
+2026-04-10 00:13:20,449 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 00:13:20,449 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 00:26:18,018 - INFO - End of Epoch 18 - Learning Rate: 0.000024
+2026-04-10 00:26:18,018 - INFO - End of Epoch 18 - Learning Rate: 0.000024
+2026-04-10 00:26:18,019 - INFO - Epoch 18 Train| epoch: 18.0000 | best_val_loss: 3.0265 | train_loss: 0.0748 | train_acc: 0.3222 | train_f1: 0.2852 | train_precision: 0.3035 | train_recall: 0.3085 | val_loss: 3.0644 | val_acc: 0.2370 | val_f1: 0.2022 | val_precision: 0.2224 | val_recall: 0.2443
+2026-04-10 00:26:18,019 - INFO - Epoch 18 Train| epoch: 18.0000 | best_val_loss: 3.0265 | train_loss: 0.0748 | train_acc: 0.3222 | train_f1: 0.2852 | train_precision: 0.3035 | train_recall: 0.3085 | val_loss: 3.0644 | val_acc: 0.2370 | val_f1: 0.2022 | val_precision: 0.2224 | val_recall: 0.2443
+2026-04-10 00:26:18,144 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 00:26:18,144 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 00:39:16,113 - INFO - End of Epoch 19 - Learning Rate: 0.000024
+2026-04-10 00:39:16,113 - INFO - End of Epoch 19 - Learning Rate: 0.000024
+2026-04-10 00:39:16,114 - INFO - Epoch 19 Train| epoch: 19.0000 | best_val_loss: 3.0265 | train_loss: 0.0725 | train_acc: 0.3585 | train_f1: 0.3261 | train_precision: 0.3468 | train_recall: 0.3440 | val_loss: 3.0274 | val_acc: 0.2775 | val_f1: 0.2340 | val_precision: 0.2533 | val_recall: 0.2868
+2026-04-10 00:39:16,114 - INFO - Epoch 19 Train| epoch: 19.0000 | best_val_loss: 3.0265 | train_loss: 0.0725 | train_acc: 0.3585 | train_f1: 0.3261 | train_precision: 0.3468 | train_recall: 0.3440 | val_loss: 3.0274 | val_acc: 0.2775 | val_f1: 0.2340 | val_precision: 0.2533 | val_recall: 0.2868
+2026-04-10 00:39:16,285 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 00:39:16,285 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 00:52:13,722 - INFO - End of Epoch 20 - Learning Rate: 0.000023
+2026-04-10 00:52:13,722 - INFO - End of Epoch 20 - Learning Rate: 0.000023
+2026-04-10 00:52:13,854 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-10 00:52:13,854 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-10 00:52:13,854 - INFO - Epoch 20 Train| epoch: 20.0000 | best_val_loss: 3.0235 | train_loss: 0.0709 | train_acc: 0.3515 | train_f1: 0.3210 | train_precision: 0.3298 | train_recall: 0.3409 | val_loss: 3.0235 | val_acc: 0.2630 | val_f1: 0.2302 | val_precision: 0.2654 | val_recall: 0.2714
+2026-04-10 00:52:13,854 - INFO - Epoch 20 Train| epoch: 20.0000 | best_val_loss: 3.0235 | train_loss: 0.0709 | train_acc: 0.3515 | train_f1: 0.3210 | train_precision: 0.3298 | train_recall: 0.3409 | val_loss: 3.0235 | val_acc: 0.2630 | val_f1: 0.2302 | val_precision: 0.2654 | val_recall: 0.2714
+2026-04-10 00:52:13,942 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 00:52:13,942 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 01:05:11,406 - INFO - End of Epoch 21 - Learning Rate: 0.000023
+2026-04-10 01:05:11,406 - INFO - End of Epoch 21 - Learning Rate: 0.000023
+2026-04-10 01:05:11,407 - INFO - Epoch 21 Train| epoch: 21.0000 | best_val_loss: 3.0235 | train_loss: 0.0688 | train_acc: 0.3772 | train_f1: 0.3442 | train_precision: 0.3547 | train_recall: 0.3626 | val_loss: 3.1174 | val_acc: 0.2948 | val_f1: 0.2577 | val_precision: 0.2984 | val_recall: 0.3074
+2026-04-10 01:05:11,407 - INFO - Epoch 21 Train| epoch: 21.0000 | best_val_loss: 3.0235 | train_loss: 0.0688 | train_acc: 0.3772 | train_f1: 0.3442 | train_precision: 0.3547 | train_recall: 0.3626 | val_loss: 3.1174 | val_acc: 0.2948 | val_f1: 0.2577 | val_precision: 0.2984 | val_recall: 0.3074
+2026-04-10 01:05:11,504 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 01:05:11,504 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 01:18:09,496 - INFO - End of Epoch 22 - Learning Rate: 0.000023
+2026-04-10 01:18:09,496 - INFO - End of Epoch 22 - Learning Rate: 0.000023
+2026-04-10 01:18:09,497 - INFO - Epoch 22 Train| epoch: 22.0000 | best_val_loss: 3.0235 | train_loss: 0.0675 | train_acc: 0.3931 | train_f1: 0.3670 | train_precision: 0.3819 | train_recall: 0.3813 | val_loss: 3.0868 | val_acc: 0.2803 | val_f1: 0.2403 | val_precision: 0.2806 | val_recall: 0.2972
+2026-04-10 01:18:09,497 - INFO - Epoch 22 Train| epoch: 22.0000 | best_val_loss: 3.0235 | train_loss: 0.0675 | train_acc: 0.3931 | train_f1: 0.3670 | train_precision: 0.3819 | train_recall: 0.3813 | val_loss: 3.0868 | val_acc: 0.2803 | val_f1: 0.2403 | val_precision: 0.2806 | val_recall: 0.2972
+2026-04-10 01:18:09,710 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 01:18:09,710 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 01:31:09,560 - INFO - End of Epoch 23 - Learning Rate: 0.000023
+2026-04-10 01:31:09,560 - INFO - End of Epoch 23 - Learning Rate: 0.000023
+2026-04-10 01:31:09,704 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-10 01:31:09,704 - INFO - Checkpoint saved: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/checkpoints/best_model.pt
+2026-04-10 01:31:09,705 - INFO - Epoch 23 Train| epoch: 23.0000 | best_val_loss: 2.9716 | train_loss: 0.0657 | train_acc: 0.4025 | train_f1: 0.3741 | train_precision: 0.3884 | train_recall: 0.3886 | val_loss: 2.9716 | val_acc: 0.2775 | val_f1: 0.2513 | val_precision: 0.2874 | val_recall: 0.2882
+2026-04-10 01:31:09,705 - INFO - Epoch 23 Train| epoch: 23.0000 | best_val_loss: 2.9716 | train_loss: 0.0657 | train_acc: 0.4025 | train_f1: 0.3741 | train_precision: 0.3884 | train_recall: 0.3886 | val_loss: 2.9716 | val_acc: 0.2775 | val_f1: 0.2513 | val_precision: 0.2874 | val_recall: 0.2882
+2026-04-10 01:31:09,807 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 01:31:09,807 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 01:44:05,643 - INFO - End of Epoch 24 - Learning Rate: 0.000022
+2026-04-10 01:44:05,643 - INFO - End of Epoch 24 - Learning Rate: 0.000022
+2026-04-10 01:44:05,644 - INFO - Epoch 24 Train| epoch: 24.0000 | best_val_loss: 2.9716 | train_loss: 0.0641 | train_acc: 0.4176 | train_f1: 0.3954 | train_precision: 0.4143 | train_recall: 0.4078 | val_loss: 3.0300 | val_acc: 0.2775 | val_f1: 0.2490 | val_precision: 0.2982 | val_recall: 0.2903
+2026-04-10 01:44:05,644 - INFO - Epoch 24 Train| epoch: 24.0000 | best_val_loss: 2.9716 | train_loss: 0.0641 | train_acc: 0.4176 | train_f1: 0.3954 | train_precision: 0.4143 | train_recall: 0.4078 | val_loss: 3.0300 | val_acc: 0.2775 | val_f1: 0.2490 | val_precision: 0.2982 | val_recall: 0.2903
+2026-04-10 01:44:05,742 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 01:44:05,742 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 01:57:01,491 - INFO - End of Epoch 25 - Learning Rate: 0.000022
+2026-04-10 01:57:01,491 - INFO - End of Epoch 25 - Learning Rate: 0.000022
+2026-04-10 01:57:01,492 - INFO - Epoch 25 Train| epoch: 25.0000 | best_val_loss: 2.9716 | train_loss: 0.0625 | train_acc: 0.4380 | train_f1: 0.4149 | train_precision: 0.4303 | train_recall: 0.4284 | val_loss: 3.0762 | val_acc: 0.2775 | val_f1: 0.2408 | val_precision: 0.2751 | val_recall: 0.2900
+2026-04-10 01:57:01,492 - INFO - Epoch 25 Train| epoch: 25.0000 | best_val_loss: 2.9716 | train_loss: 0.0625 | train_acc: 0.4380 | train_f1: 0.4149 | train_precision: 0.4303 | train_recall: 0.4284 | val_loss: 3.0762 | val_acc: 0.2775 | val_f1: 0.2408 | val_precision: 0.2751 | val_recall: 0.2900
+2026-04-10 01:57:01,596 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 01:57:01,596 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 02:10:00,806 - INFO - End of Epoch 26 - Learning Rate: 0.000022
+2026-04-10 02:10:00,806 - INFO - End of Epoch 26 - Learning Rate: 0.000022
+2026-04-10 02:10:00,807 - INFO - Epoch 26 Train| epoch: 26.0000 | best_val_loss: 2.9716 | train_loss: 0.0615 | train_acc: 0.4372 | train_f1: 0.4155 | train_precision: 0.4272 | train_recall: 0.4281 | val_loss: 3.0443 | val_acc: 0.2832 | val_f1: 0.2443 | val_precision: 0.2556 | val_recall: 0.2989
+2026-04-10 02:10:00,807 - INFO - Epoch 26 Train| epoch: 26.0000 | best_val_loss: 2.9716 | train_loss: 0.0615 | train_acc: 0.4372 | train_f1: 0.4155 | train_precision: 0.4272 | train_recall: 0.4281 | val_loss: 3.0443 | val_acc: 0.2832 | val_f1: 0.2443 | val_precision: 0.2556 | val_recall: 0.2989
+2026-04-10 02:10:00,923 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 02:10:00,923 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 02:22:59,334 - INFO - End of Epoch 27 - Learning Rate: 0.000022
+2026-04-10 02:22:59,334 - INFO - End of Epoch 27 - Learning Rate: 0.000022
+2026-04-10 02:22:59,335 - INFO - Epoch 27 Train| epoch: 27.0000 | best_val_loss: 2.9716 | train_loss: 0.0594 | train_acc: 0.4604 | train_f1: 0.4432 | train_precision: 0.4534 | train_recall: 0.4539 | val_loss: 3.0695 | val_acc: 0.2832 | val_f1: 0.2420 | val_precision: 0.2700 | val_recall: 0.2944
+2026-04-10 02:22:59,335 - INFO - Epoch 27 Train| epoch: 27.0000 | best_val_loss: 2.9716 | train_loss: 0.0594 | train_acc: 0.4604 | train_f1: 0.4432 | train_precision: 0.4534 | train_recall: 0.4539 | val_loss: 3.0695 | val_acc: 0.2832 | val_f1: 0.2420 | val_precision: 0.2700 | val_recall: 0.2944
+2026-04-10 02:22:59,455 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 02:22:59,455 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 02:35:58,069 - INFO - End of Epoch 28 - Learning Rate: 0.000021
+2026-04-10 02:35:58,069 - INFO - End of Epoch 28 - Learning Rate: 0.000021
+2026-04-10 02:35:58,070 - INFO - Epoch 28 Train| epoch: 28.0000 | best_val_loss: 2.9716 | train_loss: 0.0578 | train_acc: 0.4751 | train_f1: 0.4541 | train_precision: 0.4648 | train_recall: 0.4655 | val_loss: 3.0812 | val_acc: 0.2890 | val_f1: 0.2587 | val_precision: 0.2931 | val_recall: 0.3041
+2026-04-10 02:35:58,070 - INFO - Epoch 28 Train| epoch: 28.0000 | best_val_loss: 2.9716 | train_loss: 0.0578 | train_acc: 0.4751 | train_f1: 0.4541 | train_precision: 0.4648 | train_recall: 0.4655 | val_loss: 3.0812 | val_acc: 0.2890 | val_f1: 0.2587 | val_precision: 0.2931 | val_recall: 0.3041
+2026-04-10 02:35:58,162 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 02:35:58,162 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 02:48:56,441 - INFO - End of Epoch 29 - Learning Rate: 0.000021
+2026-04-10 02:48:56,441 - INFO - End of Epoch 29 - Learning Rate: 0.000021
+2026-04-10 02:48:56,441 - INFO - Epoch 29 Train| epoch: 29.0000 | best_val_loss: 2.9716 | train_loss: 0.0565 | train_acc: 0.4943 | train_f1: 0.4786 | train_precision: 0.4930 | train_recall: 0.4861 | val_loss: 3.0400 | val_acc: 0.2948 | val_f1: 0.2559 | val_precision: 0.2751 | val_recall: 0.3095
+2026-04-10 02:48:56,441 - INFO - Epoch 29 Train| epoch: 29.0000 | best_val_loss: 2.9716 | train_loss: 0.0565 | train_acc: 0.4943 | train_f1: 0.4786 | train_precision: 0.4930 | train_recall: 0.4861 | val_loss: 3.0400 | val_acc: 0.2948 | val_f1: 0.2559 | val_precision: 0.2751 | val_recall: 0.3095
+2026-04-10 02:48:56,532 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 02:48:56,532 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 03:01:54,966 - INFO - End of Epoch 30 - Learning Rate: 0.000021
+2026-04-10 03:01:54,966 - INFO - End of Epoch 30 - Learning Rate: 0.000021
+2026-04-10 03:01:54,967 - INFO - Epoch 30 Train| epoch: 30.0000 | best_val_loss: 2.9716 | train_loss: 0.0550 | train_acc: 0.4976 | train_f1: 0.4787 | train_precision: 0.4902 | train_recall: 0.4888 | val_loss: 3.3857 | val_acc: 0.2717 | val_f1: 0.2323 | val_precision: 0.2886 | val_recall: 0.2869
+2026-04-10 03:01:54,967 - INFO - Epoch 30 Train| epoch: 30.0000 | best_val_loss: 2.9716 | train_loss: 0.0550 | train_acc: 0.4976 | train_f1: 0.4787 | train_precision: 0.4902 | train_recall: 0.4888 | val_loss: 3.3857 | val_acc: 0.2717 | val_f1: 0.2323 | val_precision: 0.2886 | val_recall: 0.2869
+2026-04-10 03:01:55,059 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 03:01:55,059 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 03:14:53,352 - INFO - End of Epoch 31 - Learning Rate: 0.000021
+2026-04-10 03:14:53,352 - INFO - End of Epoch 31 - Learning Rate: 0.000021
+2026-04-10 03:14:53,353 - INFO - Epoch 31 Train| epoch: 31.0000 | best_val_loss: 2.9716 | train_loss: 0.0541 | train_acc: 0.5167 | train_f1: 0.5009 | train_precision: 0.5142 | train_recall: 0.5083 | val_loss: 3.0852 | val_acc: 0.3006 | val_f1: 0.2662 | val_precision: 0.2899 | val_recall: 0.3218
+2026-04-10 03:14:53,353 - INFO - Epoch 31 Train| epoch: 31.0000 | best_val_loss: 2.9716 | train_loss: 0.0541 | train_acc: 0.5167 | train_f1: 0.5009 | train_precision: 0.5142 | train_recall: 0.5083 | val_loss: 3.0852 | val_acc: 0.3006 | val_f1: 0.2662 | val_precision: 0.2899 | val_recall: 0.3218
+2026-04-10 03:14:53,451 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 03:14:53,451 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/figures/loss_curves.png
+2026-04-10 03:14:53,451 - INFO - No improvement in validation loss for 8 epochs. Early stopping triggered.
+2026-04-10 03:14:53,451 - INFO - No improvement in validation loss for 8 epochs. Early stopping triggered.
+2026-04-10 03:14:53,452 - INFO - Training complete.
+2026-04-10 03:14:53,452 - INFO - Training complete.
+2026-04-10 03:14:54,830 - INFO - Training completed with results: None
+2026-04-10 03:14:54,830 - INFO - Training completed with results: None
+2026-04-10 03:14:55,115 - WARNING - Directory experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train already exists.
+2026-04-10 03:14:55,115 - WARNING - Directory experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train already exists.
+2026-04-10 03:14:55,115 - INFO - Resuming training in existing directory: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train
+2026-04-10 03:14:55,115 - INFO - Resuming training in existing directory: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train
+2026-04-10 03:14:55,115 - INFO - Log file added: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/train.log
+2026-04-10 03:14:55,115 - INFO - Log file added: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/train.log
+2026-04-10 03:14:55,115 - INFO - Log file added: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/train/train.log
+2026-04-10 03:14:55,150 - INFO - Model [physio_wave] standardized. Unpacking parameters.
+2026-04-10 03:14:55,150 - INFO - Model [physio_wave] standardized. Unpacking parameters.
+2026-04-10 03:14:55,150 - INFO - Model [physio_wave] standardized. Unpacking parameters.
+2026-04-10 03:14:55,254 - INFO - model [PhysioWave] was created
+2026-04-10 03:14:55,254 - INFO - model [PhysioWave] was created
+2026-04-10 03:14:55,254 - INFO - model [PhysioWave] was created
+2026-04-10 03:14:55,262 - INFO - Loading foundation model from checkpoint: pretrained_models/PhysioWave/emg.pth
+2026-04-10 03:14:55,262 - INFO - Loading foundation model from checkpoint: pretrained_models/PhysioWave/emg.pth
+2026-04-10 03:14:55,262 - INFO - Loading foundation model from checkpoint: pretrained_models/PhysioWave/emg.pth
+2026-04-10 03:14:55,838 - INFO - Foundation model parameters: 4,854,486
+2026-04-10 03:14:55,838 - INFO - Foundation model parameters: 4,854,486
+2026-04-10 03:14:55,838 - INFO - Foundation model parameters: 4,854,486
+2026-04-10 03:14:55,843 - INFO - Total model parameters: 5,079,819 | Trainable parameters: 5,079,819
+2026-04-10 03:14:55,843 - INFO - Total model parameters: 5,079,819 | Trainable parameters: 5,079,819
+2026-04-10 03:14:55,843 - INFO - Total model parameters: 5,079,819 | Trainable parameters: 5,079,819
+2026-04-10 03:14:55,844 - INFO - Optimiser groups: 71 params with WD, 83 params without.
+2026-04-10 03:14:55,844 - INFO - Optimiser groups: 71 params with WD, 83 params without.
+2026-04-10 03:14:55,844 - INFO - Optimiser groups: 71 params with WD, 83 params without.
+2026-04-10 03:14:55,844 - INFO - Task [FinetuneClassificationTask] was created
+2026-04-10 03:14:55,844 - INFO - Task [FinetuneClassificationTask] was created
+2026-04-10 03:14:55,844 - INFO - Task [FinetuneClassificationTask] was created
+2026-04-10 03:14:55,845 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:14:55,845 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:14:55,845 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:14:57,477 - INFO - Memory size of global index: 68742 bytes
+2026-04-10 03:14:57,477 - INFO - Memory size of global index: 68742 bytes
+2026-04-10 03:14:57,477 - INFO - Memory size of global index: 68742 bytes
+2026-04-10 03:14:57,478 - INFO - train dataset initialized with 2452 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:14:57,478 - INFO - train dataset initialized with 2452 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:14:57,478 - INFO - train dataset initialized with 2452 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:14:57,479 - INFO - Initialized train dataset with 2452 samples.
+2026-04-10 03:14:57,479 - INFO - Initialized train dataset with 2452 samples.
+2026-04-10 03:14:57,479 - INFO - Initialized train dataset with 2452 samples.
+2026-04-10 03:14:57,479 - INFO - Created DataLoader for train with batch size 1, num_workers 10, distributed=False.
+2026-04-10 03:14:57,479 - INFO - Created DataLoader for train with batch size 1, num_workers 10, distributed=False.
+2026-04-10 03:14:57,479 - INFO - Created DataLoader for train with batch size 1, num_workers 10, distributed=False.
+2026-04-10 03:14:57,479 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:14:57,479 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:14:57,479 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:14:57,808 - INFO - Memory size of global index: 9775 bytes
+2026-04-10 03:14:57,808 - INFO - Memory size of global index: 9775 bytes
+2026-04-10 03:14:57,808 - INFO - Memory size of global index: 9775 bytes
+2026-04-10 03:14:57,809 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:14:57,809 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:14:57,809 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:14:57,809 - INFO - Initialized val dataset with 346 samples.
+2026-04-10 03:14:57,809 - INFO - Initialized val dataset with 346 samples.
+2026-04-10 03:14:57,809 - INFO - Initialized val dataset with 346 samples.
+2026-04-10 03:14:57,809 - INFO - Created DataLoader for val with batch size 1, num_workers 10, distributed=False.
+2026-04-10 03:14:57,809 - INFO - Created DataLoader for val with batch size 1, num_workers 10, distributed=False.
+2026-04-10 03:14:57,809 - INFO - Created DataLoader for val with batch size 1, num_workers 10, distributed=False.
+2026-04-10 03:15:00,653 - INFO - 
+🔍 Starting batch size probe...
+
+2026-04-10 03:15:00,653 - INFO - 
+🔍 Starting batch size probe...
+
+2026-04-10 03:15:00,653 - INFO - 
+🔍 Starting batch size probe...
+
+2026-04-10 03:15:00,653 - INFO - Testing batch size 2...
+2026-04-10 03:15:00,653 - INFO - Testing batch size 2...
+2026-04-10 03:15:00,653 - INFO - Testing batch size 2...
+2026-04-10 03:15:00,654 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:15:00,654 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:15:00,654 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:15:00,986 - INFO - Memory size of global index: 9775 bytes
+2026-04-10 03:15:00,986 - INFO - Memory size of global index: 9775 bytes
+2026-04-10 03:15:00,986 - INFO - Memory size of global index: 9775 bytes
+2026-04-10 03:15:00,986 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:15:00,986 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:15:00,986 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:15:00,987 - INFO - Initialized val dataset with 346 samples.
+2026-04-10 03:15:00,987 - INFO - Initialized val dataset with 346 samples.
+2026-04-10 03:15:00,987 - INFO - Initialized val dataset with 346 samples.
+2026-04-10 03:15:00,988 - INFO - Created DataLoader for val with batch size 2, num_workers 10, distributed=False.
+2026-04-10 03:15:00,988 - INFO - Created DataLoader for val with batch size 2, num_workers 10, distributed=False.
+2026-04-10 03:15:00,988 - INFO - Created DataLoader for val with batch size 2, num_workers 10, distributed=False.
+2026-04-10 03:15:02,099 - INFO - Success | Peak memory 33.55 GB
+2026-04-10 03:15:02,099 - INFO - Success | Peak memory 33.55 GB
+2026-04-10 03:15:02,099 - INFO - Success | Peak memory 33.55 GB
+2026-04-10 03:15:02,100 - INFO - Testing batch size 4...
+2026-04-10 03:15:02,100 - INFO - Testing batch size 4...
+2026-04-10 03:15:02,100 - INFO - Testing batch size 4...
+2026-04-10 03:15:02,100 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:15:02,100 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:15:02,100 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:15:02,451 - INFO - Memory size of global index: 9775 bytes
+2026-04-10 03:15:02,451 - INFO - Memory size of global index: 9775 bytes
+2026-04-10 03:15:02,451 - INFO - Memory size of global index: 9775 bytes
+2026-04-10 03:15:02,452 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:15:02,452 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:15:02,452 - INFO - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:15:02,453 - INFO - Initialized val dataset with 346 samples.
+2026-04-10 03:15:02,453 - INFO - Initialized val dataset with 346 samples.
+2026-04-10 03:15:02,453 - INFO - Initialized val dataset with 346 samples.
+2026-04-10 03:15:02,454 - INFO - Created DataLoader for val with batch size 4, num_workers 10, distributed=False.
+2026-04-10 03:15:02,454 - INFO - Created DataLoader for val with batch size 4, num_workers 10, distributed=False.
+2026-04-10 03:15:02,454 - INFO - Created DataLoader for val with batch size 4, num_workers 10, distributed=False.
+2026-04-10 03:15:03,462 - INFO - OOM at batch size 4
+2026-04-10 03:15:03,462 - INFO - OOM at batch size 4
+2026-04-10 03:15:03,462 - INFO - OOM at batch size 4
+2026-04-10 03:15:03,464 - INFO - 
+Recommended per-GPU batch size: 1
+2026-04-10 03:15:03,464 - INFO - 
+Recommended per-GPU batch size: 1
+2026-04-10 03:15:03,464 - INFO - 
+Recommended per-GPU batch size: 1
+2026-04-10 03:15:03,507 - INFO - Eval batch size: 1
+2026-04-10 03:15:03,507 - INFO - Eval batch size: 1
+2026-04-10 03:15:03,507 - INFO - Eval batch size: 1
+2026-04-10 03:15:03,755 - INFO - Log file added: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/test/test.log
+2026-04-10 03:15:03,755 - INFO - Log file added: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/test/test.log
+2026-04-10 03:15:03,755 - INFO - Log file added: experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/test/test.log
+2026-04-10 03:15:03,775 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:15:03,775 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:15:03,775 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-10 03:15:04,209 - INFO - Memory size of global index: 18818 bytes
+2026-04-10 03:15:04,209 - INFO - Memory size of global index: 18818 bytes
+2026-04-10 03:15:04,209 - INFO - Memory size of global index: 18818 bytes
+2026-04-10 03:15:04,210 - INFO - test dataset initialized with 669 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:15:04,210 - INFO - test dataset initialized with 669 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:15:04,210 - INFO - test dataset initialized with 669 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-10 03:15:04,210 - INFO - Initialized test dataset with 669 samples.
+2026-04-10 03:15:04,210 - INFO - Initialized test dataset with 669 samples.
+2026-04-10 03:15:04,210 - INFO - Initialized test dataset with 669 samples.
+2026-04-10 03:15:04,211 - INFO - Created DataLoader for test with batch size 1, num_workers 10, distributed=False.
+2026-04-10 03:15:04,211 - INFO - Created DataLoader for test with batch size 1, num_workers 10, distributed=False.
+2026-04-10 03:15:04,211 - INFO - Created DataLoader for test with batch size 1, num_workers 10, distributed=False.
+2026-04-10 03:15:04,212 - INFO - Model [physio_wave] standardized. Unpacking parameters.
+2026-04-10 03:15:04,212 - INFO - Model [physio_wave] standardized. Unpacking parameters.
+2026-04-10 03:15:04,212 - INFO - Model [physio_wave] standardized. Unpacking parameters.
+2026-04-10 03:15:04,321 - INFO - model [PhysioWave] was created
+2026-04-10 03:15:04,321 - INFO - model [PhysioWave] was created
+2026-04-10 03:15:04,321 - INFO - model [PhysioWave] was created
+2026-04-10 03:15:04,321 - INFO - Loading foundation model from checkpoint: pretrained_models/PhysioWave/emg.pth
+2026-04-10 03:15:04,321 - INFO - Loading foundation model from checkpoint: pretrained_models/PhysioWave/emg.pth
+2026-04-10 03:15:04,321 - INFO - Loading foundation model from checkpoint: pretrained_models/PhysioWave/emg.pth
+2026-04-10 03:15:04,705 - INFO - Foundation model parameters: 4,854,486
+2026-04-10 03:15:04,705 - INFO - Foundation model parameters: 4,854,486
+2026-04-10 03:15:04,705 - INFO - Foundation model parameters: 4,854,486
+2026-04-10 03:15:04,709 - INFO - Total model parameters: 5,079,819 | Trainable parameters: 5,079,819
+2026-04-10 03:15:04,709 - INFO - Total model parameters: 5,079,819 | Trainable parameters: 5,079,819
+2026-04-10 03:15:04,709 - INFO - Total model parameters: 5,079,819 | Trainable parameters: 5,079,819
+2026-04-10 03:15:04,711 - INFO - Optimiser groups: 71 params with WD, 83 params without.
+2026-04-10 03:15:04,711 - INFO - Optimiser groups: 71 params with WD, 83 params without.
+2026-04-10 03:15:04,711 - INFO - Optimiser groups: 71 params with WD, 83 params without.
+2026-04-10 03:15:04,711 - INFO - Task [FinetuneClassificationTask] was created
+2026-04-10 03:15:04,711 - INFO - Task [FinetuneClassificationTask] was created
+2026-04-10 03:15:04,711 - INFO - Task [FinetuneClassificationTask] was created
+2026-04-10 03:16:25,216 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/test/figures/confusion_matrix.png
+2026-04-10 03:16:25,216 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/test/figures/confusion_matrix.png
+2026-04-10 03:16:25,216 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed2/test/figures/confusion_matrix.png
+2026-04-10 03:16:26,487 - INFO - Evaluation completed with results: None
+2026-04-10 03:16:26,487 - INFO - Evaluation completed with results: None
+2026-04-10 03:16:26,487 - INFO - Evaluation completed with results: None

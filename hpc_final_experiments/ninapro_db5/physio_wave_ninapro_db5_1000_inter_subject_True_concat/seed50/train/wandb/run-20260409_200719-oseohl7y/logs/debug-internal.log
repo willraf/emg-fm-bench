@@ -1,0 +1,14 @@
+{"time":"2026-04-09T20:07:22.909525561+01:00","level":"INFO","msg":"stream: starting","core version":"0.25.0"}
+{"time":"2026-04-09T20:07:23.298405782+01:00","level":"INFO","msg":"stream: created new stream","id":"oseohl7y"}
+{"time":"2026-04-09T20:07:23.298553423+01:00","level":"INFO","msg":"handler: started","stream_id":"oseohl7y"}
+{"time":"2026-04-09T20:07:23.300608702+01:00","level":"INFO","msg":"stream: started","id":"oseohl7y"}
+{"time":"2026-04-09T20:07:23.300618305+01:00","level":"INFO","msg":"writer: started","stream_id":"oseohl7y"}
+{"time":"2026-04-09T20:07:23.300630243+01:00","level":"INFO","msg":"sender: started","stream_id":"oseohl7y"}
+{"time":"2026-04-09T23:11:02.089795238+01:00","level":"INFO","msg":"api: retrying HTTP error","status":429,"url":"https://api.wandb.ai/files/willraf-imperial-college-london/neurorvq_ninaprodb5/oseohl7y/file_stream","body":"{\"error\":\"rate limit exceeded: per_run limit on filestream requests\"}"}
+{"time":"2026-04-09T23:11:32.091646739+01:00","level":"INFO","msg":"api: retrying HTTP error","status":429,"url":"https://api.wandb.ai/files/willraf-imperial-college-london/neurorvq_ninaprodb5/oseohl7y/file_stream","body":"{\"error\":\"rate limit exceeded: per_run limit on filestream requests\"}"}
+{"time":"2026-04-10T03:38:39.321395882+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-04-10T03:38:39.558323616+01:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-04-10T03:38:39.564668372+01:00","level":"INFO","msg":"stream: closing","id":"oseohl7y"}
+{"time":"2026-04-10T03:38:39.564680971+01:00","level":"INFO","msg":"handler: closed","stream_id":"oseohl7y"}
+{"time":"2026-04-10T03:38:39.565316908+01:00","level":"INFO","msg":"sender: closed","stream_id":"oseohl7y"}
+{"time":"2026-04-10T03:38:39.565327673+01:00","level":"INFO","msg":"stream: closed","id":"oseohl7y"}

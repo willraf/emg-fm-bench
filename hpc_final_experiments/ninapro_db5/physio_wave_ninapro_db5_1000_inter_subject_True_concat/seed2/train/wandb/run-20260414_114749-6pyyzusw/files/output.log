@@ -1,0 +1,76 @@
+[2026-04-14 11:47:56,256][root][INFO] -
+🔍 Starting batch size probe...
+
+[2026-04-14 11:47:56,256][root][INFO] - Testing batch size 2...
+[2026-04-14 11:47:56,257][root][INFO] - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+[2026-04-14 11:47:56,629][root][INFO] - Memory size of global index: 9775 bytes
+[2026-04-14 11:47:56,629][root][INFO] - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+[2026-04-14 11:47:56,630][root][INFO] - Initialized val dataset with 346 samples.
+[2026-04-14 11:47:56,631][root][INFO] - Created DataLoader for val with batch size 2, num_workers 10, distributed=False.
+[2026-04-14 11:48:04,322][root][INFO] - Success | Peak memory 16.05 GB
+[2026-04-14 11:48:04,322][root][INFO] - Testing batch size 4...
+[2026-04-14 11:48:04,323][root][INFO] - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+[2026-04-14 11:48:04,675][root][INFO] - Memory size of global index: 9775 bytes
+[2026-04-14 11:48:04,676][root][INFO] - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+[2026-04-14 11:48:04,676][root][INFO] - Initialized val dataset with 346 samples.
+[2026-04-14 11:48:04,676][root][INFO] - Created DataLoader for val with batch size 4, num_workers 10, distributed=False.
+[2026-04-14 11:48:05,695][root][INFO] - Success | Peak memory 32.08 GB
+[2026-04-14 11:48:05,696][root][INFO] - Testing batch size 8...
+[2026-04-14 11:48:05,697][root][INFO] - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+[2026-04-14 11:48:06,058][root][INFO] - Memory size of global index: 9775 bytes
+[2026-04-14 11:48:06,059][root][INFO] - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+[2026-04-14 11:48:06,060][root][INFO] - Initialized val dataset with 346 samples.
+[2026-04-14 11:48:06,060][root][INFO] - Created DataLoader for val with batch size 8, num_workers 10, distributed=False.
+[2026-04-14 11:48:07,727][root][INFO] - OOM at batch size 8
+[2026-04-14 11:48:07,728][root][INFO] -
+Recommended per-GPU batch size: 3
+[2026-04-14 11:48:07,766][root][WARNING] - Per-GPU batch size 3 < minimum 32. Using 11 gradient accumulation steps.
+[2026-04-14 11:48:07,767][root][INFO] - Effective batch size: 3 (per-GPU) × 11 (accum) × 1 (GPUs) = 33. LR scaled from 0.0001 → 0.000026.
+Process 0 using device cuda:0, distributed=False, local_rank=0
+World size: 1
+[2026-04-14 11:48:08,013][root][WARNING] - Directory experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train already exists.
+[2026-04-14 11:48:08,014][root][INFO] - Resuming training in existing directory: experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train
+[2026-04-14 11:48:08,032][root][INFO] - Log file added: experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train/train.log
+[2026-04-14 11:48:08,047][root][INFO] - Model [physio_wave] standardized. Unpacking parameters.
+[2026-04-14 11:48:08,154][root][INFO] - model [PhysioWave] was created
+[2026-04-14 11:48:08,155][root][INFO] - Loading foundation model from checkpoint: pretrained_models/PhysioWave/emg.pth
+[2026-04-14 11:48:08,355][root][INFO] - Foundation model parameters: 4,854,486
+[2026-04-14 11:48:08,361][root][INFO] - Total model parameters: 5,079,819 | Trainable parameters: 225,333
+[2026-04-14 11:48:08,362][root][INFO] - Optimiser groups: 1 params with WD, 3 params without.
+[2026-04-14 11:48:08,363][root][INFO] - Task [FinetuneClassificationTask] was created
+[2026-04-14 11:48:08,363][root][INFO] - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+[2026-04-14 11:48:08,940][root][INFO] - Memory size of global index: 68742 bytes
+[2026-04-14 11:48:08,941][root][INFO] - train dataset initialized with 2452 windows from data/ninapro_db5/ninapro_db5.hdf5
+[2026-04-14 11:48:08,941][root][INFO] - Initialized train dataset with 2452 samples.
+[2026-04-14 11:48:08,942][root][INFO] - Created DataLoader for train with batch size 3, num_workers 10, distributed=False.
+[2026-04-14 11:48:08,942][root][INFO] - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+[2026-04-14 11:48:09,277][root][INFO] - Memory size of global index: 9775 bytes
+[2026-04-14 11:48:09,278][root][INFO] - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+[2026-04-14 11:48:09,278][root][INFO] - Initialized val dataset with 346 samples.
+[2026-04-14 11:48:09,279][root][INFO] - Created DataLoader for val with batch size 3, num_workers 10, distributed=False.
+Epoch 94: 100%|██████████████████████████████████████| 818/818 [04:35<00:00,  2.97it/s, loss=0.3097]
+[2026-04-14 11:53:24,156][root][INFO] - End of Epoch 94 - Learning Rate: 0.000001
+[2026-04-14 11:53:24,271][root][INFO] - Checkpoint saved: experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train/checkpoints/best_model.pt
+[2026-04-14 11:53:24,272][root][INFO] - Epoch 94 Train| epoch: 94.0000 | best_val_loss: 3.3153 | train_loss: 0.2825 | train_acc: 0.2263 | train_f1: 0.1845 | train_precision: 0.2393 | train_recall: 0.2115 | val_loss: 3.3153 | val_acc: 0.2052 | val_f1: 0.1553 | val_precision: 0.1565 | val_recall: 0.2124
+[2026-04-14 11:53:24,756][root][INFO] - Saved plot to experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train/figures/loss_curves.png
+Epoch 95: 100%|██████████████████████████████████████| 818/818 [04:35<00:00,  2.97it/s, loss=0.2827]
+[2026-04-14 11:58:39,521][root][INFO] - End of Epoch 95 - Learning Rate: 0.000001
+[2026-04-14 11:58:39,522][root][INFO] - Epoch 95 Train| epoch: 95.0000 | best_val_loss: 3.3153 | train_loss: 0.2830 | train_acc: 0.2145 | train_f1: 0.1673 | train_precision: 0.1920 | train_recall: 0.1991 | val_loss: 3.3170 | val_acc: 0.1994 | val_f1: 0.1490 | val_precision: 0.1464 | val_recall: 0.2056
+[2026-04-14 11:58:39,605][root][INFO] - Saved plot to experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train/figures/loss_curves.png
+Epoch 96: 100%|██████████████████████████████████████| 818/818 [04:35<00:00,  2.97it/s, loss=0.3281]
+[2026-04-14 12:03:54,209][root][INFO] - End of Epoch 96 - Learning Rate: 0.000001
+[2026-04-14 12:03:54,211][root][INFO] - Epoch 96 Train| epoch: 96.0000 | best_val_loss: 3.3153 | train_loss: 0.2823 | train_acc: 0.2325 | train_f1: 0.1865 | train_precision: 0.2280 | train_recall: 0.2156 | val_loss: 3.3169 | val_acc: 0.1994 | val_f1: 0.1487 | val_precision: 0.1468 | val_recall: 0.2056
+[2026-04-14 12:03:54,286][root][INFO] - Saved plot to experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train/figures/loss_curves.png
+Epoch 97: 100%|██████████████████████████████████████| 818/818 [04:35<00:00,  2.97it/s, loss=0.2557]
+[2026-04-14 12:09:08,850][root][INFO] - End of Epoch 97 - Learning Rate: 0.000001
+[2026-04-14 12:09:08,851][root][INFO] - Epoch 97 Train| epoch: 97.0000 | best_val_loss: 3.3153 | train_loss: 0.2821 | train_acc: 0.2308 | train_f1: 0.1866 | train_precision: 0.2192 | train_recall: 0.2168 | val_loss: 3.3173 | val_acc: 0.2081 | val_f1: 0.1627 | val_precision: 0.1690 | val_recall: 0.2147
+[2026-04-14 12:09:08,926][root][INFO] - Saved plot to experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train/figures/loss_curves.png
+Epoch 98: 100%|██████████████████████████████████████| 818/818 [04:35<00:00,  2.97it/s, loss=0.3111]
+[2026-04-14 12:14:23,316][root][INFO] - End of Epoch 98 - Learning Rate: 0.000001
+[2026-04-14 12:14:23,317][root][INFO] - Epoch 98 Train| epoch: 98.0000 | best_val_loss: 3.3153 | train_loss: 0.2818 | train_acc: 0.2190 | train_f1: 0.1787 | train_precision: 0.2311 | train_recall: 0.2046 | val_loss: 3.3233 | val_acc: 0.1994 | val_f1: 0.1544 | val_precision: 0.1589 | val_recall: 0.2056
+[2026-04-14 12:14:23,395][root][INFO] - Saved plot to experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train/figures/loss_curves.png
+Epoch 99: 100%|██████████████████████████████████████| 818/818 [04:35<00:00,  2.97it/s, loss=0.2940]
+[2026-04-14 12:19:38,080][root][INFO] - End of Epoch 99 - Learning Rate: 0.000001
+[2026-04-14 12:19:38,082][root][INFO] - Epoch 99 Train| epoch: 99.0000 | best_val_loss: 3.3153 | train_loss: 0.2837 | train_acc: 0.2206 | train_f1: 0.1747 | train_precision: 0.2111 | train_recall: 0.2066 | val_loss: 3.3225 | val_acc: 0.2139 | val_f1: 0.1659 | val_precision: 0.1711 | val_recall: 0.2211
+[2026-04-14 12:19:38,154][root][INFO] - Saved plot to experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train/figures/loss_curves.png
+[2026-04-14 12:19:38,155][root][INFO] - Training complete.

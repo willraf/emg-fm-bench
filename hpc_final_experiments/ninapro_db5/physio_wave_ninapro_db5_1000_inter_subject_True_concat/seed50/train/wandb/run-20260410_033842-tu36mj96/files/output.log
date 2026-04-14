@@ -1,0 +1,44 @@
+[2026-04-10 03:38:45,035][root][INFO] -
+🔍 Starting batch size probe...
+
+[2026-04-10 03:38:45,035][root][INFO] - Testing batch size 2...
+[2026-04-10 03:38:45,036][root][INFO] - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+[2026-04-10 03:38:45,361][root][INFO] - Memory size of global index: 9775 bytes
+[2026-04-10 03:38:45,362][root][INFO] - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+[2026-04-10 03:38:45,362][root][INFO] - Initialized val dataset with 346 samples.
+[2026-04-10 03:38:45,362][root][INFO] - Created DataLoader for val with batch size 2, num_workers 10, distributed=False.
+[2026-04-10 03:38:45,849][root][INFO] - Success | Peak memory 16.06 GB
+[2026-04-10 03:38:45,850][root][INFO] - Testing batch size 4...
+[2026-04-10 03:38:45,850][root][INFO] - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+[2026-04-10 03:38:46,202][root][INFO] - Memory size of global index: 9775 bytes
+[2026-04-10 03:38:46,203][root][INFO] - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+[2026-04-10 03:38:46,204][root][INFO] - Initialized val dataset with 346 samples.
+[2026-04-10 03:38:46,204][root][INFO] - Created DataLoader for val with batch size 4, num_workers 10, distributed=False.
+[2026-04-10 03:38:47,270][root][INFO] - Success | Peak memory 32.08 GB
+[2026-04-10 03:38:47,271][root][INFO] - Testing batch size 8...
+[2026-04-10 03:38:47,271][root][INFO] - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+[2026-04-10 03:38:47,630][root][INFO] - Memory size of global index: 9775 bytes
+[2026-04-10 03:38:47,631][root][INFO] - val dataset initialized with 346 windows from data/ninapro_db5/ninapro_db5.hdf5
+[2026-04-10 03:38:47,632][root][INFO] - Initialized val dataset with 346 samples.
+[2026-04-10 03:38:47,632][root][INFO] - Created DataLoader for val with batch size 8, num_workers 10, distributed=False.
+[2026-04-10 03:38:49,260][root][INFO] - OOM at batch size 8
+[2026-04-10 03:38:49,261][root][INFO] -
+Recommended per-GPU batch size: 3
+[2026-04-10 03:38:49,315][root][INFO] - Eval batch size: 3
+Process 0 using device cuda:0, distributed=False, local_rank=0
+World size: 1
+[2026-04-10 03:38:49,519][root][INFO] - Log file added: experiments/ninapro_db5/2026-04-09_20-06-49_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed50/test/test.log
+[2026-04-10 03:38:49,539][root][INFO] - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+[2026-04-10 03:38:50,020][root][INFO] - Memory size of global index: 18818 bytes
+[2026-04-10 03:38:50,021][root][INFO] - test dataset initialized with 669 windows from data/ninapro_db5/ninapro_db5.hdf5
+[2026-04-10 03:38:50,022][root][INFO] - Initialized test dataset with 669 samples.
+[2026-04-10 03:38:50,022][root][INFO] - Created DataLoader for test with batch size 3, num_workers 10, distributed=False.
+[2026-04-10 03:38:50,023][root][INFO] - Model [physio_wave] standardized. Unpacking parameters.
+[2026-04-10 03:38:50,128][root][INFO] - model [PhysioWave] was created
+[2026-04-10 03:38:50,129][root][INFO] - Loading foundation model from checkpoint: pretrained_models/PhysioWave/emg.pth
+[2026-04-10 03:38:50,610][root][INFO] - Foundation model parameters: 4,854,486
+[2026-04-10 03:38:50,614][root][INFO] - Total model parameters: 5,079,819 | Trainable parameters: 225,333
+[2026-04-10 03:38:50,616][root][INFO] - Optimiser groups: 1 params with WD, 3 params without.
+[2026-04-10 03:38:50,616][root][INFO] - Task [FinetuneClassificationTask] was created
+100%|████████████████████████████████████████████████| 223/223 [01:15<00:00,  2.96it/s, loss=3.2786]
+[2026-04-10 03:40:07,337][root][INFO] - Saved plot to experiments/ninapro_db5/2026-04-09_20-06-49_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed50/test/figures/confusion_matrix.png

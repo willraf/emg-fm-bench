@@ -1,0 +1,41 @@
+{
+  "os":  "Linux-4.18.0-553.76.1.el8_10.x86_64-x86_64-with-glibc2.28",
+  "python":  "CPython 3.11.14",
+  "startedAt":  "2026-04-09T18:53:04.845695Z",
+  "args":  [
+    "--config-name",
+    "main"
+  ],
+  "program":  "-m scripts.main",
+  "git":  {
+    "remote":  "git@github.com:willraf/emg-stream.git",
+    "commit":  "58c8b80d40e9e01ab2bd6e585b451931cc532764"
+  },
+  "root":  "experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train",
+  "host":  "cx3-20-3",
+  "executable":  "/rds/general/user/war124/home/miniforge3/envs/emg-ss311/bin/python",
+  "cpu_count":  64,
+  "cpu_count_logical":  64,
+  "gpu":  "NVIDIA L40S",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "21464350720",
+      "used":  "9193578496"
+    }
+  },
+  "memory":  {
+    "total":  "1081297166336"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA L40S",
+      "memoryTotal":  "48305799168",
+      "cudaCores":  18176,
+      "architecture":  "Ada",
+      "uuid":  "GPU-a8296027-5e10-1204-d056-049450845ad9"
+    }
+  ],
+  "cudaVersion":  "13.0",
+  "writerId":  "nv66xqqegl88n0yh1oloiz82krqsszni"
+}

@@ -1,0 +1,13 @@
+{"time":"2026-04-10T09:34:18.059971178+01:00","level":"INFO","msg":"stream: starting","core version":"0.25.0"}
+{"time":"2026-04-10T09:34:18.743067258+01:00","level":"INFO","msg":"stream: created new stream","id":"e04f01yg"}
+{"time":"2026-04-10T09:34:18.743114822+01:00","level":"INFO","msg":"handler: started","stream_id":"e04f01yg"}
+{"time":"2026-04-10T09:34:18.791312531+01:00","level":"INFO","msg":"stream: started","id":"e04f01yg"}
+{"time":"2026-04-10T09:34:18.791321075+01:00","level":"INFO","msg":"writer: started","stream_id":"e04f01yg"}
+{"time":"2026-04-10T09:34:18.791328244+01:00","level":"INFO","msg":"sender: started","stream_id":"e04f01yg"}
+{"time":"2026-04-10T10:34:38.479117395+01:00","level":"ERROR","msg":"failed to write to chunk: failed to open file: open experiments/ninapro_db5/2026-04-09_20-19-12_physio_wave_ninapro_db5_1000_inter_subject_False_concat/seed100/train/wandb/run-20260410_093417-e04f01yg/files/output.log: no such file or directory"}
+{"time":"2026-04-10T18:13:22.229863234+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-04-10T18:13:25.442615966+01:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-04-10T18:13:25.444086206+01:00","level":"INFO","msg":"stream: closing","id":"e04f01yg"}
+{"time":"2026-04-10T18:13:25.444096567+01:00","level":"INFO","msg":"handler: closed","stream_id":"e04f01yg"}
+{"time":"2026-04-10T18:13:25.444260812+01:00","level":"INFO","msg":"sender: closed","stream_id":"e04f01yg"}
+{"time":"2026-04-10T18:13:25.444275656+01:00","level":"INFO","msg":"stream: closed","id":"e04f01yg"}

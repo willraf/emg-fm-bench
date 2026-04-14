@@ -1,0 +1,15 @@
+2026-04-14 12:19:46,633 - INFO - Log file added: experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/test/test.log
+2026-04-14 12:19:46,641 - INFO - Dataset [hdf5_windowed] requested full 'cfg'. Passing OmegaConf object.
+2026-04-14 12:19:47,061 - INFO - Memory size of global index: 18818 bytes
+2026-04-14 12:19:47,062 - INFO - test dataset initialized with 669 windows from data/ninapro_db5/ninapro_db5.hdf5
+2026-04-14 12:19:47,063 - INFO - Initialized test dataset with 669 samples.
+2026-04-14 12:19:47,063 - INFO - Created DataLoader for test with batch size 3, num_workers 10, distributed=False.
+2026-04-14 12:19:47,064 - INFO - Model [physio_wave] standardized. Unpacking parameters.
+2026-04-14 12:19:47,143 - INFO - model [PhysioWave] was created
+2026-04-14 12:19:47,144 - INFO - Loading foundation model from checkpoint: pretrained_models/PhysioWave/emg.pth
+2026-04-14 12:19:47,260 - INFO - Foundation model parameters: 4,854,486
+2026-04-14 12:19:47,264 - INFO - Total model parameters: 5,079,819 | Trainable parameters: 225,333
+2026-04-14 12:19:47,265 - INFO - Optimiser groups: 1 params with WD, 3 params without.
+2026-04-14 12:19:47,266 - INFO - Task [FinetuneClassificationTask] was created
+2026-04-14 12:21:04,081 - INFO - Saved plot to experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/test/figures/confusion_matrix.png
+2026-04-14 12:21:05,374 - INFO - Evaluation completed with results: None

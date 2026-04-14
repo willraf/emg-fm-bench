@@ -1,0 +1,243 @@
+_wandb:
+    value:
+        cli_version: 0.25.0
+        e:
+            o82uq4xcd6c3cs2lsq30i9anuyv0eni2:
+                args:
+                    - --config-name
+                    - main
+                cpu_count: 64
+                cpu_count_logical: 64
+                cudaVersion: "13.0"
+                disk:
+                    /:
+                        total: "21464350720"
+                        used: "9191014400"
+                executable: /rds/general/user/war124/home/miniforge3/envs/emg-ss311/bin/python
+                git:
+                    commit: 65fbc7698523343efad35f6859f7c7b96c8e88ef
+                    remote: git@github.com:willraf/emg-stream.git
+                gpu: NVIDIA L40S
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ada
+                      cudaCores: 18176
+                      memoryTotal: "48305799168"
+                      name: NVIDIA L40S
+                      uuid: GPU-7331e81d-f0c3-4192-e1da-47b0c5f7824b
+                host: cx3-20-6
+                memory:
+                    total: "1081297137664"
+                os: Linux-4.18.0-553.76.1.el8_10.x86_64-x86_64-with-glibc2.28
+                program: -m scripts.main
+                python: CPython 3.11.14
+                root: experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train
+                startedAt: "2026-04-14T11:19:40.920157Z"
+                writerId: o82uq4xcd6c3cs2lsq30i9anuyv0eni2
+        m: []
+        python_version: 3.11.14
+        t:
+            "1":
+                - 1
+                - 5
+                - 50
+                - 53
+            "2":
+                - 1
+                - 5
+                - 50
+                - 53
+            "3":
+                - 2
+                - 13
+                - 16
+                - 24
+            "4": 3.11.14
+            "5": 0.25.0
+            "12": 0.25.0
+            "13": linux-x86_64
+data:
+    value:
+        batch_size: 3
+        hdf5_path: data/ninapro_db5/ninapro_db5.hdf5
+        jitter: true
+        n_classes: 53
+        name: hdf5_windowed
+        num_channels: 16
+        num_workers: 10
+        primary_data_key: emg
+        root_key: ninapro_db5
+        sample_channels:
+            - c1
+            - c3
+            - c5
+            - c7
+            - c9
+            - c11
+            - c13
+            - c15
+            - c2
+            - c4
+            - c6
+            - c8
+            - c10
+            - c12
+            - c14
+            - c16
+        sample_rate: 200
+        split_type: inter_subject
+        stride: 50
+        timeseries_keys: null
+        transforms:
+            test:
+                - _target_: src.data.transforms.StandardiseSignal
+                  field: emg
+                - _target_: src.data.transforms.PerChannelZScoreNormalise
+                  field: emg
+                - _target_: src.data.transforms.Resample
+                  field: emg
+                  orig_fs: 200
+                  target_fs: 2000
+            train:
+                - _target_: src.data.transforms.StandardiseSignal
+                  field: emg
+                - _target_: src.data.transforms.PerChannelZScoreNormalise
+                  field: emg
+                - _target_: src.data.transforms.Resample
+                  field: emg
+                  orig_fs: 200
+                  target_fs: 2000
+                - _target_: src.data.transforms.RandomAmplitudeScale
+                  field: emg
+                  max_scale: 1.1
+                  min_scale: 0.9
+                - _target_: src.data.transforms.RandomChannelDropout
+                  dropout_prob: 0.05
+                  field: emg
+            val:
+                - _target_: src.data.transforms.StandardiseSignal
+                  field: emg
+                - _target_: src.data.transforms.PerChannelZScoreNormalise
+                  field: emg
+                - _target_: src.data.transforms.Resample
+                  field: emg
+                  orig_fs: 200
+                  target_fs: 2000
+        window_length: 1000
+experiment:
+    value:
+        base_batch_size: 128
+        base_learning_rate: 0.0001
+        find_batch_size: true
+        min_batch_size: 32
+        name: ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2
+        plot_examples: true
+        random_seed: 2
+        save: true
+finetuning:
+    value:
+        freeze_backbone: true
+        from_scratch: false
+        learning_rate: 2.578125e-05
+        target_field: gesture_id
+        warmup_epochs: 5
+        weight_decay: 0.001
+logging:
+    value:
+        log_interval: 10
+        use_wandb: true
+        wandb_project: neurorvq_ninaprodb5
+model:
+    value:
+        checkpoint: experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train/checkpoints/best_model.pt
+        fm:
+            checkpoint: pretrained_models/PhysioWave/emg.pth
+            depth: 6
+            dropout: 0.1
+            embed_dim: 256
+            head_config: null
+            importance_ratio: 0.6
+            in_channels: 8
+            mask_ratio: 0.15
+            masking_strategy: frequency_guided
+            max_level: 3
+            mlp_ratio: 4
+            name: physio_wave
+            num_classes: null
+            num_heads: 8
+            output_dim: null
+            patch_size: 64
+            pooling: null
+            pos_embed_type: 2d
+            rope_dim: null
+            task_type: null
+            use_pos_embed: true
+            use_separate_channel: true
+            wave_kernel_size: 16
+            wavelet_names:
+                - sym4
+                - sym5
+                - db6
+                - coif3
+                - bior4.4
+        sample_rate: 2000
+        wrapper:
+            embed_dim: 256
+            finetune_spacial_embedding: false
+            n_classes: 53
+            num_channels: 16
+            patch_size: 64
+            pooling_type: concat
+task:
+    value:
+        name: finetune_classification
+training:
+    value:
+        epochs: 100
+        num_accumulation_steps: 11
+        patience: 8
+        use_amp: true
+transforms:
+    value:
+        band_pass:
+            _target_: src.data.transforms.BandPassFilter
+            fs: 200
+            highpass: 20
+            lowpass: 90
+            order: 3
+        channel_dropout:
+            _target_: src.data.transforms.RandomChannelDropout
+            dropout_prob: 0.05
+            field: emg
+        encode_stage:
+            _target_: src.data.transforms.EncodeStage
+            field: stage
+        global_z_score_normalise:
+            _target_: src.data.transforms.GlobalZScoreNormalise
+            field: emg
+        min_max_normalise:
+            _target_: src.data.transforms.MinMaxNormalise
+            field: emg
+        pad_length:
+            _target_: src.data.transforms.PadCropToLength
+            field: emg
+            target_length: 1000
+        peak_normalise:
+            _target_: src.data.transforms.PeakNormalise
+            field: emg
+        per_channel_z_score_normalise:
+            _target_: src.data.transforms.PerChannelZScoreNormalise
+            field: emg
+        random_scale:
+            _target_: src.data.transforms.RandomAmplitudeScale
+            field: emg
+            max_scale: 1.1
+            min_scale: 0.9
+        resample:
+            _target_: src.data.transforms.Resample
+            field: emg
+            orig_fs: 200
+            target_fs: 2000
+        standardise:
+            _target_: src.data.transforms.StandardiseSignal
+            field: emg

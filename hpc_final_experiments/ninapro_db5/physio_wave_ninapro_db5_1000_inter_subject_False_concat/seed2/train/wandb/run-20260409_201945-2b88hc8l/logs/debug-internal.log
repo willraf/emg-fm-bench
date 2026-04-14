@@ -1,0 +1,13 @@
+{"time":"2026-04-09T20:19:48.935730513+01:00","level":"INFO","msg":"stream: starting","core version":"0.25.0"}
+{"time":"2026-04-09T20:19:49.272360783+01:00","level":"INFO","msg":"stream: created new stream","id":"2b88hc8l"}
+{"time":"2026-04-09T20:19:49.272505608+01:00","level":"INFO","msg":"handler: started","stream_id":"2b88hc8l"}
+{"time":"2026-04-09T20:19:49.273422668+01:00","level":"INFO","msg":"stream: started","id":"2b88hc8l"}
+{"time":"2026-04-09T20:19:49.273430771+01:00","level":"INFO","msg":"writer: started","stream_id":"2b88hc8l"}
+{"time":"2026-04-09T20:19:49.273454772+01:00","level":"INFO","msg":"sender: started","stream_id":"2b88hc8l"}
+{"time":"2026-04-09T23:10:57.662033646+01:00","level":"INFO","msg":"api: retrying HTTP error","status":429,"url":"https://api.wandb.ai/files/willraf-imperial-college-london/neurorvq_ninaprodb5/2b88hc8l/file_stream","body":"{\"error\":\"rate limit exceeded: per_run limit on filestream requests\"}"}
+{"time":"2026-04-10T03:14:54.532431846+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-04-10T03:14:54.820946183+01:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-04-10T03:14:54.82737385+01:00","level":"INFO","msg":"stream: closing","id":"2b88hc8l"}
+{"time":"2026-04-10T03:14:54.827399907+01:00","level":"INFO","msg":"handler: closed","stream_id":"2b88hc8l"}
+{"time":"2026-04-10T03:14:54.831568761+01:00","level":"INFO","msg":"sender: closed","stream_id":"2b88hc8l"}
+{"time":"2026-04-10T03:14:54.831589438+01:00","level":"INFO","msg":"stream: closed","id":"2b88hc8l"}
