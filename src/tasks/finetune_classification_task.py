@@ -210,8 +210,8 @@ class FinetuneClassificationTask(BaseTask):
         self.model = DDP(self.model, 
                          device_ids=[local_rank], 
                          output_device=local_rank,
-                         find_unused_parameters=True  # Allow for some parameters to be frozen or unused
-                         )
+                        #  find_unused_parameters=True  # Allow for some parameters to be frozen or unused
+                        )
 
 
     def setup_optimiser(self, lr, weight_decay):

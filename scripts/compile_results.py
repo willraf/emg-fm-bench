@@ -111,9 +111,9 @@ def compile_benchmarks(exp_root="./experiments"):
 
             frozen = get_nested_cfg(cfg, ["finetuning.freeze_backbone"])
             if frozen is True:
-                tuning = "Head Only"
+                tuning = "Head"
             else:
-                tuning = "Full Fine-tuning"
+                tuning = "Full FT"
 
             # 2. Extract metadata with fallbacks
             record = {
@@ -294,9 +294,9 @@ def generate_paper_table(df):
     # 5. Format Cells
     def format_cell(mean, std, is_best, is_acc=True):
         # Scale by 100 for Accuracy percentages
-        m, s = (mean * 100, std * 100) if is_acc else (mean, std)
+        m, s = (mean * 100, std * 100) #if is_acc else (mean, std)
         # Using standard size for SD, just with the \pm symbol
-        base_str = f"{m:.2f} $\pm$ {s:.2f}" if is_acc else f"{m:.3f} $\pm$ {s:.3f}"
+        base_str = f"{m:.2f} $\pm$ {s:.2f}" #if is_acc else f"{m:.3f} $\pm$ {s:.3f}"
         return f"\\textbf{{{base_str}}}" if is_best else base_str
 
     grouped['fmt_acc'] = [format_cell(r['acc_mean'], r['acc_std'], r['is_best_acc'], True) for _, r in grouped.iterrows()]

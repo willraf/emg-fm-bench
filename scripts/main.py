@@ -39,31 +39,6 @@ import torch.distributed as dist
 from torch.distributed import destroy_process_group
 import gc
 
-def find_batch_size(cfg):
-    """
-    Find the maximum batch size that its in memory. Use gradient accumulation if less than minimum.
-    Adjust learning rate according to linear scaling.
-    """
-    batch_size = train(cfg, overwrite=True, find_batch_size=True)
-    logging.info(f"Found maximum batch size: {batch_size}")
-
-    if batch_size < min_batch_size:
-        logging.warning(f"Found batch size {batch_size} is less than minimum {min_batch_size}. Gradient accumulation will be used.")
-        num_accumulation_steps = (min_batch_size + batch_size - 1) // batch_size  # Equivalent to math.ceil(min_batch_size / batch_size)
-        cfg.training.num_accumulation_steps = num_accumulation_steps
-        logging.info(f"Set num_accumulation_steps to {num_accumulation_steps}")
-        effective_batch_size = batch_size * num_accumulation_steps
-    else:
-        effective_batch_size = batch_size
-
-    cfg.data.batch_size = batch_size
-
-    # Adjust learning rate based on batch size (linear scaling rule)
-    scaled_learning_rate = base_learning_rate * (effective_batch_size / base_batch_size)
-    cfg.finetuning.learning_rate = scaled_learning_rate
-    logging.info(f"Scaled learning rate to {scaled_learning_rate} based on batch size {effective_batch_size} and base batch size {base_batch_size}.")
-
-    return effective_batch_size
 
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg=None):

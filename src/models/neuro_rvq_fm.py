@@ -728,12 +728,14 @@ class NeuroRVQFM(nn.Module):
                         return self.head_3(self.fc_norm_3(x)), _
                     elif (branch_idx==3):
                         return self.head_4(self.fc_norm_4(x)), _
-                    
+            # --------------- Adatation!! -----------------
+            # Standardise output for compatability with bio fm wrapper        
             elif self.return_patch_embeddings:
                 x = torch.concat([x1,x2,x3,x4], dim=-1)    
                 num_temporal_patches = T // self.patch_size
                 x = x.view(B, C, num_temporal_patches, self.embed_dim * 4)
                 return x
+            # ---------------------------------------------
             else:
                 # ONLY in Fine-Tune
                 x = torch.concat([x1,x2,x3,x4], dim=-1)

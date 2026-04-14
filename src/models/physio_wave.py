@@ -349,9 +349,12 @@ class PhysioWave(nn.Module):
 
         if task == 'features':
             features = self.forward_features(x)   # [B, num_patches, embed_dim] num_patches = T/patch_size*max_level+1*C
+            # ------------------- Adaptation!! -------------------
+            # Reshape features to [B, C, num_patches, embed_dim] for compatibility
             B, N, D = features.shape
             features = features.reshape(B, C, -1, D)
             return features
+            # ----------------------------------------------------
         elif task == 'pretrain':
             return self.forward_pretrain(x, mask_ratio)
         elif task == 'downstream':

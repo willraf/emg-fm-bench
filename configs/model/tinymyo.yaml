@@ -39,10 +39,11 @@ model:
     finetune_spacial_embedding: False
 
 data:
-  # No band pass filter, per channel z score normalisation and resampling to test original method done by physiowave
+  # Band pass filter, notch filter, per channel z score normalisation (same as tinymyo paper)
   transforms:
     train:
       - ${transforms.standardise}
+      - ${transforms.band_pass}
       - ${transforms.per_channel_z_score_normalise}
       - ${transforms.resample}
       - ${transforms.random_scale}
@@ -50,6 +51,7 @@ data:
       
     val:
       - ${transforms.standardise}
+      - ${transforms.band_pass}
       - ${transforms.per_channel_z_score_normalise}
       - ${transforms.resample}
 
