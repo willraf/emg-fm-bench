@@ -41,7 +41,7 @@ class Evaluator:
         
         self.overwrite = overwrite        
         # Setup GPU device and distributed training
-        self.distributed, self.device, self.rank, self.local_rank = setup_distributed()
+        self.distributed, self.device, self.rank, self.local_rank = setup_distributed(ddp_debug_mode=cfg.experiment.get("ddp_debug_mode", False))
         print(f"Process {self.rank} using device {self.device}, distributed={self.distributed}, local_rank={self.local_rank}")
         world_size = dist.get_world_size() if self.distributed else 1
         print(f"World size: {world_size}")
@@ -210,7 +210,6 @@ class Evaluator:
     def find_max_batch_size(self, start_bs=2, max_batch_size=256, safety_factor=0.8) -> int:
         recommended = torch.tensor(0, device=self.device)
         
-        # EVERYONE runs this loop
         batch_size = start_bs
         last_good = 0
 
@@ -221,21 +220,21 @@ class Evaluator:
             # Ensure everyone uses the same batch size
             self.cfg.data.batch_size = batch_size
             
-            # CRITICAL: Use distributed=True in the probe loader 
-            # so DDP hooks are properly initialized
             loader = setup_data(self.cfg.data, mode="val", distributed=self.distributed)
             
             try:
                 batch = next(iter(loader))
                 torch.cuda.empty_cache()
 
-                # Everyone calls this, so everyone hits .backward() together
                 self.task.eval_step(batch)
+            
+                if self.is_main:
+                    peak = torch.cuda.max_memory_allocated() / 1e9
+                    logging.info(f"Success | Peak memory {peak:.2f} GB")
                 
                 last_good = batch_size
                 batch_size *= 2
                 
-                # Sync here to ensure no rank OOMs while others think it succeeded
                 if self.distributed:
                     dist.barrier() 
 

@@ -72,7 +72,7 @@ class Trainer:
         self.cfg = cfg
         self.overwrite = overwrite        
         # Setup GPU device and distributed training
-        self.distributed, self.device, self.rank, self.local_rank = setup_distributed()
+        self.distributed, self.device, self.rank, self.local_rank = setup_distributed(ddp_debug_mode=cfg.experiment.get("ddp_debug_mode", False))
         print(f"Process {self.rank} using device {self.device}, distributed={self.distributed}, local_rank={self.local_rank}")
         world_size = dist.get_world_size() if self.distributed else 1
         print(f"World size: {world_size}")
@@ -275,7 +275,6 @@ class Trainer:
     def find_max_batch_size(self, start_bs=2, max_batch_size=256, safety_factor=0.8) -> int:
         recommended = torch.tensor(0, device=self.device)
         
-        # EVERYONE runs this loop
         batch_size = start_bs
         last_good = 0
 

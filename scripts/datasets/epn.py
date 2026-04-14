@@ -1,94 +1,18 @@
-"""Script epn.py
+""" Script epn.py
 
-NOTE:
-    There is a bit of a hack going on. In order to avoid repeating group names (e.g. session 1 from both training and testing samples)
-    I add the split name to the session group name (e.g. train_session_1, test_session_1). This way we can store both training and testing samples for each user in the same HDF5 file without conflicts.
-    This can be confusing as it refers to the SOURCE of the session, not the reallocated split. 
-    The same goes for users naming.
+Convert epn612 dataset from JSON to HDF5 format. Optionally, download the raw dataset from Zenodo if not already available locally.
 
-Convert epn612 dataset from JSON to HDF5 format. The dataset is organized as follows:
-
-- data/epn612/
-    - trainingJSON/
-        - user_1/
-            - photo.png
-            - user1.json
-        - user_2/
-            ...
-    - testingJSON/
-        - user_1/
-            - photo.png
-            - user1.json
-        - user_2/
-            ...
+Usage:
+    % python -m scripts.datasets.epn --dataset_dir data/epn612/ --output_dir data/processed/ --download_data
 
 
-Each user JSON file contains the following structure:
-{
-    "generalInfo": {
-        "deviceModel": "Myo Armband",
-        "samplingFrequencyInHertz": 200,
-        "recordingTimeInSeconds": 5,
-        "repetitionsForSynchronizationGesture": 5,
-        "myoPredictionLabel": {
-            "noGesture": 0,
-            "fist": 1,
-            "waveIn": 2,
-            "waveOut": 3,
-            "open": 4,
-            "pinch": 5
-        }
-    },
-    "userInfo": {
-        "userName": <>,
-        "age": <>,
-        "gender": <>,
-        "occupation": <>,
-        "ethnicGroup": <>,
-        "handedness": <>,
-        "ArmDamage": <>,
-        "distanceFromElbowToMyoInCm": <>,
-        "distanceFromElbowToUlnaInCm": <>,
-        "armPerimeterInCm": <>,
-        "date": <>
-    },
-    "trainingSamples": {
-        "idx_1": {
-            "gestureName": <>,
-            "startPointforGestureExecution": <>,
-            "myoDetection": <>,
-            "emg": <>,
-            "accelerometer": <>,
-            "gyroscope": <>
-            quaternion": <>
-        },
-        ...
-    "testingSamples": {
-        (as above)
+Authors:
+    Will Raftery
 
-
-        
-Converts to HDF5 format with file structure:
-- data/epn612/
-    - training/
-        training.hdf5
-        testing.hdf5
-    - testing/
-        training.hdf5
-        testing.hdf5
-
-Each HDF5 file contains the following structure
-- epn612 (root group)
-    - user1
-        - .attrs: name, age, gender, occupation, ethnicGroup, handedness, ArmDamage, distanceFromElboeToMyoInCm, 
-                    distanceFromElbowToUlnaInCm, armPerimeterInCm, date, deviceModel, samplingFrequencyInHertz (of EMG), recordingTimeInSeconds,
-                    repetitionsForSynchronizationGesture
-        - session1
-            - .attrs: gesture_name, start_point, session
-            - emg (dataset): shape (T, 8), dtype float32
-                - .attrs: sample_rate
-            - imu (dataset): shape (T, 10) with compound dtype for accel, gyro, quat
+Date:
+    14/03/2026
 """
+
 
 import h5py
 import json
@@ -408,3 +332,69 @@ if __name__ == "__main__":
     parser.add_argument("--download_data", action="store_true", help="Whether to download the EPN612 dataset.")
     args = parser.parse_args()
     main(args.dataset_dir, args.output_dir, args.download_data)
+
+
+
+
+"""
+The dataset is organized as follows:
+
+- data/epn612/
+    - trainingJSON/
+        - user_1/
+            - photo.png
+            - user1.json
+        - user_2/
+            ...
+    - testingJSON/
+        - user_1/
+            - photo.png
+            - user1.json
+        - user_2/
+            ...
+
+
+Each user JSON file contains the following structure:
+{
+    "generalInfo": {
+        "deviceModel": "Myo Armband",
+        "samplingFrequencyInHertz": 200,
+        "recordingTimeInSeconds": 5,
+        "repetitionsForSynchronizationGesture": 5,
+        "myoPredictionLabel": {
+            "noGesture": 0,
+            "fist": 1,
+            "waveIn": 2,
+            "waveOut": 3,
+            "open": 4,
+            "pinch": 5
+        }
+    },
+    "userInfo": {
+        "userName": <>,
+        "age": <>,
+        "gender": <>,
+        "occupation": <>,
+        "ethnicGroup": <>,
+        "handedness": <>,
+        "ArmDamage": <>,
+        "distanceFromElbowToMyoInCm": <>,
+        "distanceFromElbowToUlnaInCm": <>,
+        "armPerimeterInCm": <>,
+        "date": <>
+    },
+    "trainingSamples": {
+        "idx_1": {
+            "gestureName": <>,
+            "startPointforGestureExecution": <>,
+            "myoDetection": <>,
+            "emg": <>,
+            "accelerometer": <>,
+            "gyroscope": <>
+            quaternion": <>
+        },
+        ...
+    "testingSamples": {
+        (as above)
+
+"""

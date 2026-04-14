@@ -24,7 +24,7 @@ from torch.distributed import init_process_group, destroy_process_group
 import torch.distributed as dist
 
 
-def setup_distributed():
+def setup_distributed_debug():
     """
     This funciton is exclusively for debugging distributed training on a single GPU
 
@@ -35,7 +35,7 @@ def setup_distributed():
         local_rank (int)
     """
 
-    logging.warning("Using setup_distributed() from utils.py. This is only intended for debugging distributed training on a single GPU. For proper distributed training, use the setup_distributed() function in src/utils/distributed.py which uses torchrun for initialization.")
+    logging.warning("Using setup_distributed_debug() from utils.py. This is only intended for debugging distributed training on a single GPU. For proper distributed training, use the setup_distributed() function in src/utils/distributed.py which uses torchrun for initialization.")
 
     # Check if already initialized
     if dist.is_initialized():
@@ -78,49 +78,49 @@ def setup_distributed():
     return False, device, 0, 0
 
 
-# def setup_distributed(ddp_debug_mode: bool = False):
-#     """
-#     Setup distributed training environment.
+def setup_distributed(ddp_debug_mode: bool = False):
+    """
+    Setup distributed training environment.
 
-#     Returns:
-#         distributed (bool)
-#         device (torch.device)
-#         rank (int)
-#         local_rank (int)
-#     """
-#     if ddp_debug_mode:
-#         return setup_distributed_debug()
+    Returns:
+        distributed (bool)
+        device (torch.device)
+        rank (int)
+        local_rank (int)
+    """
+    if ddp_debug_mode:
+        return setup_distributed_debug()
 
-#     # Check if already initialized
-#     if dist.is_initialized():
-#         rank = dist.get_rank()
-#         world_size = dist.get_world_size()
-#         local_rank = int(os.environ.get("LOCAL_RANK", 0))
-#         device = torch.device(f"cuda:{local_rank}")
+    # Check if already initialized
+    if dist.is_initialized():
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+        local_rank = int(os.environ.get("LOCAL_RANK", 0))
+        device = torch.device(f"cuda:{local_rank}")
         
-#         return True, device, rank, local_rank
+        return True, device, rank, local_rank
 
-#     rank = int(os.environ.get("RANK", 0))
-#     local_rank = int(os.environ.get("LOCAL_RANK", 0))
-#     world_size = int(os.environ.get("WORLD_SIZE", 1))
+    rank = int(os.environ.get("RANK", 0))
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
 
-#     # --- Distributed mode ---
-#     if world_size > 1:
-#         torch.cuda.set_device(local_rank)
-#         init_process_group(backend="nccl")
+    # --- Distributed mode ---
+    if world_size > 1:
+        torch.cuda.set_device(local_rank)
+        init_process_group(backend="nccl")
 
-#         device = torch.device(f"cuda:{local_rank}")
+        device = torch.device(f"cuda:{local_rank}")
 
-#         return True, device, rank, local_rank
+        return True, device, rank, local_rank
 
-#     # --- Single GPU ---
-#     if torch.cuda.is_available():
-#         device = torch.device("cuda:0")
-#         return False, device, 0, 0
+    # --- Single GPU ---
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+        return False, device, 0, 0
 
-#     # --- CPU ---
-#     device = torch.device("cpu")
-#     return False, device, 0, 0
+    # --- CPU ---
+    device = torch.device("cpu")
+    return False, device, 0, 0
 
 
 def load_config(user_path: Path, default_path: Path) -> OmegaConf:

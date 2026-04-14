@@ -54,7 +54,7 @@ def prevent_logging():
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg=None):
     
-    distributed, device, local_rank, rank = setup_distributed()
+    distributed, device, local_rank, rank = setup_distributed(ddp_debug_mode=cfg.experiment.get("ddp_debug_mode", False))
     if rank != 0:
         prevent_logging()
 

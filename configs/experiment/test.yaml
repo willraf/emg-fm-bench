@@ -35,7 +35,7 @@ logging:
   wandb_project: "neurorvq_ninaprodb5"
 
 training:
-  epochs: 3
+  epochs: 2
 
 # hydra:
 #   mode: MULTIRUN
