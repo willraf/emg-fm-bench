@@ -11,6 +11,7 @@ Usage:
     With Hydra:
     % python -m scripts.main --config-name other_config
     % python -m torch.distributed.run   --nproc_per_node=4 -m scripts.main --config-name other_config
+    % python -m torch.distributed.run   --nproc_per_node=4 -m scripts.main +experiment=test
 
 Authors:
     Will Raftery
@@ -25,7 +26,7 @@ import traceback
 
 from omegaconf import OmegaConf
 
-from src.utils.utils import add_log_file, load_config, get_experiment_directory, setup_logging
+from src.utils.utils import add_log_file, load_config, get_experiment_directory, setup_logging, setup_distributed
 
 from scripts.train import main as train
 from scripts.eval import main as evaluate
@@ -40,8 +41,23 @@ from torch.distributed import destroy_process_group
 import gc
 
 
+def prevent_logging():
+    logger = logging.getLogger()
+    
+    # 1. Clear any existing handlers (this nukes the auto-config from the warning)
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    logger.setLevel(logging.ERROR)
+    logger.addHandler(logging.NullHandler())
+    return
+
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg=None):
+    
+    distributed, device, local_rank, rank = setup_distributed()
+    if rank != 0:
+        prevent_logging()
+
     experiment_dir = get_experiment_directory(cfg)
     add_log_file(experiment_dir / "main.log")
     logging.info(f"Experiment directory: {experiment_dir}")
@@ -133,7 +149,6 @@ def main(cfg=None):
     return {"train_results": train_results, "eval_results": eval_results}
 
 if __name__ == "__main__":
-    setup_logging()
     main()
     # Cleanup distributed properly
     if dist.is_initialized():

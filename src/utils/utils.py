@@ -26,7 +26,7 @@ import torch.distributed as dist
 
 def setup_distributed():
     """
-    Setup distributed training environment.
+    This funciton is exclusively for debugging distributed training on a single GPU
 
     Returns:
         distributed (bool)
@@ -35,12 +35,18 @@ def setup_distributed():
         local_rank (int)
     """
 
+    logging.warning("Using setup_distributed() from utils.py. This is only intended for debugging distributed training on a single GPU. For proper distributed training, use the setup_distributed() function in src/utils/distributed.py which uses torchrun for initialization.")
+
     # Check if already initialized
     if dist.is_initialized():
         rank = dist.get_rank()
         world_size = dist.get_world_size()
         local_rank = int(os.environ.get("LOCAL_RANK", 0))
-        device = torch.device(f"cuda:{local_rank}")
+
+        gpu_count = torch.cuda.device_count()
+        # Map local_rank to an available device ID (modulo logic)
+        device_id = local_rank % gpu_count
+        device = torch.device(f"cuda:{device_id}")
         
         return True, device, rank, local_rank
 
@@ -50,10 +56,15 @@ def setup_distributed():
 
     # --- Distributed mode ---
     if world_size > 1:
-        torch.cuda.set_device(local_rank)
-        init_process_group(backend="nccl")
+        # Check how many GPUs are actually visible
+        gpu_count = torch.cuda.device_count()
+        # Map local_rank to an available device ID (modulo logic)
+        device_id = local_rank % gpu_count
+        torch.cuda.set_device(device_id)
+        init_process_group(backend="gloo")
 
-        device = torch.device(f"cuda:{local_rank}")
+        device = torch.device(f"cuda:{device_id}")
+        # device = torch.device("cpu")  # Force CPU for debugging
 
         return True, device, rank, local_rank
 
@@ -65,6 +76,51 @@ def setup_distributed():
     # --- CPU ---
     device = torch.device("cpu")
     return False, device, 0, 0
+
+
+# def setup_distributed(ddp_debug_mode: bool = False):
+#     """
+#     Setup distributed training environment.
+
+#     Returns:
+#         distributed (bool)
+#         device (torch.device)
+#         rank (int)
+#         local_rank (int)
+#     """
+#     if ddp_debug_mode:
+#         return setup_distributed_debug()
+
+#     # Check if already initialized
+#     if dist.is_initialized():
+#         rank = dist.get_rank()
+#         world_size = dist.get_world_size()
+#         local_rank = int(os.environ.get("LOCAL_RANK", 0))
+#         device = torch.device(f"cuda:{local_rank}")
+        
+#         return True, device, rank, local_rank
+
+#     rank = int(os.environ.get("RANK", 0))
+#     local_rank = int(os.environ.get("LOCAL_RANK", 0))
+#     world_size = int(os.environ.get("WORLD_SIZE", 1))
+
+#     # --- Distributed mode ---
+#     if world_size > 1:
+#         torch.cuda.set_device(local_rank)
+#         init_process_group(backend="nccl")
+
+#         device = torch.device(f"cuda:{local_rank}")
+
+#         return True, device, rank, local_rank
+
+#     # --- Single GPU ---
+#     if torch.cuda.is_available():
+#         device = torch.device("cuda:0")
+#         return False, device, 0, 0
+
+#     # --- CPU ---
+#     device = torch.device("cpu")
+#     return False, device, 0, 0
 
 
 def load_config(user_path: Path, default_path: Path) -> OmegaConf:
@@ -118,36 +174,35 @@ def get_experiment_directory(cfg: OmegaConf) -> Path:
 
 
 def setup_logging(experiment_dir: Optional[Union[str, Path]] = None, is_main_process: bool = True): 
-    """
-    Setup logger for experiment
-    """
+    # Get the root logger
+    root = logging.getLogger()
+    
+    # Clear any existing handlers
+    for handler in root.handlers[:]:
+        root.removeHandler(handler)
 
     if not is_main_process:
-        logging.basicConfig(level=logging.ERROR)
-        return
-
-    if experiment_dir is None:
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(levelname)s - %(message)s",
-            handlers=[
-                logging.StreamHandler()
-            ]
-        )
+        # Set non-main ranks to only show Errors
+        root.setLevel(logging.ERROR)
+        root.addHandler(logging.NullHandler())
         return
     
-    log_dir = Path(experiment_dir) / "logs"
-    # This line should be redundant
-    log_dir.mkdir(parents=True, exist_ok=True)
+    root.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    
+    # Create console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    root.addHandler(console_handler)
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler(log_dir / "experiment.log"),
-            logging.StreamHandler()
-        ]
-    )
+    if experiment_dir:
+        log_dir = Path(experiment_dir) / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(log_dir / "experiment.log")
+        file_handler.setFormatter(formatter)
+        root.addHandler(file_handler)
+
+    logging.info("Logging initialized successfully.")
 
 
 def change_log_file(log_fpath: Union[str, Path]):

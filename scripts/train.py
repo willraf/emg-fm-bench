@@ -273,62 +273,51 @@ class Trainer:
 
 
     def find_max_batch_size(self, start_bs=2, max_batch_size=256, safety_factor=0.8) -> int:
-        """
-        Utility function to find the maximum batch size that fits in GPU memory.
-        Uses a binary search approach, starting from `start_bs` and doubling until OOM, then refining.
-
-        Args:
-            start_bs (int): Initial batch size to try
-            max_batch_size (int): Maximum batch size to test
-            safety_factor (float): Factor to reduce the found batch size by for safety margin
-        Returns:
-            int: Maximum batch size that fits in GPU memory with safety margin
-        """
         recommended = torch.tensor(0, device=self.device)
+        
+        # EVERYONE runs this loop
+        batch_size = start_bs
+        last_good = 0
 
-        if self.is_main:
-            logging.info("\n🔍 Starting batch size probe...\n")
-
-            batch_size = start_bs
-            last_good = start_bs
-
-            while batch_size <= max_batch_size:
-
+        while batch_size <= max_batch_size:
+            if self.is_main:
                 logging.info(f"Testing batch size {batch_size}...")
-                self.cfg.data.batch_size = batch_size
-                loader = setup_data(self.cfg.data, mode="val")
-                
+            
+            # Ensure everyone uses the same batch size
+            self.cfg.data.batch_size = batch_size
+            
+            loader = setup_data(self.cfg.data, mode="val", distributed=self.distributed)
+            
+            try:
                 batch = next(iter(loader))
+                torch.cuda.empty_cache()
 
-                try:
-                    torch.cuda.empty_cache()
-                    torch.cuda.reset_peak_memory_stats()
+                self.task.train_step(batch)
 
-                    self.task.train_step(batch)
-
+                if self.is_main:
                     peak = torch.cuda.max_memory_allocated() / 1e9
                     logging.info(f"Success | Peak memory {peak:.2f} GB")
+                
+                last_good = batch_size
+                batch_size *= 2
+                
+                if self.distributed:
+                    dist.barrier() 
 
-                    last_good = batch_size
-                    batch_size *= 2
+            except RuntimeError as e:
+                if "out of memory" in str(e).lower():
+                    if self.is_main: logging.info(f"OOM at {batch_size}")
+                    break
+                else:
+                    raise
 
-                except RuntimeError as e:
+        found = max(1, int(last_good * safety_factor))
+        recommended = torch.tensor(found, device=self.device)
 
-                    if "out of memory" in str(e).lower():
-                        logging.info(f"OOM at batch size {batch_size}")
-                        break
-                    else:
-                        raise
-
-            found = max(1, int(last_good * safety_factor))
-            logging.info(f"\nRecommended per-GPU batch size: {found}")
-            recommended = torch.tensor(found, device=self.device)
-
-        # Sync GPUs
         if self.distributed:
-            print(f'Process {self.rank} recommended batch size {recommended.item()}')
-            dist.broadcast(recommended, src=0)
-            print(f'After sync: Process {self.rank} recommended batch size {recommended.item()}')
+            # Final sync to make sure all ranks agree on the result
+            dist.all_reduce(recommended, op=dist.ReduceOp.MAX)
+            dist.barrier()
 
         return int(recommended.item())
         
@@ -354,10 +343,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cfg = load_config(args.config, default_path=args.default)
-    setup_logging()
-    
-    main(cfg, overwrite=args.overwrite, find_batch_size=args.find_batch_size)
 
+    distributed, device, local_rank, rank = setup_distributed()
+    setup_logging(is_main_process=(rank == 0))
+
+    main(cfg, overwrite=args.overwrite, find_batch_size=args.find_batch_size)
     # Cleanup distributed properly
     if dist.is_initialized():
         dist.barrier()

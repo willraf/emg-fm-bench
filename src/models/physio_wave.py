@@ -379,12 +379,14 @@ class PhysioWave(nn.Module):
         resample_factor = C // target_channels
         x = x[:, ::resample_factor, :]
         return x[:, :target_channels, :]
+    
+    # ------------------ Adaptation!! -----------------
             
     def load_checkpoint(self, path):
         """Load model checkpoint"""
         path = torch.load(path, weights_only=False)
         self.load_state_dict(path['model_state_dict'], strict=False)
-
+    # ------------------------------------------------
 
 # Convenience constructor functions
 def create_wavelet_classifier(in_channels=8, max_level=3, embed_dim=256, depth=8, 

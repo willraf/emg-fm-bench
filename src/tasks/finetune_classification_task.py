@@ -127,6 +127,7 @@ class FinetuneClassificationTask(BaseTask):
         emg = batch["emg"].to(self.device)  # (B, C, T)
         targets = batch[self.target_field].long().to(self.device)  # (B,)
 
+
         # This basically means "don't sync gradients across processes during the backward pass if this isn't an update step"
         # It allows gradient accumulation with DDP training
         maybe_no_sync = self.model.no_sync() if (self.distributed and not is_update_step) else contextlib.nullcontext()
@@ -204,9 +205,14 @@ class FinetuneClassificationTask(BaseTask):
         self.model.load_state_dict(state_dict)
         self.optimiser.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        logging.info(f"Checkpoint loaded: {checkpoint_path} (epoch {checkpoint.get('epoch', 'N/A')}, val_loss {checkpoint.get('val_loss', 'N/A'):.4f})")
         return checkpoint
 
     def wrap_distributed(self, local_rank):
+        if self.cfg.experiment.get("ddp_debug_mode", False):
+            logging.warning("This is set to debug mode with DDP wrapping on a single GPU. Make sure to set up distributed training properly for multi-GPU runs!")
+            local_rank = 0
+
         self.model = DDP(self.model, 
                          device_ids=[local_rank], 
                          output_device=local_rank,

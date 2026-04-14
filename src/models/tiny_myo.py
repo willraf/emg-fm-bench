@@ -774,6 +774,7 @@ class TinyMyo(nn.Module):
             return x_out, x_original
         
     
+    # ------------------ Adaptation!! -----------------
     def load_checkpoint(self, path: Path):
         from safetensors.torch import load_file
         checkpoint = load_file(path)
@@ -781,3 +782,4 @@ class TinyMyo(nn.Module):
         adapted_state = {k[len("model."):]: v for k, v in checkpoint.items() if k.startswith("model.")}
         self.load_state_dict(adapted_state, strict=False)
         return checkpoint
+    # ------------------------------------------------

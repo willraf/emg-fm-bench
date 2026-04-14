@@ -63,7 +63,6 @@ def setup_model(model_cfg: OmegaConf, device: str, model_name: Optional[str] = N
         params.pop('name', None)
         params.pop('checkpoint', None)
         instance = model_class(**params)
-
     instance.to(device)
     logging.info("model [{0}] was created".format(type(instance).__name__))
     return instance
