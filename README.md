@@ -1,4 +1,4 @@
-# PyTorch Project Template
+# EMG Foundation Model Benchmarking
 Date created: 08/10/2025
 
 # Evironment setup
@@ -6,6 +6,10 @@ Date created: 08/10/2025
 From virtual environment:
 
 `$ pip install -r requirements.txt`
+
+To freeze:
+
+`$ pip list --format=freeze > requirements.txt`
 
 
 # Data Setup

@@ -104,7 +104,10 @@ class Evaluator:
 
                 if self.is_main:
                     pbar.set_postfix({"loss": f"{loss:.4f}"})
-            
+
+        if self.distributed:
+            dist.barrier()
+        
         test_metrics = self.task.test_metrics.compute()
         self.task.test_metrics.reset()
 
@@ -144,67 +147,6 @@ class Evaluator:
 
             if self.cfg.experiment.plot_examples and "confusion_matrix" in metrics:
                 vis.plot_confusion_matrix(metrics["confusion_matrix"], class_names=self.cfg.data.get("class_names", None), fpath=self.save_dir / "figures" / "confusion_matrix.png")
-
-    # def find_max_batch_size(self, start_bs=2, max_batch_size=1024, safety_factor=0.8) -> int:
-    #     """
-    #     Utility function to find the maximum batch size that fits in GPU memory.
-    #     Uses a binary search approach, starting from `start_bs` and doubling until OOM, then refining.
-
-    #     Args:
-    #         start_bs (int): Initial batch size to try
-    #         max_batch_size (int): Maximum batch size to test
-    #         safety_factor (float): Factor to reduce the found batch size by for safety margin
-    #     Returns:
-    #         int: Maximum batch size that fits in GPU memory with safety margin
-    #     """
-    #     recommended = 0
-
-    #     if self.is_main:
-    #         logging.info("\n🔍 Starting batch size probe...\n")
-
-    #         batch_size = start_bs
-    #         last_good = start_bs
-    #         trial = 0
-
-    #         while batch_size <= max_batch_size:
-
-    #             logging.info(f"Trial {trial+1}: Testing batch size {batch_size}...")
-    #             self.cfg.data.batch_size = batch_size
-    #             loader = setup_data(self.cfg.data, mode="test")
-                
-    #             batch = next(iter(loader))
-
-    #             try:
-    #                 torch.cuda.empty_cache()
-    #                 torch.cuda.reset_peak_memory_stats()
-
-    #                 self.task.eval_step(batch)
-
-    #                 peak = torch.cuda.max_memory_allocated() / 1e9
-    #                 logging.info(f"Success | Peak memory {peak:.2f} GB")
-
-    #                 last_good = batch_size
-    #                 batch_size *= 2
-    #                 trial += 1
-
-    #             except RuntimeError as e:
-
-    #                 if "out of memory" in str(e).lower():
-    #                     logging.info(f"OOM at batch size {batch_size}")
-    #                     break
-    #                 else:
-    #                     raise
-
-    #         recommended = max(1, int(last_good * safety_factor))
-    #         logging.info(f"\nRecommended per-GPU batch size: {recommended}")
-
-    #     # Sync GPUs
-    #     if self.distributed:
-    #         bs_tensor = torch.tensor(recommended, device=self.device)
-    #         dist.broadcast(bs_tensor, src=0)
-    #         recommended = int(bs_tensor.item())
-
-    #     return recommended
     
 
     def find_max_batch_size(self, start_bs=2, max_batch_size=256, safety_factor=0.8) -> int:
@@ -220,12 +162,13 @@ class Evaluator:
             # Ensure everyone uses the same batch size
             self.cfg.data.batch_size = batch_size
             
-            loader = setup_data(self.cfg.data, mode="val", distributed=self.distributed)
+            loader = setup_data(self.cfg.data, mode="test", distributed=self.distributed)
             
             try:
                 batch = next(iter(loader))
                 torch.cuda.empty_cache()
 
+                self.task.eval()  # Ensure model is in eval mode for batch size testing
                 self.task.eval_step(batch)
             
                 if self.is_main:
@@ -235,22 +178,23 @@ class Evaluator:
                 last_good = batch_size
                 batch_size *= 2
                 
-                if self.distributed:
-                    dist.barrier() 
-
             except RuntimeError as e:
                 if "out of memory" in str(e).lower():
                     if self.is_main: logging.info(f"OOM at {batch_size}")
                     break
+                elif "received data size doesn't match expected size" in str(e).lower():
+                    if self.is_main: logging.warning(f"Data size mismatch at {batch_size}. This can happen in distributed training when one rank OOMs but others don't. Assuming OOM and stopping.")
+                    break
                 else:
-                    raise
+                    logging.warning(f"Error at batch size {batch_size}: {str(e)}")
+                    break #raise
 
         found = max(1, int(last_good * safety_factor))
         recommended = torch.tensor(found, device=self.device)
 
         if self.distributed:
             # Final sync to make sure all ranks agree on the result
-            dist.all_reduce(recommended, op=dist.ReduceOp.MAX)
+            dist.all_reduce(recommended, op=dist.ReduceOp.MIN)
             dist.barrier()
 
         return int(recommended.item())

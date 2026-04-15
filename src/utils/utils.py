@@ -247,7 +247,6 @@ def setup_save_dir(cfg: OmegaConf,
     """
     Setup model and results saving
 
-    If save is False, results are still saved to a TEMP directory and will be overwritten each run
 
     Args:
         cfg (OmegaConf): Configuration object
@@ -265,18 +264,24 @@ def setup_save_dir(cfg: OmegaConf,
     save_dir = experiment_dir / mode 
 
     # Check if we are resuming from a checkpoint
-    is_resuming = cfg.model.get("checkpoint") is not None
+    is_resuming = cfg.experiment.resume
 
     # Handle existing training directory
     if save_dir.exists():
         logging.warning(f"Directory {save_dir} already exists.")
+
         if is_resuming:
             logging.info(f"Resuming training in existing directory: {save_dir}")
             # We don't delete; we just ensure sub-dirs exist
+
         elif overwrite:
-            logging.warning("Overwriting existing directory.")
+            logging.warning(f"Overwriting directory {save_dir}")
             shutil.rmtree(save_dir)
         else:
+            # Handle HPC environments where input() might hang
+            if os.environ.get("SLURM_JOB_ID") or os.environ.get("PBS_JOBID"):
+                 raise FileExistsError(f"Directory {save_dir} exists and overwrite/resume are False.")
+            
             response = input(f"Directory '{save_dir}' already exists. Overwrite? [y/N]: ").strip().lower()
             if response != 'y':
                 logging.info("Aborting run.")
@@ -302,4 +307,3 @@ def setup_save_dir(cfg: OmegaConf,
         (save_dir / "checkpoints").mkdir(exist_ok=True)
     
     return save_dir
-

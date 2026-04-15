@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - override /dataset: ninapro_db5
-  - override /model: physiowave
+  - override /model: neurorvq
   - override /transforms: transforms
   - _self_
 
@@ -15,19 +15,20 @@ finetuning:
   learning_rate: 0.0001
 
 experiment:
-  name: ${data.root_key}/${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  name: ${data.root_key}/${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}_ABLATION
+  random_seed: 2
 
 logging:
   log_interval: 10
   use_wandb: True
   wandb_project: "neurorvq_ninaprodb5"
 
-hydra:
-  mode: MULTIRUN
-  sweeper:
-    params:
-      # data.split_type: inter_subject, intra_session
-      # data.window_length: 200, 1000
-      # finetuning.freeze_backbone: True,False
-      experiment.random_seed: 2, 50, 100
-      # experiment.random_seed: 50, 100
+# hydra:
+#   mode: MULTIRUN
+#   sweeper:
+#     params:
+#       # data.split_type: inter_subject, intra_session
+#       # data.window_length: 200, 1000
+#       # finetuning.freeze_backbone: True,False
+#       experiment.random_seed: 2, 50, 100
+#       # experiment.random_seed: 50, 100

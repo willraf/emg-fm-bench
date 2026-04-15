@@ -106,27 +106,18 @@ class FinetuneClassificationTask(BaseTask):
         self.val_metrics = Metrics(device, distributed, is_main)
         self.test_metrics = Metrics(device, distributed, is_main)
 
-    def compute_loss(self, batch):
-        emg = batch["emg"].to(self.device)  # (B, C, T)
-        targets = batch[self.target_field].long().to(self.device)  # (B,)
-
-        logits = self.model(emg)  
-        loss = self.loss_fn(logits, targets)
-
-        return loss
-    
-    def update_weights(self, loss):
-        self.optimiser.zero_grad(set_to_none=True)
-
-        self.scaler.scale(loss).backward()
-        self.scaler.step(self.optimiser)
-        self.scaler.update()
-
 
     def train_step(self, batch, is_update_step=True, batch_idx=None, epoch=None):
         emg = batch["emg"].to(self.device)  # (B, C, T)
         targets = batch[self.target_field].long().to(self.device)  # (B,)
 
+        # Check the model is in training mode (defensive)
+        if not self.model.training:
+            logging.warning("Model is not in training mode during train_step. This may cause issues with certain layers like dropout or batchnorm. Make sure to call model.train() before training.")
+
+        # Check pytorch gradients are enabled (defensive)
+        if not torch.is_grad_enabled():
+            logging.warning("PyTorch gradients are not enabled during train_step. This will prevent the model from learning. Make sure to call torch.set_grad_enabled(True) before training.")
 
         # This basically means "don't sync gradients across processes during the backward pass if this isn't an update step"
         # It allows gradient accumulation with DDP training
@@ -160,6 +151,12 @@ class FinetuneClassificationTask(BaseTask):
     def _inference_step(self, batch, metrics):
         emg = batch["emg"].to(self.device)
         targets = batch[self.target_field].long().to(self.device)
+
+        if self.model.training:
+            logging.warning("Model is in training mode during inference step. This may cause issues with certain layers like dropout or batchnorm. Make sure to call model.eval() before validation or evaluation.")
+
+        if torch.is_grad_enabled():
+            logging.warning("PyTorch gradients are enabled during inference step. This is inefficient and may cause memory issues. Make sure to call torch.set_grad_enabled(False) or wrap inference code in with torch.no_grad() during validation or evaluation.")
 
         with torch.autocast(device_type=self.device.type, enabled=self.use_amp, dtype=self.amp_dtype):
             logits = self.model(emg)
@@ -218,6 +215,10 @@ class FinetuneClassificationTask(BaseTask):
                          output_device=local_rank,
                         #  find_unused_parameters=True  # Allow for some parameters to be frozen or unused
                         )
+        
+    
+    def modules(self):
+        return [self.model]
 
 
     def setup_optimiser(self, lr, weight_decay):

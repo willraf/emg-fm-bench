@@ -70,9 +70,18 @@ class Trainer:
         set_seed(cfg.experiment.random_seed)
 
         self.cfg = cfg
-        self.overwrite = overwrite        
+        self.overwrite = overwrite     
+        
+        resume_training = cfg.experiment.resume
+        checkpoint_path = cfg.model.checkpoint
+        experiment_name = cfg.experiment.name
+
+        self.num_accumulation_steps = cfg.training.get("num_accumulation_steps", 1)
+        ddp_debug_mode = cfg.experiment.get("ddp_debug_mode", False)
+        use_wandb = cfg.logging.get("use_wandb", False)
+
         # Setup GPU device and distributed training
-        self.distributed, self.device, self.rank, self.local_rank = setup_distributed(ddp_debug_mode=cfg.experiment.get("ddp_debug_mode", False))
+        self.distributed, self.device, self.rank, self.local_rank = setup_distributed(ddp_debug_mode=ddp_debug_mode)
         print(f"Process {self.rank} using device {self.device}, distributed={self.distributed}, local_rank={self.local_rank}")
         world_size = dist.get_world_size() if self.distributed else 1
         print(f"World size: {world_size}")
@@ -86,8 +95,8 @@ class Trainer:
         self.val_loader = setup_data(cfg.data, mode="val", distributed=self.distributed)
 
         self.epochs_run = 0
-        if cfg.model.checkpoint is not None:
-            checkpoint = self.task.load_checkpoint(cfg.model.checkpoint)
+        if checkpoint_path is not None and resume_training:
+            checkpoint = self.task.load_checkpoint(checkpoint_path)
             self.epochs_run = checkpoint.get('epoch', 0)
 
         # For storing metric history across epochs
@@ -95,16 +104,13 @@ class Trainer:
 
         # Wrap after loading. Checkpointed models are saved in non-DDP format, so we need to load first and then wrap if distributed.
         if self.distributed:
-            self.task.wrap_distributed(self.local_rank)
-
-        # Gradient accumulation
-        self.num_accumulation_steps = cfg.training.get("num_accumulation_steps", 1)
+            self.task.wrap_distributed(self.local_rank)        
 
         # Initialise weights and biases
-        if self.is_main and cfg.logging.get("use_wandb", False):
+        if self.is_main and use_wandb:
             wandb.init(
                 project=cfg.logging.get("wandb_project", "emg-foundation-model"),
-                name=cfg.experiment.name,
+                name=experiment_name,
                 config=OmegaConf.to_container(cfg, resolve=True), # Log full config
                 dir=self.save_dir # Keep W&B local logs in your experiment folder
             )
@@ -190,6 +196,8 @@ class Trainer:
             if self.is_main:
                 pbar.set_postfix({"loss": f"{loss:.4f}"})
         
+        if self.distributed:
+            dist.barrier()
 
         epoch_metrics = self.task.train_metrics.compute()
         self.task.train_metrics.reset()
@@ -210,14 +218,12 @@ class Trainer:
 
         self.task.eval()
 
-        total_loss = 0.0
-        num_batches = len(self.val_loader)
-
         with torch.no_grad():
             for batch_idx, batch in enumerate(self.val_loader):
-                total_loss += self.task.val_step(batch)
-            
-        avg_loss = total_loss / num_batches
+                loss = self.task.val_step(batch)
+
+        if self.distributed:
+            dist.barrier()
 
         val_metrics = self.task.val_metrics.compute()
         self.task.val_metrics.reset()
@@ -291,6 +297,7 @@ class Trainer:
                 batch = next(iter(loader))
                 torch.cuda.empty_cache()
 
+                self.task.train()  # Ensure model is in train mode for batch size testing, since that's usually more memory intensive than eval
                 self.task.train_step(batch)
 
                 if self.is_main:
@@ -299,15 +306,16 @@ class Trainer:
                 
                 last_good = batch_size
                 batch_size *= 2
-                
-                if self.distributed:
-                    dist.barrier() 
 
             except RuntimeError as e:
                 if "out of memory" in str(e).lower():
                     if self.is_main: logging.info(f"OOM at {batch_size}")
                     break
+                elif "received data size doesn't match expected size" in str(e).lower():
+                    if self.is_main: logging.warning(f"Data size mismatch at {batch_size}. This can happen in distributed training when one rank OOMs but others don't. Assuming OOM and stopping.")
+                    break
                 else:
+                    print(str(e).lower())
                     raise
 
         found = max(1, int(last_good * safety_factor))
