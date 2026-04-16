@@ -95,9 +95,11 @@ class Trainer:
         self.val_loader = setup_data(cfg.data, mode="val", distributed=self.distributed)
 
         self.epochs_run = 0
+        self.prev_train_time = 0
         if checkpoint_path is not None and resume_training:
             checkpoint = self.task.load_checkpoint(checkpoint_path)
-            self.epochs_run = checkpoint.get('epoch', 0)
+            self.epochs_run = checkpoint.get('epoch', 0) + 1
+            self.prev_train_time = checkpoint.get('train_time', 0)
 
         # For storing metric history across epochs
         self.metrics = []
@@ -132,10 +134,15 @@ class Trainer:
         epochs_no_improve = 0
         stop_training = False
 
+        start_time = time.time()
+
         for epoch in range(self.epochs_run, num_epochs):
 
             train_metrics = self._run_epoch(epoch)
             val_metrics = self._val(epoch)
+
+            # Calculate the cumulative training time up to this epoch, including any previous epochs if resuming from a checkpoint
+            cumulative_time = time.time() - start_time + self.prev_train_time
 
             if hasattr(self.task, 'scheduler') and self.task.scheduler is not None:
                 self.task.scheduler.step()
@@ -152,7 +159,7 @@ class Trainer:
                     epochs_no_improve = 0
                 
                     checkpoint_path = self.save_dir / "checkpoints" / "best_model.pt"
-                    self.task.save_checkpoint(checkpoint_path=checkpoint_path, epoch=epoch, val_loss=val_loss)
+                    self.task.save_checkpoint(checkpoint_path=checkpoint_path, epoch=epoch, val_loss=val_loss, train_time=cumulative_time)
                 else:
                     epochs_no_improve += 1
 
@@ -165,7 +172,7 @@ class Trainer:
                 stop_training = bool(stop_tensor.item())
 
             if self.is_main:
-                self._record_metrics(epoch, train_metrics, val_metrics, best_val_loss)
+                self._record_metrics(epoch, train_metrics, val_metrics, best_val_loss, train_time=cumulative_time)
 
             if stop_training:
                 logging.info(f"No improvement in validation loss for {patience} epochs. Early stopping triggered.")
@@ -231,9 +238,9 @@ class Trainer:
         return val_metrics
     
 
-    def _record_metrics(self, epoch, train_metrics, val_metrics, best_val_loss):
-        # 1. Create the scalar record for CSV (Numbers only)
-        scalar_record = {"epoch": epoch, "best_val_loss": best_val_loss}
+    def _record_metrics(self, epoch, train_metrics, val_metrics, best_val_loss, train_time):
+        # Create the scalar record for CSV (Numbers only)
+        scalar_record = {"epoch": epoch, "best_val_loss": best_val_loss, "train_time": train_time}
         
         for phase, metrics in [("train", train_metrics), ("val", val_metrics)]:
             if metrics is None: continue # Handling non-main ranks

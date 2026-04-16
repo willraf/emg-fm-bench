@@ -111,7 +111,13 @@ class Evaluator:
         test_metrics = self.task.test_metrics.compute()
         self.task.test_metrics.reset()
 
+        if hasattr(self.task, "measure_inference_latency"):
+            batch = next(iter(self.test_loader))
+            mean_latency, std_latency = self.task.measure_inference_latency(batch, n_warmup=30, n_runs=200)
+
         if self.is_main:
+            test_metrics["inference_latency_mean"] = mean_latency
+            test_metrics["inference_latency_std"] = std_latency
             self._record_metrics(test_metrics)
         
 

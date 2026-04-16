@@ -24,6 +24,11 @@ from torch.distributed import init_process_group, destroy_process_group
 import torch.distributed as dist
 
 
+import platform
+import socket
+import torch
+
+
 def setup_distributed_debug():
     """
     This funciton is exclusively for debugging distributed training on a single GPU
@@ -305,5 +310,47 @@ def setup_save_dir(cfg: OmegaConf,
     if mode == "train":
 
         (save_dir / "checkpoints").mkdir(exist_ok=True)
-    
+
+    # Save hardware info for reproducibility
+    hw_info = get_hardware_info(cfg)
+    logging.info(f"Hardware: {hw_info}")
+    fpath = save_dir / "hardware.yaml"
+    if fpath.exists():
+        datetime_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        fpath = save_dir / f"hardware_{datetime_str}.yaml"
+
+    OmegaConf.save(
+        OmegaConf.create(hw_info),
+        fpath
+    )
+
     return save_dir
+
+
+
+def get_hardware_info(cfg=None):
+    """Collect hardware and software environment info for reproducibility."""
+    info = {
+        # Software
+        "python_version":  str(platform.python_version()),
+        "pytorch_version": str(torch.__version__),
+        "cuda_version":    torch.version.cuda,
+        "cudnn_version":   str(torch.backends.cudnn.version()),
+
+        # System
+        "hostname":        socket.gethostname(),
+        "os":              platform.platform(),
+
+        # GPUs
+        "num_gpus":        torch.cuda.device_count(),
+        "gpu_names":       [torch.cuda.get_device_name(i) 
+                            for i in range(torch.cuda.device_count())],
+        "gpu_memory_gb":   [round(torch.cuda.get_device_properties(i).total_memory / 1e9, 2)
+                            for i in range(torch.cuda.device_count())],
+    }
+
+    # Optionally pull from config if available
+    if cfg is not None:
+        info["world_size"] = cfg.get("world_size", 1)
+
+    return info

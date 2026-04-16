@@ -35,7 +35,7 @@ logging:
   wandb_project: "TEST"
 
 training:
-  epochs: 1
+  epochs: 4
 
 # hydra:
 #   mode: MULTIRUN

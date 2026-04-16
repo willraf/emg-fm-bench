@@ -27,6 +27,8 @@ from pathlib import Path
 import torch.distributed as dist
 import numpy as np
 
+import time
+
 
 class FinetuneClassificationTask(BaseTask):
     def __init__(self, cfg, device, distributed=False, is_main=False, save_dir=None):
@@ -148,7 +150,7 @@ class FinetuneClassificationTask(BaseTask):
 
 
     @torch.no_grad()
-    def _inference_step(self, batch, metrics):
+    def _inference_step(self, batch, metrics=None):
         emg = batch["emg"].to(self.device)
         targets = batch[self.target_field].long().to(self.device)
 
@@ -163,7 +165,8 @@ class FinetuneClassificationTask(BaseTask):
             loss = self.loss_fn(logits, targets)
 
         preds = logits.argmax(dim=1)
-        metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
+        if metrics is not None:
+            metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
         return loss.item()
 
     def val_step(self, batch):
@@ -173,7 +176,7 @@ class FinetuneClassificationTask(BaseTask):
         return self._inference_step(batch, self.test_metrics)
 
 
-    def save_checkpoint(self, checkpoint_path, epoch, val_loss):
+    def save_checkpoint(self, checkpoint_path, epoch, val_loss, train_time):
         # Remove DDP wrapper for saving
         checkpoint = {
             'epoch': epoch,
@@ -181,6 +184,7 @@ class FinetuneClassificationTask(BaseTask):
             'model_state_dict': self.unwrap_model(self.model).state_dict(),
             'optimizer_state_dict': self.optimiser.state_dict(),
             'scheduler_state_dict': self.scheduler.state_dict(),
+            'train_time': train_time
         }
         torch.save(checkpoint, checkpoint_path)
         logging.info(f"Checkpoint saved: {checkpoint_path}")
@@ -313,3 +317,35 @@ class FinetuneClassificationTask(BaseTask):
         )
         
         return scheduler
+    
+    def measure_inference_latency(self, batch, n_warmup=50, n_runs=200):
+        """
+        Measure per-sample inference latency with proper GPU warmup.
+        Returns mean and std latency in milliseconds.
+        """
+        self.model.eval()
+        emg = batch["emg"].to(self.device)  # (B, C, T)
+        sample_input = emg[:1]  # Take a single sample for latency measurement
+
+        # Warmup — not measured
+        with torch.inference_mode():
+            for _ in range(n_warmup):
+                _ = self.model(sample_input)
+
+        torch.cuda.synchronize()
+
+        # Timed runs
+        latencies = []
+        with torch.inference_mode():
+            for _ in range(n_runs):
+                start = time.perf_counter()
+                _ = self.model(sample_input)
+                torch.cuda.synchronize()  # Wait for GPU to finish
+                latencies.append((time.perf_counter() - start) * 1000)  # ms
+
+        mean_ms = sum(latencies) / len(latencies)
+        std_ms  = (sum((x - mean_ms) ** 2 for x in latencies) / len(latencies)) ** 0.5
+
+        logging.info(f"Inference latency: {mean_ms:.2f} ± {std_ms:.2f} ms/batch "
+                    f"({mean_ms / sample_input.shape[0]:.2f} ms/sample)")
+        return mean_ms, std_ms

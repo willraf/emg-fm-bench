@@ -38,7 +38,7 @@ import traceback
 
 from omegaconf import OmegaConf
 
-from src.utils.utils import add_log_file, load_config, get_experiment_directory, setup_logging, setup_distributed
+from src.utils.utils import get_experiment_directory, setup_distributed, get_hardware_info
 
 from scripts.train import Trainer
 from scripts.eval import Evaluator
@@ -48,6 +48,7 @@ import torch
 import torch.distributed as dist
 from torch.distributed import destroy_process_group
 import gc
+import datetime
 
 
 def prevent_logging():
