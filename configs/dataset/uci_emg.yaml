@@ -4,7 +4,9 @@ data:
   root_key: uci_emg
   primary_data_key: emg
   timeseries_keys: null
-  hdf5_path: data/uci_emg/uci_emg.hdf5
+  # Resolves $HDF5_ROOT env var, falls back to "data" if not set
+  data_root: ${oc.env:HDF5_ROOT,data}
+  hdf5_path: ${data.data_root}/uci_emg/uci_emg.hdf5 
   split_type: inter_subject
   num_channels: 8
   window_length: 200      

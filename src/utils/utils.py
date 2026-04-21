@@ -154,7 +154,7 @@ def set_seed(seed: int):
     random.seed(seed)
 
 
-def get_experiment_directory(cfg: OmegaConf) -> Path:
+def get_experiment_directory(experiment_name: str = None, save_flag: bool = True) -> Path:
     """Create/get a directory for the experiment with a structured naming convention.
     
     Args:
@@ -163,9 +163,6 @@ def get_experiment_directory(cfg: OmegaConf) -> Path:
     Returns:
         Path: Path to the experiment directory
     """
-    save_flag = cfg.experiment.save
-    experiment_name = cfg.experiment.name
-
     if save_flag:
         if not experiment_name:
             timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -246,6 +243,7 @@ def add_log_file(log_fpath: Union[str, Path], is_main_process: bool = True):
 
 
 def setup_save_dir(cfg: OmegaConf,
+                    experiment_dir: Union[str, Path],
                     overwrite: bool = False, 
                     mode: str = "train",
                     is_main_process: bool = True) -> Path:
@@ -264,8 +262,7 @@ def setup_save_dir(cfg: OmegaConf,
     if not is_main_process:
         return None
     
-    # Create experiment directory
-    experiment_dir = Path(get_experiment_directory(cfg))
+    experiment_dir = Path(experiment_dir)
     save_dir = experiment_dir / mode 
 
     # Check if we are resuming from a checkpoint
@@ -305,7 +302,6 @@ def setup_save_dir(cfg: OmegaConf,
     resolved_cfg = OmegaConf.to_yaml(cfg, resolve=True)
     with open(save_dir / "config.yaml", "w") as f:
         f.write(resolved_cfg)
-
 
     if mode == "train":
 

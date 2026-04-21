@@ -4,7 +4,9 @@ data:
   root_key: ninapro_db5
   primary_data_key: emg
   timeseries_keys: null
-  hdf5_path: data/ninapro_db5/ninapro_db5.hdf5
+  # Resolves $HDF5_ROOT env var, falls back to "data" if not set
+  data_root: ${oc.env:HDF5_ROOT,data}
+  hdf5_path: ${data.data_root}/ninapro_db5/ninapro_db5.hdf5
   split_type: inter_subject
   num_channels: 16
   window_length: 200   # Calculate window length in samples based on duration and sample rate

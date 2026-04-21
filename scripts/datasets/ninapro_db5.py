@@ -7,6 +7,7 @@ NOTE:
     Rest portions (stimulus=0) are ignored in the final dataset, so final gesture IDs range from 1-52
 
 Usage:
+    % python -m scripts.datasets.ninapro_db5 --dataset_dir data/ninapro_db5/ --output_dir data/ninapro_db5/ --download_data
 
 
 Authors:

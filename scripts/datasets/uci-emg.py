@@ -80,7 +80,7 @@ def download_dataset(data_dir):
     try:
         urllib.request.urlretrieve(url, zip_path)
         
-        # 2. Extract and Flatten
+        # Extract and Flatten
         print("Extracting and cleaning up directory structure...")
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             for member in zip_ref.namelist():
@@ -102,7 +102,7 @@ def download_dataset(data_dir):
                     with zip_ref.open(member) as source, open(target_path, "wb") as target:
                         shutil.copyfileobj(source, target)
                         
-        # 3. Cleanup
+        # Cleanup
         zip_path.unlink()
         print(f"Successfully downloaded and organized EPN612 in {data_dir}")
         
@@ -280,35 +280,33 @@ def load_and_clean_uci_emg(file_path, target_fs=200):
         emg_uniform (np.ndarray): EMG data interpolated to uniform timestamps. Shape (T, 8)
         labels_uniform (np.ndarray): Gesture class labels corresponding to each time point. Shape (T,)
     """
-    # 1. Load the raw text file
+    # Load the raw text file
     # The files are space/tab separated with a header row
     df = pd.read_csv(file_path, sep='\t')
     
-    # 2. De-duplicate: Remove rows where EMG values are identical to previous row
+    # De-duplicate: Remove rows where EMG values are identical to previous row
     # We keep the first occurrence. This removes the 'staircase' effect.
     emg_cols = [c for c in df.columns if 'channel' in c.lower()]
 
     unique_mask = df[emg_cols].diff().abs().sum(axis=1) != 0
     df_unique = df[unique_mask].copy()
     
-    # 3. Handle Timestamps
     # Convert 'time' column to seconds for the interpolator
     times = df_unique['time'].values / 1000.0 
     data = df_unique[emg_cols].values
     labels = df_unique['class'].values
     
-    # 4. Create Uniform Time Grid
     # We want a sample every 1/target_fs seconds (e.g., every 0.005s)
     t_start = times[0]
     t_end = times[-1]
     t_uniform = np.arange(t_start, t_end, 1/target_fs)
     
-    # 5. Interpolate EMG Signals
+    # Interpolate EMG Signals
     # We use linear interpolation to estimate values at the exact 5ms marks
     f_emg = interp1d(times, data, axis=0, kind='linear', fill_value="extrapolate")
     emg_uniform = f_emg(t_uniform)
     
-    # 6. Interpolate Labels (Nearest Neighbor)
+    # Interpolate Labels (Nearest Neighbor)
     # Labels shouldn't be averaged; we take the label of the closest original timestamp
     f_label = interp1d(times, labels, kind='nearest', fill_value="extrapolate")
     labels_uniform = f_label(t_uniform)

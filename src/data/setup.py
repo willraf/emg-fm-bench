@@ -26,21 +26,6 @@ from omegaconf import OmegaConf
 import logging
 import inspect
 
-def resolve_data_dir(cfg):
-    """
-    Resolve data directory based on TMPDIR environment variable.
-    
-    This is for the HPC as I copy data to a tmpdir for faster access."""
-    tmpdir = os.environ.get("TMPDIR")
-    hdf5_path = Path(cfg.data.hdf5_path)
-
-    if tmpdir is not None:
-        tmp_path = Path(tmpdir) / hdf5_path
-        if tmp_path.exists():
-            cfg.data.hdf5_path = str(tmp_path)
-            return
-
-
 def find_dataset_using_name(dataset_name):
     """Import the module "data/[dataset_name]_dataset.py".
 
@@ -79,9 +64,6 @@ def setup_data(data_cfg: OmegaConf, mode: str = "train", distributed: bool = Fal
     num_workers = data_cfg.num_workers
     batch_size = data_cfg.batch_size
     dataset_name = data_cfg.name
-
-    # This is a bit of a hack, as I copy data to a tmpdir for faster access on the HPC
-    # resolve_data_dir(cfg)
 
     dataset_class = find_dataset_using_name(dataset_name)
 

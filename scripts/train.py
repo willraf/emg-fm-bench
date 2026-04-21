@@ -40,6 +40,65 @@ import torch.distributed as dist
 
 import wandb
 
+
+
+class Trainer:
+    """
+    Trainer class for (potentially distributed) training.
+    Responsible for training, validation, checkpointing, and metric logging.
+
+    Attributes:
+        cfg (OmegaConf): Configuration object
+        overwrite (bool): Whether to overwrite existing experiment directory
+        distributed (bool): Whether distributed training is enabled
+        device (torch.device): Device to run training on ("cpu" , "cuda", "cuda:<local_rank>")
+        rank (int): Global rank of the current process
+        local_rank (int): Local rank of the current process
+        is_main (bool): Whether this is the main process (rank 0)
+        save_dir (Path): Directory to save checkpoints and results
+        train_loader (DataLoader): DataLoader for training data
+        val_loader (DataLoader): DataLoader for validation data
+        model (torch.nn.Module): Model to be trained
+        optimiser (torch.optim.Optimizer): Optimiser for training
+        loss_fn (callable): Loss function
+        scheduler (optional): Curriculum scheduler
+             For changing data difficulty over epochs, usually for synthetic data.
+        epochs_run (int): Number of epochs already run (for resuming training)
+        metrics (list): List of dicts recording training metrics per epoch
+    """
+
+    def __init__(self, cfg, distributed, device, rank, local_rank, save_dir, use_wandb):
+
+        self.cfg = cfg
+        
+        resume_training = cfg.experiment.resume
+        checkpoint_path = cfg.model.checkpoint
+        experiment_name = cfg.experiment.name
+
+        self.num_accumulation_steps = cfg.training.get("num_accumulation_steps", 1)
+
+        self.is_main = (self.rank == 0)
+
+        self.task = setup_task(cfg, device=self.device, distributed=self.distributed, is_main=self.is_main, save_dir=self.save_dir)
+
+        self.train_loader = setup_data(cfg.data, mode="train", distributed=self.distributed)
+        self.val_loader = setup_data(cfg.data, mode="val", distributed=self.distributed)
+
+        self.epochs_run = 0
+        self.prev_train_time = 0
+        if checkpoint_path is not None and resume_training:
+            checkpoint = self.task.load_checkpoint(checkpoint_path)
+            self.epochs_run = checkpoint.get('epoch', 0) + 1
+            self.prev_train_time = checkpoint.get('train_time', 0)
+
+        # For storing metric history across epochs
+        self.metrics = []
+
+        # Wrap after loading. Checkpointed models are saved in non-DDP format, so we need to load first and then wrap if distributed.
+        if self.distributed:
+            self.task.wrap_distributed(self.local_rank)        
+
+
 class Trainer:
     """
     Trainer class for (potentially distributed) training.
@@ -127,8 +186,6 @@ class Trainer:
         """
         num_epochs = self.cfg.training.epochs
         patience = self.cfg.training.patience
-        log_interval = self.cfg.logging.log_interval
-        plot_examples_flag = self.cfg.experiment.plot_examples
 
         best_val_loss = float('inf')
         epochs_no_improve = 0
@@ -278,11 +335,10 @@ class Trainer:
             #     )
             wandb.log(wandb_data, step=epoch)
 
-        if self.cfg.experiment.plot_examples:
-            train_losses = [m['train_loss'] for m in self.metrics]
-            val_losses = [m['val_loss'] for m in self.metrics]
-            epochs = [m['epoch'] for m in self.metrics]
-            vis.plot_loss_curves(train_losses, val_losses, epochs, fpath=self.save_dir / "figures" / "loss_curves.png")
+        train_losses = [m['train_loss'] for m in self.metrics]
+        val_losses = [m['val_loss'] for m in self.metrics]
+        epochs = [m['epoch'] for m in self.metrics]
+        vis.plot_loss_curves(train_losses, val_losses, epochs, fpath=self.save_dir / "figures" / "loss_curves.png")
 
 
     def find_max_batch_size(self, start_bs=2, max_batch_size=256, safety_factor=0.8) -> int:
@@ -337,18 +393,65 @@ class Trainer:
         
 
 def main(cfg, overwrite=False, find_batch_size=False):
-    trainer = Trainer(cfg, overwrite=overwrite)
+    """
+    Main provides an entry point for training a model based on a given configuration.
+    It handles:
+    - Set random seed
+    - Distributed
+    - Logging & wandb
+    - Setting up directory structures and saving
+    - Trainer init and running
+    - Tear down
+    """
+    # Experiment level setup
+    seed = cfg.experiment.random_seed
+    experiment_name = cfg.experiment.name
+    save_experiment = cfg.experiment.save
+    ddp_debug_mode = cfg.experiment.get("ddp_debug_mode", False)
+
+    use_wandb = cfg.logging.get("use_wandb", False)
+    wandb_project = cfg.logging.get("wandb_project", "emg-foundation-model")
+
+    # 1. Set the random seed
+    set_seed(seed)
+
+    # 2. Setup distributed training
+    distributed, device, rank, local_rank = setup_distributed(ddp_debug_mode=ddp_debug_mode)
+    is_main = (rank == 0)
+
+    # 3. setup logging and results, config, figures etc. saving directory
+    experiment_dir = get_experiment_directory(experiment_name=experiment_name, save_flag=save_experiment)
+    setup_logging(experiment_dir=experiment_dir, is_main_process=is_main)
+
+    train_dir = setup_save_dir(cfg, experiment_dir=experiment_dir, overwrite=overwrite, mode='train', is_main_process=is_main)
+
+    # 4. Setup weights and biases logging
+    if is_main and use_wandb:
+        wandb.init(
+            project=wandb_project,
+            name=experiment_name,
+            config=OmegaConf.to_container(cfg, resolve=True), # Log full config
+            dir=train_dir # Keep W&B local logs in the experiment folder
+        )
+
+    trainer = Trainer(cfg, )
 
     if find_batch_size:
         batch_size = trainer.find_max_batch_size()
         return batch_size
 
     trainer.train()
-
-    if trainer.is_main and trainer.use_wandb:
+    
+    # Cleanup
+    if is_main and use_wandb:
         wandb.finish()
 
-if __name__ == "__main__":
+    if dist.is_initialized():
+        dist.barrier()
+        dist.destroy_process_group()
+        logging.info("Distributed process group destroyed.")
+
+if __name__ == "__main__":  
     parser = argparse.ArgumentParser(description="Train a model with a YAML config file")
     parser.add_argument('--config', type=str, required=True)
     parser.add_argument('--default', type=str, required=False, default="configs/default.yaml")
