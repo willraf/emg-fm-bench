@@ -4,48 +4,37 @@ defaults:
   - model: neurorvq
   - transforms: transforms
 
-task: 
-  name: finetune_classification
-
-logging:
-  log_interval: 10
-  use_wandb: True
-  wandb_project: "emg_fm_benchmarking"
-
-# Global experiment settings that use interpolation
-experiment:
-  name: ${data.root_key}/${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
-  random_seed: 42
-  resume: False
-  plot_examples: True
-  save: True
-  find_batch_size: True
-  # For automatic batch size finding and lr scaling
-  base_batch_size: 128
-  base_learning_rate: 0.0001
-  # If batch size found is less than this, gradient acumulation will be used to simulate larger batch sizes
-  min_batch_size: 32
 
 training:
   patience: 8
   epochs: 100
-  use_amp: True
   num_accumulation_steps: 1   # No gradient accumulation by default
 
-# TODO split params into their own section
-finetuning:
-  # Needed by the task
+
+# These are specifically for the entry point script
+experiment:
+  name: ${data.root_key}/${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  save: True
+  resume: False
+  random_seed: 42
+  ddp_debug_mode: False
+  use_wandb: True
+  wandb_project: ${data.root_key}
+  find_batch_size: True
+
+batch_size_finder:
+  min_batch_size: 32
+  base_batch_size: 128
+  base_learning_rate: 0.0001
+
+# task specific parameters
+task:
+  name: finetune_classification
   target_field: gesture_id
-  freeze_backbone: False
-  from_scratch: False
   learning_rate: 0.0001
   weight_decay: 0.001
   warmup_epochs: 5
+  use_amp: True
+  freeze_backbone: True
+  from_scratch: False
 
-# hydra:
-#   mode: MULTIRUN
-#   sweeper:
-#     params:
-#       data.window_length: 200, 1000
-#       data.split_type: subject,intra_session
-#       finetuning.freeze_backbone: True,False

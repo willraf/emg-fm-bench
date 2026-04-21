@@ -3,26 +3,28 @@ task:
 logging:
   log_interval: 10
   use_wandb: true
-  wandb_project: neurorvq_ninaprodb5
+  wandb_project: TEST
 experiment:
-  name: ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2
-  random_seed: 2
+  name: TEST
+  random_seed: 42
+  resume: false
   plot_examples: true
   save: true
   find_batch_size: true
   base_batch_size: 128
   base_learning_rate: 0.0001
   min_batch_size: 32
+  ddp_debug_mode: true
 training:
   patience: 8
-  epochs: 100
+  epochs: 4
   use_amp: true
-  num_accumulation_steps: 11
+  num_accumulation_steps: 3
 finetuning:
   target_field: gesture_id
   freeze_backbone: true
   from_scratch: false
-  learning_rate: 2.578125e-05
+  learning_rate: 2.8125000000000003e-05
   weight_decay: 0.001
   warmup_epochs: 5
 data:
@@ -30,7 +32,8 @@ data:
   root_key: ninapro_db5
   primary_data_key: emg
   timeseries_keys: null
-  hdf5_path: data/ninapro_db5/ninapro_db5.hdf5
+  data_root: /home/willraftery/PhD/projects/github/emg-stream/data/
+  hdf5_path: /home/willraftery/PhD/projects/github/emg-stream/data//ninapro_db5/ninapro_db5.hdf5
   split_type: inter_subject
   num_channels: 16
   window_length: 1000
@@ -38,16 +41,19 @@ data:
   stride: 50
   jitter: true
   num_workers: 10
-  batch_size: 3
+  batch_size: 12
   transforms:
     train:
     - _target_: src.data.transforms.StandardiseSignal
       field: emg
-    - _target_: src.data.transforms.PerChannelZScoreNormalise
-      field: emg
+    - _target_: src.data.transforms.BandPassFilter
+      lowpass: 90
+      highpass: 20
+      order: 3
+      fs: 200
     - _target_: src.data.transforms.Resample
       field: emg
-      target_fs: 2000
+      target_fs: 1000
       orig_fs: 200
     - _target_: src.data.transforms.RandomAmplitudeScale
       field: emg
@@ -59,20 +65,26 @@ data:
     val:
     - _target_: src.data.transforms.StandardiseSignal
       field: emg
-    - _target_: src.data.transforms.PerChannelZScoreNormalise
-      field: emg
+    - _target_: src.data.transforms.BandPassFilter
+      lowpass: 90
+      highpass: 20
+      order: 3
+      fs: 200
     - _target_: src.data.transforms.Resample
       field: emg
-      target_fs: 2000
+      target_fs: 1000
       orig_fs: 200
     test:
     - _target_: src.data.transforms.StandardiseSignal
       field: emg
-    - _target_: src.data.transforms.PerChannelZScoreNormalise
-      field: emg
+    - _target_: src.data.transforms.BandPassFilter
+      lowpass: 90
+      highpass: 20
+      order: 3
+      fs: 200
     - _target_: src.data.transforms.Resample
       field: emg
-      target_fs: 2000
+      target_fs: 1000
       orig_fs: 200
   sample_channels:
   - c1
@@ -93,45 +105,56 @@ data:
   - c16
   n_classes: 53
 model:
-  checkpoint: experiments/ninapro_db5/2026-04-09_15-54-24_physio_wave_ninapro_db5_1000_inter_subject_True_concat/seed2/train/checkpoints/best_model.pt
-  sample_rate: 2000
+  checkpoint: experiments/TEST/train/checkpoints/best_model.pt
+  sample_rate: 1000
   fm:
-    name: physio_wave
-    checkpoint: pretrained_models/PhysioWave/emg.pth
-    in_channels: 8
-    max_level: 3
-    wave_kernel_size: 16
-    wavelet_names:
-    - sym4
-    - sym5
-    - db6
-    - coif3
-    - bior4.4
-    use_separate_channel: true
-    patch_size: 64
-    embed_dim: 256
-    depth: 6
-    num_heads: 8
+    name: neuro_rvq_fm
+    checkpoint: pretrained_models/NeuroRVQ/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt
+    max_patches: 256
+    patch_size: 200
+    in_chans: 1
+    out_chans: 8
+    num_classes: 0
+    embed_dim: 200
+    depth: 12
+    num_heads: 10
     mlp_ratio: 4.0
-    dropout: 0.1
-    rope_dim: null
-    use_pos_embed: true
-    pos_embed_type: 2d
-    masking_strategy: frequency_guided
-    importance_ratio: 0.6
-    mask_ratio: 0.15
-    task_type: null
-    num_classes: null
-    output_dim: null
-    head_config: null
-    pooling: null
+    qkv_bias: true
+    qk_norm: null
+    drop_rate: 0.0
+    attn_drop_rate: 0.0
+    drop_path_rate: 0.0
+    init_values: 1.0e-05
+    init_scale: 0.001
+    n_global_electrodes: 16
+    vocab_size: 8192
+    use_as_encoder: true
+    use_for_pretraining: true
+    return_patch_embeddings: true
+    sample_channels:
+    - c1
+    - c3
+    - c5
+    - c7
+    - c9
+    - c11
+    - c13
+    - c15
+    - c2
+    - c4
+    - c6
+    - c8
+    - c10
+    - c12
+    - c14
+    - c16
   wrapper:
-    embed_dim: 256
+    embed_dim: 800
     n_classes: 53
-    patch_size: 64
+    patch_size: 200
     num_channels: 16
     pooling_type: concat
-    finetune_spacial_embedding: false
+    finetune_spacial_embedding: true
 transforms:
   standardise:
     _target_: src.data.transforms.StandardiseSignal
@@ -145,7 +168,7 @@ transforms:
   resample:
     _target_: src.data.transforms.Resample
     field: emg
-    target_fs: 2000
+    target_fs: 1000
     orig_fs: 200
   encode_stage:
     _target_: src.data.transforms.EncodeStage

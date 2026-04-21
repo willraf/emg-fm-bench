@@ -31,28 +31,26 @@ import time
 
 
 class FinetuneClassificationTask(BaseTask):
-    def __init__(self, cfg, device, distributed=False, is_main=False, save_dir=None):
+    def __init__(self, cfg, device, distributed=False, is_main=False):
         super().__init__()
 
         self.cfg = cfg
 
-        lr = cfg.finetuning.learning_rate
-        wd = cfg.finetuning.weight_decay
         num_epochs = cfg.training.epochs
-
-        warmup_epochs = cfg.finetuning.warmup_epochs
-        self.use_amp = cfg.training.get("use_amp", False)
-
-        self.target_field = cfg.finetuning.target_field
-
-        freeze_backbone = self.cfg.finetuning.freeze_backbone
-        from_scratch = self.cfg.finetuning.from_scratch
         self.num_accumulation_steps = cfg.training.get("num_accumulation_steps", 1)
-        
+
+        lr = cfg.task.learning_rate
+        wd = cfg.task.weight_decay
+        warmup_epochs = cfg.task.warmup_epochs
+        freeze_backbone = cfg.task.freeze_backbone
+        from_scratch = cfg.task.from_scratch
+
+        self.target_field = cfg.task.target_field
+        self.use_amp = cfg.task.get("use_amp", False)
+
         self.device = device
         self.distributed = distributed
         self.is_main = is_main
-        self.save_dir = save_dir
 
         fm = setup_model(cfg.model.fm, device=device)
 

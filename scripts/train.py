@@ -49,7 +49,6 @@ class Trainer:
 
     Attributes:
         cfg (OmegaConf): Configuration object
-        overwrite (bool): Whether to overwrite existing experiment directory
         distributed (bool): Whether distributed training is enabled
         device (torch.device): Device to run training on ("cpu" , "cuda", "cuda:<local_rank>")
         rank (int): Global rank of the current process
@@ -67,19 +66,24 @@ class Trainer:
         metrics (list): List of dicts recording training metrics per epoch
     """
 
-    def __init__(self, cfg, distributed, device, rank, local_rank, save_dir, use_wandb):
+    def __init__(self, cfg, distributed, device, rank, local_rank, save_dir):
 
         self.cfg = cfg
+        self.distributed = distributed
+        self.device = device
+        self.rank = rank
+        self.local_rank = local_rank
+        self.save_dir = save_dir
         
         resume_training = cfg.experiment.resume
         checkpoint_path = cfg.model.checkpoint
-        experiment_name = cfg.experiment.name
 
         self.num_accumulation_steps = cfg.training.get("num_accumulation_steps", 1)
 
         self.is_main = (self.rank == 0)
+        self.use_wandb = (self.is_main and wandb.run is not None)
 
-        self.task = setup_task(cfg, device=self.device, distributed=self.distributed, is_main=self.is_main, save_dir=self.save_dir)
+        self.task = setup_task(cfg, device=self.device, distributed=self.distributed, is_main=self.is_main)
 
         self.train_loader = setup_data(cfg.data, mode="train", distributed=self.distributed)
         self.val_loader = setup_data(cfg.data, mode="val", distributed=self.distributed)
@@ -97,87 +101,6 @@ class Trainer:
         # Wrap after loading. Checkpointed models are saved in non-DDP format, so we need to load first and then wrap if distributed.
         if self.distributed:
             self.task.wrap_distributed(self.local_rank)        
-
-
-class Trainer:
-    """
-    Trainer class for (potentially distributed) training.
-    Responsible for training, validation, checkpointing, and metric logging.
-
-    Attributes:
-        cfg (OmegaConf): Configuration object
-        overwrite (bool): Whether to overwrite existing experiment directory
-        distributed (bool): Whether distributed training is enabled
-        device (torch.device): Device to run training on ("cpu" , "cuda", "cuda:<local_rank>")
-        rank (int): Global rank of the current process
-        local_rank (int): Local rank of the current process
-        is_main (bool): Whether this is the main process (rank 0)
-        save_dir (Path): Directory to save checkpoints and results
-        train_loader (DataLoader): DataLoader for training data
-        val_loader (DataLoader): DataLoader for validation data
-        model (torch.nn.Module): Model to be trained
-        optimiser (torch.optim.Optimizer): Optimiser for training
-        loss_fn (callable): Loss function
-        scheduler (optional): Curriculum scheduler
-             For changing data difficulty over epochs, usually for synthetic data.
-        epochs_run (int): Number of epochs already run (for resuming training)
-        metrics (list): List of dicts recording training metrics per epoch
-    """
-
-    def __init__(self, cfg, overwrite=False):
-
-        set_seed(cfg.experiment.random_seed)
-
-        self.cfg = cfg
-        self.overwrite = overwrite     
-        
-        resume_training = cfg.experiment.resume
-        checkpoint_path = cfg.model.checkpoint
-        experiment_name = cfg.experiment.name
-
-        self.num_accumulation_steps = cfg.training.get("num_accumulation_steps", 1)
-        ddp_debug_mode = cfg.experiment.get("ddp_debug_mode", False)
-        use_wandb = cfg.logging.get("use_wandb", False)
-
-        # Setup GPU device and distributed training
-        self.distributed, self.device, self.rank, self.local_rank = setup_distributed(ddp_debug_mode=ddp_debug_mode)
-        print(f"Process {self.rank} using device {self.device}, distributed={self.distributed}, local_rank={self.local_rank}")
-        world_size = dist.get_world_size() if self.distributed else 1
-        print(f"World size: {world_size}")
-        self.is_main = (self.rank == 0)
-
-        self.save_dir = setup_save_dir(cfg, overwrite=overwrite, mode='train', is_main_process=self.is_main)
-
-        self.task = setup_task(cfg, device=self.device, distributed=self.distributed, is_main=self.is_main, save_dir=self.save_dir)
-
-        self.train_loader = setup_data(cfg.data, mode="train", distributed=self.distributed)
-        self.val_loader = setup_data(cfg.data, mode="val", distributed=self.distributed)
-
-        self.epochs_run = 0
-        self.prev_train_time = 0
-        if checkpoint_path is not None and resume_training:
-            checkpoint = self.task.load_checkpoint(checkpoint_path)
-            self.epochs_run = checkpoint.get('epoch', 0) + 1
-            self.prev_train_time = checkpoint.get('train_time', 0)
-
-        # For storing metric history across epochs
-        self.metrics = []
-
-        # Wrap after loading. Checkpointed models are saved in non-DDP format, so we need to load first and then wrap if distributed.
-        if self.distributed:
-            self.task.wrap_distributed(self.local_rank)        
-
-        # Initialise weights and biases
-        if self.is_main and use_wandb:
-            wandb.init(
-                project=cfg.logging.get("wandb_project", "emg-foundation-model"),
-                name=experiment_name,
-                config=OmegaConf.to_container(cfg, resolve=True), # Log full config
-                dir=self.save_dir # Keep W&B local logs in your experiment folder
-            )
-            self.use_wandb = True
-        else:
-            self.use_wandb = False
    
 
     def train(self):
@@ -422,7 +345,7 @@ def main(cfg, overwrite=False, find_batch_size=False):
     # 3. setup logging and results, config, figures etc. saving directory
     experiment_dir = get_experiment_directory(experiment_name=experiment_name, save_flag=save_experiment)
     setup_logging(experiment_dir=experiment_dir, is_main_process=is_main)
-
+    
     train_dir = setup_save_dir(cfg, experiment_dir=experiment_dir, overwrite=overwrite, mode='train', is_main_process=is_main)
 
     # 4. Setup weights and biases logging
@@ -434,22 +357,32 @@ def main(cfg, overwrite=False, find_batch_size=False):
             dir=train_dir # Keep W&B local logs in the experiment folder
         )
 
-    trainer = Trainer(cfg, )
+    try:
+        trainer = Trainer(cfg, distributed, device, rank, local_rank, save_dir=train_dir)
 
-    if find_batch_size:
-        batch_size = trainer.find_max_batch_size()
-        return batch_size
+        if find_batch_size:
+            batch_size = trainer.find_max_batch_size()
+            return batch_size
 
-    trainer.train()
-    
-    # Cleanup
-    if is_main and use_wandb:
-        wandb.finish()
+        trainer.train()
 
-    if dist.is_initialized():
-        dist.barrier()
-        dist.destroy_process_group()
-        logging.info("Distributed process group destroyed.")
+    except Exception as e:
+        # Capture the full traceback
+        save_exception(experiment_dir)
+
+        # Re-raise for Hydra to acknowledge the failure
+        raise e
+
+    finally:
+        # Cleanup
+        if is_main and use_wandb:
+            wandb.finish()
+
+        if dist.is_initialized():
+            dist.barrier()
+            dist.destroy_process_group()
+            logging.info("Distributed process group destroyed.")
+            
 
 if __name__ == "__main__":  
     parser = argparse.ArgumentParser(description="Train a model with a YAML config file")
@@ -460,12 +393,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cfg = load_config(args.config, default_path=args.default)
-
-    distributed, device, local_rank, rank = setup_distributed()
-    setup_logging(is_main_process=(rank == 0))
-
     main(cfg, overwrite=args.overwrite, find_batch_size=args.find_batch_size)
-    # Cleanup distributed properly
-    if dist.is_initialized():
-        dist.barrier()
-        destroy_process_group()

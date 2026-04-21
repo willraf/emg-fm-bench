@@ -34,11 +34,10 @@ Date:
 import argparse
 import logging
 import wandb
-import traceback
 
 from omegaconf import OmegaConf
 
-from src.utils.utils import get_experiment_directory, setup_distributed, get_hardware_info
+from src.utils.utils import get_experiment_directory, setup_distributed, save_exception, set_seed, setup_save_dir
 
 from scripts.train import Trainer
 from scripts.eval import Evaluator
@@ -62,14 +61,14 @@ def prevent_logging():
     return
 
 
-def get_max_batch_size(cfg, mode="train"):
+def get_max_batch_size(cfg, distributed, device, rank, local_rank, mode="train"):
     """
     Use batch size probing to find the maximum batch size that fits in GPU memory for training or evaluation.
     """
     if mode == "train":
-        finder = Trainer(cfg, overwrite=True)
+        finder = Trainer(cfg, distributed, device, rank, local_rank, save_dir=None)
     elif mode == "eval":
-        finder = Evaluator(cfg, overwrite=True)
+        finder = Evaluator(cfg, distributed, device, rank, local_rank, save_dir=None)
     else:
         raise ValueError(f"Invalid mode {mode} for find_batch_size. Must be 'train' or 'eval'.")
     
@@ -86,7 +85,7 @@ def gradient_accumulation(cfg, per_gpu_batch_size):
     """
     Determine the number of gradient accumulation steps needed to achieve the minimum effective batch size if the per-GPU batch size is too small.
     """
-    min_batch_size = cfg.experiment.min_batch_size
+    min_batch_size = cfg.batch_size_finder.min_batch_size
     if per_gpu_batch_size < min_batch_size:
         accum_steps = (min_batch_size + per_gpu_batch_size - 1) // per_gpu_batch_size
         logging.warning(
@@ -101,8 +100,8 @@ def scale_learning_rate(cfg, per_gpu_batch_size, accum_steps):
     """
     Scale the learning rate according to the effective batch size if batch size discovery is used.
     """
-    base_learning_rate = cfg.experiment.base_learning_rate
-    base_batch_size = cfg.experiment.base_batch_size
+    base_learning_rate = cfg.batch_size_finder.base_learning_rate
+    base_batch_size = cfg.batch_size_finder.base_batch_size
 
     # Compute the effective batch size based on num GPUs and accumulation steps
     world_size = dist.get_world_size() if dist.is_initialized() else 1
@@ -115,48 +114,72 @@ def scale_learning_rate(cfg, per_gpu_batch_size, accum_steps):
         f"LR scaled from {base_learning_rate} → {scaled_lr:.6f}."
     )
     return scaled_lr
-
-
-def save_exception(experiment_dir):
-    error_msg = traceback.format_exc()
-    logging.error(f"Job failed with error:\n{error_msg}")
-    try:
-        with open(experiment_dir / "error.log", "w") as f:
-            f.write(error_msg)
-    except:
-        pass
     
 
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg=None):
-
+    """
+    Main provides an entry point for the full pipeline.
+    It handles:
+    - Set random seed
+    - Distributed
+    - Logging & wandb
+    - Setting up directory structures and saving
+    - Trainer init, batch size discovery, and running
+    - Evaluator init, batch size discovery, and running
+    - Tear down
+    """
+    
+    # Experiment level setup
+    seed = cfg.experiment.random_seed
+    experiment_name = cfg.experiment.name
+    save_experiment = cfg.experiment.save
     find_batch_size = cfg.experiment.find_batch_size
     ddp_debug_mode = cfg.experiment.get("ddp_debug_mode", False)
-    use_wandb = cfg.experiment.get("use_wandb", False)
 
+    use_wandb = cfg.logging.get("use_wandb", False)
+    wandb_project = cfg.logging.get("wandb_project", "emg-foundation-model")
+
+    # 1. Set the random seed
+    set_seed(seed)
+
+    # 2. Setup distributed training
     distributed, device, rank, local_rank = setup_distributed(ddp_debug_mode=ddp_debug_mode)
     is_main = (rank == 0)
+
+    # 3. setup logging and results, config, figures etc. saving directory
+    experiment_dir = get_experiment_directory(experiment_name=experiment_name, save_flag=save_experiment)
+    train_dir = setup_save_dir(cfg, experiment_dir=experiment_dir, overwrite=True, mode='train', is_main_process=is_main)
+    eval_dir = setup_save_dir(cfg, experiment_dir=experiment_dir, overwrite=True, mode='eval', is_main_process=is_main)
+
     # Only the main process should log to console
-    if rank != 0:
+    if not is_main:
         prevent_logging()
 
-    experiment_dir = get_experiment_directory(cfg)
-
+     # 4. Setup weights and biases logging
+    if is_main and use_wandb:
+        wandb.init(
+            project=wandb_project,
+            name=experiment_name,
+            config=OmegaConf.to_container(cfg, resolve=True), # Log full config
+            dir=experiment_dir # Keep W&B local logs in the experiment folder
+        )
+    
     try: 
         if find_batch_size: 
-            per_gpu_batch_size = get_max_batch_size(cfg, mode="train")
+            per_gpu_batch_size = get_max_batch_size(cfg, distributed, device, rank, local_rank, mode="train")
             accum_steps = gradient_accumulation(cfg, per_gpu_batch_size)
             scaled_lr = scale_learning_rate(cfg, per_gpu_batch_size, accum_steps)
 
             # Update config with discovered batch size and scaled learning rate
             cfg.data.batch_size = per_gpu_batch_size
             cfg.training.num_accumulation_steps = accum_steps
-            cfg.finetuning.learning_rate = scaled_lr
+            cfg.task.learning_rate = scaled_lr
         
         # Save config after batch-size discovery, before training
         OmegaConf.save(cfg, experiment_dir / "config.yaml")
 
-        trainer = Trainer(cfg, overwrite=True)
+        trainer = Trainer(cfg, distributed, device, rank, local_rank, save_dir=train_dir)
         train_results = trainer.train()
         logging.info(f"Training completed with results: {train_results}")
 
@@ -166,10 +189,10 @@ def main(cfg=None):
         torch.cuda.empty_cache()
 
         if find_batch_size:
-            per_gpu_batch_size = get_max_batch_size(cfg, mode="eval")
+            per_gpu_batch_size = get_max_batch_size(cfg, distributed, device, rank, local_rank, mode="eval")
             cfg.data.batch_size = per_gpu_batch_size
 
-        evaluator = Evaluator(cfg, overwrite=True)
+        evaluator = Evaluator(cfg, distributed, device, rank, local_rank, save_dir=eval_dir)
         eval_results = evaluator.evaluate()
         logging.info(f"Evaluation completed with results: {eval_results}")
 

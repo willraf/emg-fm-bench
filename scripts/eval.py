@@ -36,25 +36,25 @@ import wandb
 
 class Evaluator:
     
-    def __init__(self, cfg, overwrite=False):
+    def __init__(self, cfg, distributed, device, rank, local_rank, save_dir):
         self.cfg = cfg
+        self.distributed = distributed
+        self.device = device
+        self.rank = rank
+        self.local_rank = local_rank
+        self.save_dir = save_dir
+
+        checkpoint_path = cfg.model.checkpoint
         
-        self.overwrite = overwrite        
-        # Setup GPU device and distributed training
-        self.distributed, self.device, self.rank, self.local_rank = setup_distributed(ddp_debug_mode=cfg.experiment.get("ddp_debug_mode", False))
-        print(f"Process {self.rank} using device {self.device}, distributed={self.distributed}, local_rank={self.local_rank}")
-        world_size = dist.get_world_size() if self.distributed else 1
-        print(f"World size: {world_size}")
         self.is_main = (self.rank == 0)
 
-        self.save_dir = setup_save_dir(cfg, overwrite=overwrite, mode='test', is_main_process=self.is_main)
 
         self.test_loader = setup_data(cfg.data, mode="test", distributed=self.distributed)
 
-        self.task = setup_task(cfg, device=self.device, distributed=self.distributed, is_main=self.is_main, save_dir=self.save_dir)
+        self.task = setup_task(cfg, device=self.device, distributed=self.distributed, is_main=self.is_main)
 
-        if cfg.model.checkpoint is not None:
-            checkpoint = self.task.load_checkpoint(cfg.model.checkpoint)
+        if checkpoint_path is not None:
+            _ = self.task.load_checkpoint(cfg.model.checkpoint)
         else: 
             raise ValueError("No checkpoint specified for evaluation. Please provide a checkpoint path in the config file.")
 
@@ -64,17 +64,7 @@ class Evaluator:
 
         self.metrics = []
 
-        # Initialise weights and biases
-        if self.is_main and cfg.logging.get("use_wandb", False):
-            wandb.init(
-                project=cfg.logging.get("wandb_project", "emg-foundation-model"),
-                name=cfg.experiment.name,
-                config=OmegaConf.to_container(cfg, resolve=True), # Log full config
-                dir=self.save_dir # Keep W&B local logs in your experiment folder
-            )
-            self.use_wandb = True
-        else:
-            self.use_wandb = False
+        self.use_wandb = (self.is_main and wandb.run is not None)
    
 
     def evaluate(self):
@@ -208,26 +198,73 @@ class Evaluator:
 
 
 def main(cfg, overwrite=False, find_batch_size=False):
+    """
+    Main provides an entry point for evaluating a model based on a given configuration.
+    It handles:
+    - Set random seed
+    - Distributed
+    - Logging & wandb
+    - Setting up directory structures and saving
+    - Trainer init and running
+    - Tear down
+    """
+    # Experiment level setup
+    seed = cfg.experiment.random_seed
+    experiment_name = cfg.experiment.name
+    save_experiment = cfg.experiment.save
+    ddp_debug_mode = cfg.experiment.get("ddp_debug_mode", False)
 
-    evaluator = Evaluator(cfg, overwrite=overwrite)
+    use_wandb = cfg.logging.get("use_wandb", False)
+    wandb_project = cfg.logging.get("wandb_project", "emg-foundation-model")
 
-    if find_batch_size:
-        batch_size = evaluator.find_max_batch_size()
+    # 1. Set the random seed
+    set_seed(seed)
 
-        # Cleanup properly before returning to main.py
-        if evaluator.distributed:
+    # 2. Setup distributed training
+    distributed, device, rank, local_rank = setup_distributed(ddp_debug_mode=ddp_debug_mode)
+    is_main = (rank == 0)
+
+    # 3. setup logging and results, config, figures etc. saving directory
+    experiment_dir = get_experiment_directory(experiment_name=experiment_name, save_flag=save_experiment)
+    setup_logging(experiment_dir=experiment_dir, is_main_process=is_main)
+    
+    eval_dir = setup_save_dir(cfg, experiment_dir=experiment_dir, overwrite=overwrite, mode='test', is_main_process=is_main)
+
+    # 4. Setup weights and biases logging
+    if is_main and use_wandb:
+        wandb.init(
+            project=wandb_project,
+            name=experiment_name,
+            config=OmegaConf.to_container(cfg, resolve=True), # Log full config
+            dir=eval_dir # Keep W&B local logs in the experiment folder
+        )
+
+    try:
+        evaluator = Evaluator(cfg, distributed, device, rank, local_rank, save_dir=eval_dir)
+
+        if find_batch_size:
+            batch_size = evaluator.find_max_batch_size()
+            return batch_size
+
+        evaluator.evaluate()
+
+    except Exception as e:
+        # Capture the full traceback
+        save_exception(experiment_dir)
+
+        # Re-raise for Hydra to acknowledge the failure
+        raise e
+
+    finally:
+        # Cleanup
+        if is_main and use_wandb:
+            wandb.finish()
+
+        if dist.is_initialized():
             dist.barrier()
-            destroy_process_group()
-        return batch_size
-
-    evaluator.evaluate()
-
-    if evaluator.is_main and evaluator.use_wandb:
-        wandb.finish()
-
-    if evaluator.distributed:
-        dist.barrier()  # Ensure all processes have finished writing results before any process exits
-        dist.destroy_process_group()
+            dist.destroy_process_group()
+            logging.info("Distributed process group destroyed.")
+            
     
 
 if __name__ == "__main__":
@@ -239,12 +276,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cfg = load_config(args.config, default_path=args.default)
-
-    distributed, device, local_rank, rank = setup_distributed()
-    setup_logging(is_main_process=(rank == 0))
-
     main(cfg, overwrite=args.overwrite, find_batch_size=args.find_batch_size)
-    # Cleanup distributed properly
-    if dist.is_initialized():
-        dist.barrier()
-        destroy_process_group()

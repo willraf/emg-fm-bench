@@ -27,6 +27,7 @@ import torch.distributed as dist
 import platform
 import socket
 import torch
+import traceback
 
 
 def setup_distributed_debug():
@@ -126,6 +127,16 @@ def setup_distributed(ddp_debug_mode: bool = False):
     # --- CPU ---
     device = torch.device("cpu")
     return False, device, 0, 0
+
+
+def save_exception(experiment_dir):
+    error_msg = traceback.format_exc()
+    logging.error(f"Job failed with error:\n{error_msg}")
+    try:
+        with open(experiment_dir / "error.log", "w") as f:
+            f.write(error_msg)
+    except:
+        pass
 
 
 def load_config(user_path: Path, default_path: Path) -> OmegaConf:
