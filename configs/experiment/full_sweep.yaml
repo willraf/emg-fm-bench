@@ -1,0 +1,31 @@
+# @package _global_
+defaults:
+  - override /transforms: transforms
+  - override /dataset: uci_emg
+  - override /model: physiowave
+  - _self_
+
+data:
+  window_length: 200
+  split_type: inter_subject
+
+task:
+  from_scratch: False
+  freeze_backbone: False
+
+experiment:
+  name: ${data.root_key}_rerun/${model.fm.name}_${data.window_length}_${data.split_type}_frozen_${task.freeze_backbone}_scratch_${task.from_scratch}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  log_interval: 10
+  use_wandb: True
+  wandb_project: ${data.root_key}
+  
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      # data.split_type: inter_subject, intra_session
+      # dataset: epn612, ninapro_db5, uci_emg
+      model: neurorvq, tinymyo, physiowave
+      # data.window_length: 200, 1000
+      task.freeze_backbone: True,False
+      experiment.random_seed: 2, 50, 100
