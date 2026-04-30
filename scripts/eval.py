@@ -78,10 +78,6 @@ class Evaluator:
 
         self.task.eval()
 
-        total_loss = 0.0
-        num_batches = len(self.test_loader)
-
-
         pbar = tqdm(
             self.test_loader, 
             disable=(not self.is_main), 
@@ -101,13 +97,14 @@ class Evaluator:
         test_metrics = self.task.test_metrics.compute()
         self.task.test_metrics.reset()
 
-        if hasattr(self.task, "measure_inference_latency"):
+        if hasattr(self.task, "measure_inference_latency") and self.is_main:
             batch = next(iter(self.test_loader))
             mean_latency, std_latency = self.task.measure_inference_latency(batch, n_warmup=30, n_runs=200)
 
-        if self.is_main:
             test_metrics["inference_latency_mean"] = mean_latency
             test_metrics["inference_latency_std"] = std_latency
+
+        if self.is_main:
             self._record_metrics(test_metrics)
         
 
@@ -163,6 +160,7 @@ class Evaluator:
             try:
                 batch = next(iter(loader))
                 torch.cuda.empty_cache()
+                torch.cuda.reset_peak_memory_stats()
 
                 self.task.eval()  # Ensure model is in eval mode for batch size testing
                 self.task.eval_step(batch)
@@ -214,8 +212,8 @@ def main(cfg, overwrite=False, find_batch_size=False):
     save_experiment = cfg.experiment.save
     ddp_debug_mode = cfg.experiment.get("ddp_debug_mode", False)
 
-    use_wandb = cfg.logging.get("use_wandb", False)
-    wandb_project = cfg.logging.get("wandb_project", "emg-foundation-model")
+    use_wandb = cfg.experiment.get("use_wandb", False)
+    wandb_project = cfg.experiment.get("wandb_project", "emg-foundation-model")
 
     # 1. Set the random seed
     set_seed(seed)

@@ -3,66 +3,8 @@ from pathlib import Path
 from omegaconf import OmegaConf
 import logging
 import argparse
-
-experiment_list = [
-"experiments/2026-03-31_12-28-19_physio_wave_epn612_200_inter_subject_True_concat",
-"experiments/2026-03-31_06-22-54_physio_wave_ninapro_db5_1000_intra_session_True_concat",
-"experiments/2026-03-31_06-22-50_physio_wave_ninapro_db5_1000_inter_subject_False_concat",
-"experiments/2026-03-31_06-22-45_physio_wave_ninapro_db5_1000_inter_subject_True_concat",
-"experiments/2026-03-31_02-42-01_physio_wave_ninapro_db5_200_intra_session_False_concat",
-"experiments/2026-03-30_23-21-12_physio_wave_ninapro_db5_200_intra_session_True_concat",
-"experiments/2026-03-30_21-30-22_physio_wave_ninapro_db5_200_inter_subject_False_concat",
-"experiments/2026-03-30_18-41-47_physio_wave_ninapro_db5_200_inter_subject_True_concat",
-"experiments/2026-03-30_18-35-03_physio_wave_ninapro_db5_200_inter_subject_True_concat",
-"experiments/2026-03-24_16-33-29_tiny_myo_epn612_1000_intra_session_False_concat",
-"experiments/2026-03-24_13-38-04_tiny_myo_epn612_200_intra_session_False_concat",
-"experiments/2026-03-24_12-03-12_tiny_myo_ninapro_db5_1000_intra_session_False_concat",
-"experiments/2026-03-24_11-52-25_tiny_myo_ninapro_db5_200_intra_session_False_concat",
-"experiments/2026-03-24_11-13-32_tiny_myo_ninapro_db5_1000_intra_session_False_concat",
-"experiments/2026-03-24_10-58-01_tiny_myo_ninapro_db5_200_intra_session_False_concat",
-"experiments/2026-03-24_10-49-16_tiny_myo_ninapro_db5_1000_intra_session_True_concat",
-"experiments/2026-03-24_10-44-44_tiny_myo_ninapro_db5_200_intra_session_True_concat",
-"experiments/2026-03-20_18-59-37_neuro_rvq_fm_epn612_1000_intra_session_True_concat",
-"experiments/2026-03-20_13-38-34_neuro_rvq_fm_epn612_1000_inter_subject_True_concat",
-"experiments/2026-03-20_13-38-22_neuro_rvq_fm_epn612_1000_intra_session_True_concat",
-"experiments/2026-03-20_13-38-02_neuro_rvq_fm_epn612_1000_inter_subject_True_concat",
-"experiments/2026-03-20_13-37-49_neuro_rvq_fm_epn612_1000_intra_session_True_concat",
-"experiments/2026-03-20_13-37-28_neuro_rvq_fm_epn612_1000_inter_subject_True_concat",
-"experiments/2026-03-20_13-36-42_neuro_rvq_fm_epn612_1000_inter_subject_True_concat",
-"experiments/2026-03-20_13-36-26_neuro_rvq_fm_epn612_1000_inter_subject_True_concat",
-"experiments/2026-03-20_13-34-47_neuro_rvq_fm_epn612_1000_intra_session_True_concat",
-"experiments/2026-03-20_13-34-25_neuro_rvq_fm_epn612_1000_inter_subject_True_concat",
-"experiments/2026-03-19_23-05-23_neuro_rvq_fm_ninapro_db5_1000_inter_subject_True_concat",
-"experiments/2026-03-19_22-44-17_neuro_rvq_fm_ninapro_db5_1000_intra_session_True_concat",
-"experiments/2026-03-19_18-39-12_neuro_rvq_fm_ninapro_db5_200_inter_subject_True_concat",
-"experiments/2026-03-19_17-41-17_neuro_rvq_fm_ninapro_db5_200_intra_session_True_concat",
-"experiments/2026-03-19_17-40-37_neuro_rvq_fm_ninapro_db5_1000_intra_session_True_concat",
-"experiments/2026-03-19_17-40-37_neuro_rvq_fm_ninapro_db5_1000_inter_subject_True_concat",
-"experiments/2026-03-19_17-40-37_neuro_rvq_fm_ninapro_db5_200_inter_subject_True_concat",
-"experiments/2026-03-19_17-40-36_neuro_rvq_fm_ninapro_db5_200_intra_session_True_concat",
-"experiments/2026-03-17_23-32-47_tiny_myo_epn612_1000_intra_session_True_concat",
-"experiments/2026-03-17_08-09-15_tiny_myo_epn612_1000_inter_subject_True_concat",
-"experiments/2026-03-16_22-21-11_neuro_rvq_fm_epn612_1000_intra_session_True_concat",
-"experiments/2026-03-16_18-15-10_neuro_rvq_fm_epn612_1000_inter_subject_True_concat",
-"experiments/2026-03-16_14-19-48_neuro_rvq_fm_epn612_200_intra_session_True_concat",
-"experiments/2026-03-16_12-33-43_neuro_rvq_fm_epn612_200_inter_subject_True_concat",
-"experiments/2026-03-13_09-53-53_neuro_rvq_fm_ninapro_db5_1000_intra_session_False_concat",
-"experiments/2026-03-13_09-31-07_neuro_rvq_fm_ninapro_db5_1000_subject_False_concat",
-"experiments/2026-03-12_18-12-02_tiny_myo_ninapro_db5_1000_intra_session_False_concat",
-"experiments/2026-03-12_18-01-33_neuro_rvq_fm_ninapro_db5_200_subject_True_concat",
-"experiments/2026-03-12_17-02-50_neuro_rvq_fm_ninapro_db5_200_intra_session_True_concat",
-"experiments/2026-03-12_10-07-25_tiny_myo_ninapro_db5_1000_intra_session_True_concat",
-"experiments/2026-03-11_15-38-13_tiny_myo_ninapro_db5_1000s_subject_False_concat",
-"experiments/2026-03-11_04-43-37_tinymyo_ninapro_db5_1000_subject_True_concat",
-"experiments/2026-03-10_20-31-55_tinymyo_ninapro_db5_200_intra_session_False_concat",
-"experiments/2026-03-10_17-39-52_tinymyo_ninapro_db5_200_intra_session_True_concat",
-"experiments/2026-03-10_14-40-26_tinymyo_ninapro_db5_200_subject_False_concat",
-"experiments/2026-03-10_12-00-03_tinymyo_ninapro_db5_200_subject_True_concat",
-"experiments/2026-03-09_13-03-26_neurorvq_ninapro_db5_200s_intra_session_False_concat",
-"experiments/2026-03-09_12-53-36_neurorvq_ninapro_db5_200s_subject_False_concat",
-"experiments/2026-03-09_11-53-12_neurorvq_ninapro_db5_1000s_intra_session_True_concat",
-"experiments/2026-03-09_11-45-29_neurorvq_ninapro_db5_1000s_subject_True_concat",
-]
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 def get_nested_cfg(cfg, keys):
     """Helper to try multiple keys and return the first that exists."""
@@ -80,7 +22,7 @@ def compile_benchmarks(exp_root="./experiments"):
     all_data = []
 
     # Find all test results files
-    results_files = list(root.glob("**/test/results.csv"))
+    results_files = list(root.glob("**/test/results.csv")) + list(root.glob("**/eval/results.csv"))
     print(f"Found {len(results_files)} experiment results.")
 
     for res_path in results_files:
@@ -105,13 +47,18 @@ def compile_benchmarks(exp_root="./experiments"):
             # Multiple config keys and model renaming for backward compatibility
             model_name = get_nested_cfg(cfg, ["model.fm.name", "model.name"])
             model_name = model_name.replace("_fm", "").replace("_", "")
-            split = get_nested_cfg(cfg, ["data.split_type", "finetuning.split_type"])
+            split = get_nested_cfg(cfg, ["data.split_type", "task.split_type"])
             if split in ['subject', 'user']:
                 split = 'inter_subject'
 
-            frozen = get_nested_cfg(cfg, ["finetuning.freeze_backbone"])
-            if frozen is True:
+            frozen = get_nested_cfg(cfg, ["task.freeze_backbone", "finetuning.freeze_backbone"])
+            from_scratch = get_nested_cfg(cfg, ["task.from_scratch", "finetuning.from_scratch"])
+            if frozen is True and from_scratch is False:
                 tuning = "Head"
+            elif frozen is True and from_scratch is True:
+                tuning = "Frozen (Scratch)"
+            elif frozen is False and from_scratch is True:
+                tuning = "From Scratch"
             else:
                 tuning = "Full FT"
 
@@ -126,9 +73,10 @@ def compile_benchmarks(exp_root="./experiments"):
                 "fs": get_nested_cfg(cfg, ["data.sample_rate"]),
                 "window_duration": window_duration,
                 "split": split,
-                "frozen": get_nested_cfg(cfg, ["finetuning.freeze_backbone"]),
+                "frozen": get_nested_cfg(cfg, ["task.freeze_backbone", "finetuning.freeze_backbone"]),
+                "from_scratch": get_nested_cfg(cfg, ["task.from_scratch", "finetuning.from_scratch"]),
                 "tuning": tuning,
-                "pooling": get_nested_cfg(cfg, ["model.wrapper.pooling_type", "finetuning.pooling_type"]),
+                "pooling": get_nested_cfg(cfg, ["model.wrapper.pooling_type", "task.pooling_type"]),
             }
 
             # 3. Merge metrics into the record
@@ -347,6 +295,46 @@ def generate_paper_table(df):
     
     return header + body + footer
 
+def plot_benchmark_results(df, output_dir="figures"):
+    output_dir = Path(output_dir)
+    output_dir.mkdir(exist_ok=True)
+    
+    # Set academic style
+    sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
+    
+    # 1. Prepare data (same refining logic as your table)
+    # Ensure you have your model/dataset mappings applied here first
+    
+    metrics = ["test_acc", "test_f1"]
+    
+    for metric in metrics:
+        # Create a grid: Rows = Dataset, Cols = Metric
+        g = sns.catplot(
+            data=df, 
+            kind="bar", 
+            x="model_name", 
+            y=metric, 
+            hue="tuning", 
+            hue_order=["Frozen (Scratch)", "Head", "From Scratch", "Full FT"],
+            col="dataset_pretty",
+            col_wrap=1, 
+            height=4, 
+            aspect=2.5,
+            errorbar="sd",  # Shows standard deviation as error bars
+            palette="viridis",
+            edgecolor="black",
+            alpha=0.8
+        )
+        
+        g.set_titles("{col_name}")
+        g.set_axis_labels("", metric.upper().replace("TEST_", ""))
+        g.legend.set_title("Strategy")
+        
+        # Save
+        plt.savefig(output_dir / f"benchmark_{metric}.pdf", bbox_inches='tight')
+        plt.close()
+        print(f"Saved {metric} plot to {output_dir}")
+
 
 if __name__ == "__main__":
 
@@ -378,4 +366,5 @@ if __name__ == "__main__":
 
         print("\n--- LaTeX Table ---")
         latex_table = generate_paper_table(df)
+        plot_benchmark_results(df)
         print(latex_table)

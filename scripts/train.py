@@ -159,7 +159,8 @@ class Trainer:
                 break
 
         logging.info("Training complete.")
-
+        
+        return best_val_loss if self.is_main else None
 
     def _run_epoch(self, epoch):
         if self.distributed:
@@ -258,10 +259,11 @@ class Trainer:
             #     )
             wandb.log(wandb_data, step=epoch)
 
-        train_losses = [m['train_loss'] for m in self.metrics]
-        val_losses = [m['val_loss'] for m in self.metrics]
-        epochs = [m['epoch'] for m in self.metrics]
-        vis.plot_loss_curves(train_losses, val_losses, epochs, fpath=self.save_dir / "figures" / "loss_curves.png")
+        if self.cfg.experiment.plot_examples:
+            train_losses = [m['train_loss'] for m in self.metrics]
+            val_losses = [m['val_loss'] for m in self.metrics]
+            epochs = [m['epoch'] for m in self.metrics]
+            vis.plot_loss_curves(train_losses, val_losses, epochs, fpath=self.save_dir / "figures" / "loss_curves.png")
 
 
     def find_max_batch_size(self, start_bs=2, max_batch_size=256, safety_factor=0.8) -> int:
@@ -277,14 +279,19 @@ class Trainer:
             # Ensure everyone uses the same batch size
             self.cfg.data.batch_size = batch_size
             
-            loader = setup_data(self.cfg.data, mode="val", distributed=self.distributed)
+            loader = setup_data(self.cfg.data, mode="train", distributed=self.distributed)
             
             try:
                 batch = next(iter(loader))
                 torch.cuda.empty_cache()
+                torch.cuda.reset_peak_memory_stats()
 
                 self.task.train()  # Ensure model is in train mode for batch size testing, since that's usually more memory intensive than eval
-                self.task.train_step(batch)
+
+                # Run a few training steps to get an accurate measure of memory usage
+                for accum_step in range(3 * self.num_accumulation_steps):
+                    is_update_step = ((accum_step + 1) % self.num_accumulation_steps == 0)
+                    self.task.train_step(batch, is_update_step)
 
                 if self.is_main:
                     peak = torch.cuda.max_memory_allocated() / 1e9
@@ -314,6 +321,14 @@ class Trainer:
 
         return int(recommended.item())
         
+    def count_active_parameters(self):
+        """
+        Count parameters that are actually used in the forward pass
+        by registering hooks on all parameters.
+        """
+        sample_batch = next(iter(self.train_loader))
+        return self.task.count_active_parameters(sample_batch)
+    
 
 def main(cfg, overwrite=False, find_batch_size=False):
     """
@@ -331,9 +346,8 @@ def main(cfg, overwrite=False, find_batch_size=False):
     experiment_name = cfg.experiment.name
     save_experiment = cfg.experiment.save
     ddp_debug_mode = cfg.experiment.get("ddp_debug_mode", False)
-
-    use_wandb = cfg.logging.get("use_wandb", False)
-    wandb_project = cfg.logging.get("wandb_project", "emg-foundation-model")
+    use_wandb = cfg.experiment.get("use_wandb", False)
+    wandb_project = cfg.experiment.get("wandb_project", "emg-foundation-model")
 
     # 1. Set the random seed
     set_seed(seed)

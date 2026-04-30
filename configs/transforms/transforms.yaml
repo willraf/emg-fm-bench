@@ -11,6 +11,13 @@ transforms:
     order: 3 
     fs: ${data.sample_rate}
 
+  notch_filter:
+    _target_: src.data.transforms.NotchFilter
+    notch_freq: 50.0
+    quality_factor: 30.0
+    fs: ${data.sample_rate}
+    field: emg
+
   resample:
     _target_: src.data.transforms.Resample 
     field: emg

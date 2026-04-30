@@ -13,7 +13,7 @@ training:
 
 # These are specifically for the entry point script
 experiment:
-  name: ${data.root_key}/${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  name: ${data.root_key}/${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${task.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
   save: True
   resume: False
   random_seed: 42
@@ -21,9 +21,11 @@ experiment:
   use_wandb: True
   wandb_project: ${data.root_key}
   find_batch_size: True
+  plot_examples: True
 
 batch_size_finder:
   min_batch_size: 32
+  max_batch_size: 256
   base_batch_size: 128
   base_learning_rate: 0.0001
 

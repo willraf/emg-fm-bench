@@ -16,17 +16,6 @@ Usage:
 Authors:
     Will Raftery
 
-
-TODO:
-    - Change config to not use finetune section (will get confusing in the future)
-    - Standardise responsibility of the entry point (main functions in main.py, train.py, eval.py)
-        - Distributed setup
-        - Logging
-        - Wandb setup
-        - Set seed
-        - Finish wandb
-        - Cleanup distributed
-
 Date:
     31/07/2025
 """
@@ -37,7 +26,7 @@ import wandb
 
 from omegaconf import OmegaConf
 
-from src.utils.utils import get_experiment_directory, setup_distributed, save_exception, set_seed, setup_save_dir
+from src.utils.utils import get_experiment_directory, setup_distributed, save_exception, set_seed, setup_save_dir, prevent_logging
 
 from scripts.train import Trainer
 from scripts.eval import Evaluator
@@ -50,15 +39,7 @@ import gc
 import datetime
 
 
-def prevent_logging():
-    logger = logging.getLogger()
-    
-    # Clear any existing handlers (this nukes the auto-config from the warning)
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-    logger.setLevel(logging.ERROR)
-    logger.addHandler(logging.NullHandler())
-    return
+
 
 
 def get_max_batch_size(cfg, distributed, device, rank, local_rank, mode="train"):
@@ -72,8 +53,9 @@ def get_max_batch_size(cfg, distributed, device, rank, local_rank, mode="train")
     else:
         raise ValueError(f"Invalid mode {mode} for find_batch_size. Must be 'train' or 'eval'.")
     
+    max_batch_size = cfg.batch_size_finder.max_batch_size
     world_size = dist.get_world_size() if dist.is_initialized() else 1
-    per_gpu_batch_size = finder.find_max_batch_size()
+    per_gpu_batch_size = finder.find_max_batch_size(max_batch_size=max_batch_size)
     logging.info(f"Found max batch size of {per_gpu_batch_size} per GPU in {mode} mode with world size {world_size}.")
     del finder
     gc.collect()
@@ -137,8 +119,8 @@ def main(cfg=None):
     find_batch_size = cfg.experiment.find_batch_size
     ddp_debug_mode = cfg.experiment.get("ddp_debug_mode", False)
 
-    use_wandb = cfg.logging.get("use_wandb", False)
-    wandb_project = cfg.logging.get("wandb_project", "emg-foundation-model")
+    use_wandb = cfg.experiment.get("use_wandb", False)
+    wandb_project = cfg.experiment.get("wandb_project", "emg-foundation-model")
 
     # 1. Set the random seed
     set_seed(seed)
@@ -148,13 +130,15 @@ def main(cfg=None):
     is_main = (rank == 0)
 
     # 3. setup logging and results, config, figures etc. saving directory
+    # Only the main process should log to console
+    if not is_main:
+        prevent_logging()
+
     experiment_dir = get_experiment_directory(experiment_name=experiment_name, save_flag=save_experiment)
     train_dir = setup_save_dir(cfg, experiment_dir=experiment_dir, overwrite=True, mode='train', is_main_process=is_main)
     eval_dir = setup_save_dir(cfg, experiment_dir=experiment_dir, overwrite=True, mode='eval', is_main_process=is_main)
 
-    # Only the main process should log to console
-    if not is_main:
-        prevent_logging()
+
 
      # 4. Setup weights and biases logging
     if is_main and use_wandb:

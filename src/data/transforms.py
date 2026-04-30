@@ -185,6 +185,34 @@ class BandPassFilter(DictTransform):
 
 
 @dataclass
+class NotchFilter(DictTransform):
+    notch_freq: float
+    quality_factor: float
+    fs: int
+    field: str = "emg"
+
+    def __post_init__(self):
+        super().__init__(self.field)
+        b, a = signal.iirnotch(self.notch_freq, self.quality_factor, fs=self.fs)
+        self.b = torch.tensor(b, dtype=torch.float32)
+        self.a = torch.tensor(a, dtype=torch.float32)
+
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        # x shape (time, channels)
+        squeeze = False
+        if len(x.shape) == 2:
+            x = x.unsqueeze(0)  # (1, channels, time)
+            squeeze = True
+
+        y = torchaudio.functional.lfilter(
+            x,
+            self.a.to(x.device),
+            self.b.to(x.device),
+        )
+
+        return y.squeeze(0) if squeeze else y
+
+@dataclass
 class Resample(DictTransform):
     orig_fs: int
     target_fs: int

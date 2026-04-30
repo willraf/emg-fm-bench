@@ -30,6 +30,17 @@ import torch
 import traceback
 
 
+def prevent_logging():
+    logger = logging.getLogger()
+    
+    # Clear any existing handlers (this nukes the auto-config from the warning)
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    logger.setLevel(logging.ERROR)
+    logger.addHandler(logging.NullHandler())
+    return
+
+
 def setup_distributed_debug():
     """
     This funciton is exclusively for debugging distributed training on a single GPU

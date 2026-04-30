@@ -347,3 +347,43 @@ class FinetuneClassificationTask(BaseTask):
         logging.info(f"Inference latency: {mean_ms:.2f} ± {std_ms:.2f} ms/batch "
                     f"({mean_ms / sample_input.shape[0]:.2f} ms/sample)")
         return mean_ms, std_ms
+
+
+    def count_active_parameters(self, sample_batch):
+        """
+        Count parameters that are actually used in the forward pass
+        by registering hooks on all parameters.
+        """
+        used_params = set()
+
+        hooks = []
+        for name, param in self.model.named_parameters():
+            # Closure to capture name
+            def make_hook(n):
+                def hook(grad):
+                    used_params.add(n)
+                return hook
+            hooks.append(param.register_hook(make_hook(name)))
+
+        # Run a forward + backward pass to trigger hooks
+        self.model.train()
+        with torch.enable_grad():
+            output = self.model(sample_batch)
+            if isinstance(output, torch.Tensor):
+                output.sum().backward()
+            elif isinstance(output, (tuple, list)):
+                output[0].sum().backward()
+
+        # Remove hooks
+        for h in hooks:
+            h.remove()
+
+        self.model.zero_grad()
+
+        active = {n: p for n, p in self.model.named_parameters() if n in used_params}
+        inactive = {n: p for n, p in self.model.named_parameters() if n not in used_params}
+
+        active_count   = sum(p.numel() for p in active.values())
+        inactive_count = sum(p.numel() for p in inactive.values())
+
+        return active_count, inactive_count, active, inactive

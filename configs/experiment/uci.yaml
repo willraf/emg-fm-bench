@@ -9,11 +9,14 @@ data:
   window_length: 1000
   split_type: inter_subject
 
-finetuning:
+task:
   freeze_backbone: True
 
 experiment:
-  name: ${data.root_key}/${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${finetuning.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  name: ${data.root_key}_no_resample/${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${task.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  
+batch_size_finder:
+  max_batch_size: 64
 
 logging:
   log_interval: 10
@@ -25,7 +28,8 @@ hydra:
   sweeper:
     params:
       # data.split_type: inter_subject, intra_session
-      data.window_length: 200, 1000
-      finetuning.freeze_backbone: True,False
+      # data.window_length: 200, 1000
+      # model: neurorvq, tinymyo, physiowave
+      # task.freeze_backbone: True,False
       experiment.random_seed: 2, 50, 100
-      
+      # 'override /dataset': epn612, ninapro_db5, uci_emg
