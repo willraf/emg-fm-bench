@@ -13,7 +13,6 @@ Date:
     29/04/2026
 """
 
-import h5py
 import scipy.io
 import numpy as np
 import argparse
@@ -24,7 +23,10 @@ import urllib.request
 import zipfile
 import io
 import json
+import csv
+
 import pyedflib
+import pandas as pd
 
 def download_ninapro_db5(data_dir):
     """
@@ -190,6 +192,181 @@ def create_participants_json(output_dir):
         json.dump(participants, f, indent=4)
 
 
+def create_events_json(output_dir, exercise_name):
+
+    if exercise_name == "ExerciseA":
+        gesture_id = {
+            "Description": "The gesture number (0-12, where 1-12 are movements and 0 is rest)",
+            "Levels": {
+                0: "rest",
+                1: "Index flexion",
+                2: "Index extension",
+                3: "Middle flexion",
+                4: "Middle extension",
+                5: "Ring flexion",
+                6: "Ring extension",
+                7: "Little flexion",
+                8: "Little extension",
+                9: "Thumb adduction",
+                10: "Thumb abduction",
+                11: "Thumb flexion",
+                12: "Thumb extension"
+            }
+        }
+    elif exercise_name == "ExerciseB":
+        gesture_id = {
+            "Description": "The gesture number (0-17, where 1-17 are movements and 0 is rest)",
+            "Levels": {
+                0: "rest",
+                1: "Thumb up",
+                2: "Extension of index and middle, flexion of others",
+                3: "Flexion of ring and little finger, extension of others",
+                4: "Thumb opposing base of little finger",
+                5: "Abduction of all fingers",
+                6: "Fingers flexed together in fist",
+                7: "Pointing index",
+                8: "Adduction of extended fingers",
+                9: "Wrist supination (axis: middle finger)",
+                10: "Wrist pronation (axis: middle finger)",
+                11: "Wrist supination (axis: little finger)",
+                12: "Wrist pronation (axis: little finger)",
+                13: "Wrist flexion",
+                14: "Wrist extension",
+                15: "Wrist radial deviation",
+                16: "Wrist ulnar deviation",
+                17: "Wrist extension with closed hand"
+            }
+        }
+    elif exercise_name == "ExerciseC":
+        gesture_id = {
+            "Description": "The gesture number (0-23, where 1-23 are movements and 0 is rest)",
+            "Levels": {
+                0: "rest",
+                1: "Large diameter grasp",
+                2: "Small diameter grasp (power grip)",
+                3: "Fixed hook grasp",
+                4: "Index finger extension grasp",
+                5: "Medium wrap",
+                6: "Ring grasp",
+                7: "Prismatic four fingers grasp",
+                8: "Stick grasp",
+                9: "Writing tripod grasp",
+                10: "Power sphere grasp",
+                11: "Three finger sphere grasp",
+                12: "Precision sphere grasp",
+                13: "Tripod grasp",
+                14: "Prismatic pinch grasp",
+                15: "Tip pinch grasp",
+                16: "Quadpod grasp",
+                17: "Lateral grasp",
+                18: "Parallel extension grasp",
+                19: "Extension type grasp",
+                20: "Power disk grasp",
+                21: "Open a bottle with a tripod grasp",
+                22: "Turn a screw (grasp the screwdriver with a stick grasp)",
+                23: "Cut something (grasp the knife with an index finger extension grasp)"
+            }
+        }
+
+    events = {
+        "onset": {
+            "Description": "Time of the event onset",
+            "Units": "s"
+        },
+        "duration": {
+            "Description": "Duration of the event",
+            "Units": "s"
+        },
+        "sample": {
+            "Description": "Event onset sample (at 200Hz)",
+            "Units": "samples"
+        },
+        "sample_duration": {
+            "Description": "Event duration in samples (at 200Hz)",
+            "Units": "samples"
+        },
+        "trial_type": {
+            "LongName": "Event Category",
+            "Description": "The type of event that occured.",
+            "Levels": {
+                "prompt": "stimulus/repetition aligned event (the cue shown to the subject)",
+                "action": "restimulus/rerepetition aligned event (the actual movement onset)",
+            }
+        },
+        "gesture_id": gesture_id,
+        "repetition": {
+            "Description": "The repetition number of the movement (1-6)",
+            "Units": "repetitions"
+        },
+        "global_gesture_id": {
+            "Description": "The global gesture number (0-52, where 1-52 are movements and 0 is rest)",
+            "Levels": {
+                0: "rest",
+                1: "Index flexion",
+                2: "Index extension",
+                3: "Middle flexion",
+                4: "Middle extension",
+                5: "Ring flexion",
+                6: "Ring extension",
+                7: "Little flexion",
+                8: "Little extension",
+                9: "Thumb adduction",
+                10: "Thumb abduction",
+                11: "Thumb flexion",
+                12: "Thumb extension",
+                13: "Thumb up",
+                14: "Extension of index and middle, flexion of others",
+                15: "Flexion of ring and little finger, extension of others",
+                16: "Thumb opposing base of little finger",
+                17: "Abduction of all fingers",
+                18: "Fingers flexed together in fist",
+                19: "Pointing index",
+                20: "Adduction of extended fingers",
+                21: "Wrist supination (axis: middle finger)",
+                22: "Wrist pronation (axis: middle finger)",
+                23: "Wrist supination (axis: little finger)",
+                24: "Wrist pronation (axis: little finger)",
+                25: "Wrist flexion",
+                26: "Wrist extension",
+                27: "Wrist radial deviation",
+                28: "Wrist ulnar deviation",
+                29: "Wrist extension with closed hand",
+                30: "Large diameter grasp",
+                31: "Small diameter grasp (power grip)",
+                32: "Fixed hook grasp",
+                33: "Index finger extension grasp",
+                34: "Medium wrap",
+                35: "Ring grasp",
+                36: "Prismatic four fingers grasp",
+                37: "Stick grasp",
+                38: "Writing tripod grasp",
+                39: "Power sphere grasp",
+                40: "Three finger sphere grasp",
+                41: "Precision sphere grasp",
+                42: "Tripod grasp",
+                43: "Prismatic pinch grasp",
+                44: "Tip pinch grasp",
+                45: "Quadpod grasp",
+                46: "Lateral grasp",
+                47: "Parallel extension grasp",
+                48: "Extension type grasp",
+                49: "Power disk grasp",
+                50: "Open a bottle with a tripod grasp",
+                51: "Turn a screw (grasp the screwdriver with a stick grasp)",
+                52: "Cut something (grasp the knife with an index finger extension grasp)"
+            }
+        }
+    }
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_path = output_dir / f'task-{exercise_name}_events.json'
+
+    with open(output_path, 'w') as f:
+        json.dump(events, f, indent=4)
+
+
 def create_participants_tsv(participants, output_dir):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -204,11 +381,20 @@ def create_participants_tsv(participants, output_dir):
 def exercise_num_to_name(exercise_num):
     """Mapping are pretty weird, but we're mapping to names given in docs"""
     exercise_mapping = {
-        1: "Exercise B",
-        2: "Exercise C",
-        3: "Exercise A",
+        1: "ExerciseB",
+        2: "ExerciseC",
+        3: "ExerciseA",
     }
     return exercise_mapping.get(exercise_num, f"exercise_{exercise_num:02d}")
+
+
+def task_name_to_description(task_name):
+    task_mapping = {
+        "ExerciseA": "12 basic hand movements (flexions/extensions of fingers and thumb)",
+        "ExerciseB": "8 hand/wrist movements and 9 wrist postures",
+        "ExerciseC": "22 grasping tasks and 1 open/close hand task",
+    }
+    return task_mapping.get(task_name, "n/a")
 
 
 def get_participant_metadata(mat):
@@ -236,17 +422,23 @@ def get_participant_metadata(mat):
         
 
 def write_emg(emg, emg_fpath):
-    with pyedflib.EdfWriter(str(emg_fpath), n_channels=emg.shape[1], file_type=pyedflib.FILETYPE_EDFPLUS) as edf_writer:
+    """
+    Args:
+        emg: Shape (C, T) numpy array containing the EMG data
+        emg_fpath: Path to save the EDF file to. Must be *_emg.edf
+    """
+    n_channels = emg.shape[0]
+    with pyedflib.EdfWriter(str(emg_fpath), n_channels=n_channels, file_type=pyedflib.FILETYPE_EDFPLUS) as edf_writer:
         channel_info = []
-        for i in range(emg.shape[1]):
+        for i in range(n_channels):
             channel_info.append({
                 'label': f'EMG{i+1}',
                 'dimension': 'arbitrary',
-                'sample_rate': 200,  
-                'physical_min': np.min(emg[:, i]),
-                'physical_max': np.max(emg[:, i]),
-                'digital_min': -128,
-                'digital_max': 128,
+                'sample_frequency': 200,  
+                'physical_min': -128.0,
+                'physical_max': 128.0,
+                'digital_min': -128,   
+                'digital_max': 128,  
             })
         edf_writer.setSignalHeaders(channel_info)
         edf_writer.writeSamples(emg)
@@ -255,7 +447,7 @@ def write_emg(emg, emg_fpath):
 def create_emg_json(emg_json_fpath, sampling_rate, duration, task_label):
     emg_json = {
         "EMGPlacementScheme": "Other",
-        "EMGPlacementDescription": "Two, 8-channel Myo armbands placed laterally adjecent on the forearm. The upper Myo armband is placed closer to the elbow with the first electrode on the radio humeral joint. The lower Myo armband is placed just below the first, closer to the hand, tilted of 22.5°",
+        "EMGPlacementSchemeDescription": "Two, 8-channel Myo armbands placed laterally adjecent on the forearm. The upper Myo armband is placed closer to the elbow with the first electrode on the radio humeral joint. The lower Myo armband is placed just below the first, closer to the hand, tilted of 22.5°",
         "EMGReference": "Bipolar",
         "SamplingFrequency": sampling_rate,
         "PowerLineFrequency": 50,
@@ -273,31 +465,167 @@ def create_emg_json(emg_json_fpath, sampling_rate, duration, task_label):
         "Manufacturer": "Thalmic Labs",
         "ManufacturersModelName": "Myo Armband",
         "TaskName": task_label,
+        "TaskDescription": task_name_to_description(task_label)
     }
     with open(emg_json_fpath, 'w') as f:
         json.dump(emg_json, f, indent=4)
 
 
-def create_events(mat, output_dir):
-    # Extract the relevant variables
-    repetition = mat['repetition'].flatten()
-    stimulus = mat['stimulus'].flatten()
-    rerepetition = mat['rerepetition'].flatten()
-    restimulus = mat['restimulus'].flatten()
+def get_global_gesture_id(gesture_id, exercise_id):
+    """Maps the gesture_id (which is local to each exercise) to a global gesture id (which is unique across all exercises)
+    
+    NinaPro DB5 has a unique gesture distribution across exercises:
+    
+    Each exercise has a different set of gestures:
 
-    diff = np.diff(stimulus, prepend=-1)
+    Exercise 1 (2 in fname, B in docs): 17 gestures (1-17)
+    Exercise 2 (3 in fname, C in docs): 23 gestures (18-40)
+    Exercise 3 (1 in fname, A in docs): 12 gestures (41-52)
+    """
+    if gesture_id == 0:
+        return 0  # rest is always 0
+    
+    if exercise_id == 3:  # Exercise A
+        return gesture_id  # 1-12 map to 1-12
+    elif exercise_id == 1:  # Exercise B
+        return gesture_id + 12  # 1-17 map to 13-29 
+    elif exercise_id == 2:  # Exercise C
+        return gesture_id + 12 + 17  # 1-23 map to 30-52
+    else:
+        raise ValueError(f"Unknown exercise_id {exercise_id} for gesture_id mapping")
+
+
+def extract_events(label_array, rep_array, trial_type_label, frequency, exercise_id):
+    """
+    Helper funciton to extract events from the stimulus and repetition arrays. 
+    Can be used for both prompt (stimulus/repetition) and action (restimulus/rerepetition) events
+    """
+    diff = np.diff(label_array, prepend=-1)
     starts = np.where(diff != 0)[0]
-    ends = np.append(starts[1:], len(stimulus))
+    ends = np.append(starts[1:], len(label_array))
 
-    # Create events.tsv
-    events_fpath = Path(output_dir) / "events.tsv"
-    with open(events_fpath, 'w') as f:
-        f.write("onset\tduration\ttrial_type\n")
-        for i in range(len(repetition)):
-            f.write(f"{repetition[i]}\t{stimulus[i]}\t{rerepetition[i]}_{restimulus[i]}\n")
+    rows = []
 
-def main(dataset_dir, output_dir, download_data):
+    for start, end in zip(starts, ends):
+        stim_val = int(label_array[start])
+        rep_val  = int(rep_array[start])
+
+        gesture_id = stim_val
+        global_gesture_id = get_global_gesture_id(gesture_id, exercise_id)
+
+        rows.append({
+            "onset": round(start / frequency, 6),
+            "duration": round((end - start) / frequency, 6),
+            "sample": start,
+            "sample_duration": end - start,
+            "trial_type": trial_type_label,
+            "gesture_id": gesture_id,
+            "repetition": rep_val,
+            "global_gesture_id": global_gesture_id,
+        })
+
+    return rows
+
+
+def create_events_tsv(mat, filepath):
+    # Extract the relevant variables
+    repetition   = mat['repetition'].flatten().astype(int)
+    stimulus     = mat['stimulus'].flatten().astype(int)
+    rerepetition = mat['rerepetition'].flatten().astype(int)
+    restimulus   = mat['restimulus'].flatten().astype(int)
+    frequency    = int(mat['frequency'][0][0])
+    exercise_id  = int(mat['exercise'][0][0])
+
+    rows = []
+
+    rows.extend(extract_events(stimulus, repetition, "prompt", frequency, exercise_id))
+    rows.extend(extract_events(restimulus, rerepetition, "action", frequency, exercise_id))
+    # Sort by onset time
+    rows = sorted(rows, key=lambda x: x['onset'])
+    
+    df = pd.DataFrame(rows, columns=["onset", "duration", "sample", "sample_duration", "trial_type", "gesture_id", "repetition", "global_gesture_id"])
+    
+    # Save to all fpaths if its a list
+    if isinstance(filepath, list):
+        for fpath in filepath:
+            df.to_csv(fpath, sep='\t', index=False)
+    else:
+        df.to_csv(filepath, sep='\t', index=False)
+
+
+def create_motion_json(sampling_rate: int,
+                        task_name: str, 
+                        manufacturer: str, 
+                        model_name: str, 
+                        tracking_system: str,
+                        channel_counts: dict, 
+                        filepath: Path):
+
+    metadata = {
+        "SamplingFrequency": sampling_rate,
+        "TaskName": task_name,
+        "TaskDescription": task_name_to_description(task_name),
+        "Manufacturer": manufacturer,
+        "ManufacturersModelName": model_name,
+        "TrackingSystemName": tracking_system
+    }
+
+    metadata.update(channel_counts)
+    
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(metadata, f, indent=4)
+
+# def create_motion_channels_tsv(filepath: Path, 
+#                                 channels: List[Dict[str, str]]):
+#     """
+#     Create BIDS *_channels.tsv file for motion data, which describes the individual channels in the motion data files.
+
+#     Args:
+#         filepath (Path): The path to the channels.tsv file to create.
+#         channels (List[Dict[str, str]]): A list of dictionaries, each describing a channel with keys: 'name', 'component', 'type', 'tracked_point', 'units'.
+#     """
+#     df = pd.DataFrame(channels)
+#     print(df)
+#     df.to_csv(filepath, sep='\t', index=False)
+
+def create_acc_channels_tsv(filepath: Path):
+    headers = ["name", "component", "type", "tracked_point", "units"]
+    channels = [
+        ["acc_x", "x", "ACCEL", "forearm", "m/s^2"],
+        ["acc_y", "y", "ACCEL", "forearm", "m/s^2"],
+        ["acc_z", "z", "ACCEL", "forearm", "m/s^2"]
+    ]
+
+    df = pd.DataFrame(channels, columns=headers)
+    df.to_csv(filepath, sep='\t', index=False)
+
+
+def create_glove_channels_tsv(filepath, num_sensors=22):
+    """Generates the _channels.tsv for the Cyberglove joint angles."""
+    headers = ["name", "component", "type", "tracked_point", "units"]
+    channels = []
+    
+    # Type MUST be JNTANG (Joint Angle) [8] and component is n/a for angles
+    for i in range(num_sensors):
+        channels.append([
+            f"joint_{i+1}", 
+            "n/a", 
+            "JNTANG", 
+            f"glove_sensor_{i+1}", 
+            "deg"
+        ])
+        
+    with open(filepath, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f, delimiter='\t')
+        writer.writerow(headers)
+        writer.writerows(channels)
+
+def main(dataset_dir, output_dir, download_data=False):
     output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    dataset_dir = Path(dataset_dir)
+
     if download_data:
         download_ninapro_db5(dataset_dir)
     
@@ -306,6 +634,8 @@ def main(dataset_dir, output_dir, download_data):
     create_dataset_description(output_dir)
     create_readme(output_dir)
     create_participants_json(output_dir)
+    for exercise_name in ["ExerciseA", "ExerciseB", "ExerciseC"]:
+        create_events_json(output_dir, exercise_name)
     # Create data structure to track participants
     participants = {}
 
@@ -333,10 +663,14 @@ def main(dataset_dir, output_dir, download_data):
         motion_dir.mkdir(parents=True, exist_ok=True)
 
         # Create the events tsv and json sidecar from the repetition, stimulus, rerepetition, and restimulus variables
-        create_events(mat, output_dir)
+        events_fpath = [
+            emg_dir / f"{base_filename}_events.tsv",
+            motion_dir / f"{base_filename}_events.tsv"
+        ]
+        create_events_tsv(mat, events_fpath)
 
         # Save EMG data in edf
-        emg = mat['emg'].T       # shape (n_channels, n_samples), this shape is expected by edf format
+        emg = mat['emg'].astype(np.float32).T      # (T, C) -> (C, T)
         emg_fpath = emg_dir / f"{base_filename}_emg.edf"
         write_emg(emg, emg_fpath)
 
@@ -345,10 +679,38 @@ def main(dataset_dir, output_dir, download_data):
         duration = emg.shape[1] / sampling_rate
         create_emg_json(emg_dir / f"{base_filename}_emg.json", sampling_rate, duration, task_label)
 
-        acc = mat['acc'].astype(np.float32)
+        # Save kinematics data in tsv
+        acc = mat['acc'].astype(np.float32)     #
         glove = mat['glove'].astype(np.float32)
+        
+        # Save acc and glove data in separate files
+        acc_base = f"{base_filename}_tracksys-myoband"
+        create_motion_json(sampling_rate, 
+                           task_label,
+                           "Thalmic Labs", 
+                           "Myo Armband", 
+                           "Accelerometer from sEMG band on right forearm", 
+                           {"ACCELChannelCount": acc.shape[1]}, 
+                           motion_dir / f"{acc_base}_motion.json")
+        
+        create_acc_channels_tsv(motion_dir / f"{acc_base}_channels.tsv")
+        # Actually save the data
+        np.savetxt(motion_dir / f"{acc_base}_motion.tsv", acc, delimiter='\t')
 
+        # save glove data
+        glove_base = f"{base_filename}_tracksys-glove"
+        create_motion_json(sampling_rate,
+                           task_label,
+                           "CyberGlove Systems LLC", 
+                           "CyberGlove II", 
+                           "Data glove with 22 sensors on the right hand", 
+                           {"JNTANGChannelCount": glove.shape[1]}, 
+                           motion_dir / f"{glove_base}_motion.json")
+        create_glove_channels_tsv(motion_dir / f"{glove_base}_channels.tsv")
+        np.savetxt(motion_dir / f"{glove_base}_motion.tsv", glove, delimiter='\t')
 
+    create_participants_tsv(participants, output_dir)
+    print("Conversion complete!")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

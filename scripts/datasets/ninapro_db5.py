@@ -36,9 +36,6 @@ TRAIN_REPS = [1, 3, 4, 6]
 VAL_REPS = [2]
 TEST_REPS = [5]
 
-INCLUDE_REST = False
-SEGMENT_GESTURES = True
-
 def get_gesture_id(exercise_id, stimulus_id):
     """NinaPro DB5 has a unique gesture distribution across exercises:
     
@@ -50,20 +47,32 @@ def get_gesture_id(exercise_id, stimulus_id):
     """
 
     if stimulus_id == 0: return 0 # Rest is always 0
-    
-    # Offsets based on the 17, 23, 12 distribution
-    if exercise_id == 1:
-        return stimulus_id
-    elif exercise_id == 2:
-        return stimulus_id + 17
-    elif exercise_id == 3:
-        return stimulus_id + 17 + 23
-    return stimulus_id
+
+    if exercise_id == 3:  # Exercise A
+        return stimulus_id  # 1-12 map to 1-12
+    elif exercise_id == 1:  # Exercise B
+        return stimulus_id + 12  # 1-17 map to 13-29
+    elif exercise_id == 2:  # Exercise C
+        return stimulus_id + 12 + 17  # 1-23 map to 30-52
+    else:
+        raise ValueError(f"Unknown exercise_id {exercise_id} for gesture_id mapping")
+
 
 def get_global_gesture_id(gesture_id):
     """Convert dataset-specific gesture IDs to a global standard for multi-dataset training
     currently left as placeholder"""
     return gesture_id
+
+
+def exercise_id_to_name(exercise_id):
+    if exercise_id == 3:
+        return 'ExerciseA'
+    elif exercise_id == 1:
+        return 'ExerciseB'
+    elif exercise_id == 2:
+        return 'ExerciseC'
+    else:
+        return 'Unkown'
 
 def process_metadata(mat):
     """Standardize NinaPro metadata to match DATA_SPEC.md"""
@@ -77,22 +86,33 @@ def process_metadata(mat):
     lat = str(mat['laterality'][0]).lower()
     handedness = 'r' if 'r' in lat else ('l' if 'l' in lat else 'u')
 
+    subject_num = int(mat['subject'][0][0])
+    # show as two numeric digits for better sorting (e.g. sub-01, sub-02, ..., sub-10)
+    subject_id = f"sub-{subject_num:02d}"
+
     standard_user = {
-        'participant_id': f"sub-{int(mat['subject'][0][0])}",
+        'participant_id': subject_id,
         'age': int(mat['age'][0][0]),
         'sex': gender,
         'handedness': handedness,
-        'weight_kg': float(mat['weight'][0][0]),
-        'height_cm': float(mat['height'][0][0]),
-        'forearm_circumference_cm': float(mat['circumference'][0][0]),
+        'weight': float(mat['weight'][0][0]),
+        'height': float(mat['height'][0][0]),
+        'forearm_circumference': float(mat['circumference'][0][0]),
     }
     
     standard_session = {
+        'inter_session_split': 'n/a',  # NinaPro DB5 doesn't have multiple sessions per subject
+        'side': 'r',  # All right hand movements in NinaPro DB5
+    }
+
+    standard_run = {
+        'exercise_id': int(mat['exercise'][0][0]),
         'sample_rate': int(mat['frequency'][0][0]),
-        'exercise_id': int(mat['exercise'][0][0])
+        'task_name': exercise_id_to_name(int(mat['exercise'][0][0])),
+        'side': 'r',  # All right hand movements in NinaPro DB5
     }
     
-    return standard_user, standard_session
+    return standard_user, standard_session, standard_run
 
 def download_ninapro_db5(data_dir):
     """
@@ -130,7 +150,18 @@ def download_ninapro_db5(data_dir):
             print(f"Error downloading subject {i}: {e}")
 
 
-def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
+def write_modality(run_group, modality_name, data_array, metadata):
+    run_group.create_dataset(modality_name, data=data_array, compression="lzf")
+    for k, v in metadata.items():
+        run_group[modality_name].attrs[k] = v
+    
+    if len(data_array.shape) > 1: 
+        run_group[modality_name].attrs['n_channels'] = data_array.shape[1]
+    run_group[modality_name].attrs['n_samples'] = data_array.shape[0]
+    run_group[modality_name].attrs['recording_duration'] = data_array.shape[0] / metadata.get('sample_rate', 200)
+
+
+def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False, include_rest=False, segment_gestures=True):
     dataset_dir = Path(dataset_dir)
     dataset_dir.mkdir(parents=True, exist_ok=True)
 
@@ -141,7 +172,7 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
         output_dir.parent.mkdir(parents=True, exist_ok=True)
         output_fpath = output_dir / "ninapro_db5.hdf5"
 
-    # Should work with both nested and slat dir structures
+    # Should work with both nested and flat dir structures
     mat_files = sorted(dataset_dir.rglob("*.mat"))
 
     if download_data and len(mat_files) == 0:
@@ -161,7 +192,7 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
         for fpath in tqdm(mat_files, desc="Converting NinaPro DB5"):
             mat = scipy.io.loadmat(str(fpath))
 
-            user_std, sess_std = process_metadata(mat)
+            user_std, sess_std, run_std = process_metadata(mat)
             
             # --------------------------------------------------
             #            Create or open subject group
@@ -193,14 +224,12 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
             #            Create or open session group
             # --------------------------------------------------
             # We treat the three exercises as a single session per subject, as they do not explicitly state that the sensors were removed/reapplied between exercises
-            session_key = f"session-01"
+            session_key = f"ses-01"
+            sess_std['session_id'] = session_key
             if session_key not in subj_group:
                 sess_group = subj_group.create_group(session_key)
                 for k, v in sess_std.items():
                     sess_group.attrs[k] = v
-                sess_group.attrs['inter_session_split'] = 'n/a'  # NinaPro DB5 doesn't have multiple sessions per subject
-                sess_group.attrs['inter_subject_split'] = subj_group.attrs.get('inter_subject_split', 'unknown')
-                sess_group.attrs['side'] = 'r'  # All right hand movements in NinaPro DB5
             else:
                 sess_group = subj_group[session_key]
 
@@ -209,7 +238,7 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
             #            get timeseries data and labels
             # --------------------------------------------------
             # Continuous data arrays
-            emg = mat['emg'].astype(np.float32) / 128.0 # Standardize to [-1, 1]
+            emg = mat['emg'].astype(np.float32) #/ 128.0 # Standardize to [-1, 1]
             acc = mat['acc'].astype(np.float32)
             glove = mat['glove'].astype(np.float32)
             
@@ -219,47 +248,56 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
 
 
             # Include the full unsegmented data as a "run"
-            if not SEGMENT_GESTURES:
-                exercise_id = sess_std['exercise_id']
-                run_key = f"run-{exercise_id}"
-                run_group = sess_group.create_group(run_key)
-                run_group.attrs['inter_session_split'] = 'n/a' 
-                run_group.attrs['intra_session_split'] = 'n/a'  
-                run_group.attrs['inter_subject_split'] = subj_group.attrs.get('inter_subject_split', 'unknown')
-                run_group.attrs['exercise_id'] = exercise_id
-                run_group.attrs['side'] = 'r'  # All right hand movements in NinaPro DB5
+            if not segment_gestures:
+                exercise_id = run_std['exercise_id']
+                run_key = f"run-{exercise_id:02d}"
+                run_std['run_id'] = run_key
 
-                for k, v in sess_std.items():
+                run_group = sess_group.create_group(run_key)
+                run_std['intra_session_split'] = 'n/a'   # Without segmentation, we can't assign train/val/test splits at the run level based on repetitions
+
+                for k, v in run_std.items():
                     run_group.attrs[k] = v
 
-
-                # 1. EMG (T, 16) 
-                run_group.create_dataset("emg", data=emg, compression="lzf")
-                run_group["emg"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
-                run_group["emg"].attrs['units'] = 'normalized'
-                sensor_val = mat.get('sensor', ['unknown'])[0]
-                # Use np.string_ to ensure it's HDF5-compatible (fixed-width)
-                run_group["emg"].attrs['sensor_type'] = str(sensor_val)
-
                 # NinaPro DB5 has already been resampled to 200Hz, so all modalities should be aligned by index
-                
-                # 2. Accel (T, 3)
-                run_group.create_dataset("accel", data=acc, compression="lzf")
-                run_group["accel"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
-                run_group["accel"].attrs['sensor_type'] = str(sensor_val)
-                
-                # 3. Glove (T, 22) - Kinematic ground truth
-                run_group.create_dataset("glove", data=glove, compression="lzf")
-                run_group["glove"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
-                run_group["glove"].attrs['sensor_type'] = 'cyber_glove'
+                emg_meta = {
+                    'sample_rate': run_std.get('sample_rate', 200),
+                    'sensor_type': str(mat.get('sensor', ['unknown'])[0]),
+                    'units': 'normalized [-1, 1]',
+                }
+                write_modality(run_group, "emg", emg, emg_meta)
 
-                # 4. Labels
-                run_group.create_dataset("stimulus", data=stimulus, compression="lzf")
-                run_group["stimulus"].attrs['description'] = "Original restimulus labels from NinaPro DB5"
+                accel_meta = {
+                    'sample_rate': run_std.get('sample_rate', 200),
+                    'sensor_type': str(mat.get('sensor', ['unknown'])[0]),
+                }
+                write_modality(run_group, "accel", acc, accel_meta)
 
-                run_group.create_dataset("repetition", data=repetition, compression="lzf")
-                run_group["repetition"].attrs['description'] = "Original rerepetition labels from NinaPro DB5"
+                jntang_meta = {
+                    'sample_rate': run_std.get('sample_rate', 200),
+                    'sensor_type': 'CyberGlove II',
+                    'units': 'degrees',  # Assuming joint angles are in degrees; adjust if in radians
+                }
+                write_modality(run_group, "jntang", glove, jntang_meta)
 
+                gesture_id_meta = {
+                    'description': "Original restimulus labels from NinaPro DB5",
+                    'sample_rate': run_std.get('sample_rate', 200),
+                }
+                write_modality(run_group, "gesture_id", stimulus, gesture_id_meta)
+
+                repetition_meta = {
+                    'description': "Original rerepetition labels from NinaPro DB5",
+                    'sample_rate': run_std.get('sample_rate', 200),
+                }
+                write_modality(run_group, "repetition", repetition, repetition_meta)
+
+                global_gesture_meta = {
+                    'description': "Global gesture IDs mapped from original restimulus labels, for cross-dataset consistency",
+                    'sample_rate': run_std.get('sample_rate', 200),
+                }
+                global_gesture_ids = np.array([get_global_gesture_id(get_gesture_id(run_std['exercise_id'], stim)) for stim in stimulus], dtype=np.int16)
+                write_modality(run_group, "global_gesture_id", global_gesture_ids, global_gesture_meta)
 
             else:    
 
@@ -276,20 +314,20 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
                     stim_idx = int(stim_idx)
                     rep_idx = int(rep_idx)
 
-                    if not INCLUDE_REST and stim_idx == 0:
+                    if not include_rest and stim_idx == 0:
                         continue
                     
                     # We still ignore very short windows
-                    # NOTE: includnig rest is likely to cause label leakage, as distribution of signal lengths is very different for rest vs active periods.
+                    # NOTE: including rest is likely to cause label leakage, as distribution of signal lengths is very different for rest vs active periods.
                     if (end - start) < 200: 
                         continue
                     
-                    exercise_id = sess_std['exercise_id']
+                    exercise_id = run_std['exercise_id']
                     gesture_id = get_gesture_id(exercise_id, stim_idx)
 
                     # 3. Handle naming for Rest (Label 0)
                     # We add a unique counter 'T' for run because Repetition 0 isn't unique
-                    if INCLUDE_REST:
+                    if include_rest:
                         new_run_id = int(rep_idx) + (6 * (gesture_id))
                     else:
                         new_run_id = int(rep_idx) + (6 * (gesture_id-1))  # Shift down by 1 to account for excluded rest
@@ -298,50 +336,48 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False):
                     run_group = sess_group.create_group(run_key)
                     
                     # Metadata
-                    run_group.attrs['gesture_id'] = gesture_id
-                    run_group.attrs['repetition_id'] = rep_idx
-                    run_group.attrs['exercise_id'] = exercise_id
-                    run_group.attrs['side'] = 'r'  # All right hand movements in NinaPro DB5
+                    run_std['gesture_id'] = gesture_id
+                    run_std['run_id'] = run_key
+                    run_std['rep'] = rep_idx
 
                     if rep_idx == 2:  # Validation repetition
-                        run_group.attrs['intra_session_split'] = 'val'
+                        run_std['intra_session_split'] = 'val'
                     elif rep_idx == 5:  # Test repetition
-                        run_group.attrs['intra_session_split'] = 'test'
+                        run_std['intra_session_split'] = 'test'
                     else:
-                        run_group.attrs['intra_session_split'] = 'train'
+                        run_std['intra_session_split'] = 'train'
 
-                    run_group.attrs['inter_session_split'] = 'n/a'  # NinaPro DB5 doesn't have multiple sessions per subject
-                    run_group.attrs['inter_subject_split'] = subj_group.attrs.get('inter_subject_split', 'unknown')
-                    
-                    for k, v in sess_std.items():
+                    for k, v in run_std.items():
                         run_group.attrs[k] = v
 
                     # All modalities are oversampled to 200Hz, so they should be aligned by index
-                    
-                    # 1. EMG (T, 16) 
-                    run_group.create_dataset("emg", data=emg[start:end], compression="lzf")
-                    run_group["emg"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
-                    run_group["emg"].attrs['units'] = 'normalized'
-                    sensor_val = mat.get('sensor', ['unknown'])[0]
-                    # Use np.string_ to ensure it's HDF5-compatible (fixed-width)
-                    run_group["emg"].attrs['sensor_type'] = str(sensor_val)
-                    
-                    # 2. Accel (T, 3)
-                    run_group.create_dataset("accel", data=acc[start:end], compression="lzf")
-                    run_group["accel"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
-                    run_group["accel"].attrs['sensor_type'] = str(sensor_val)
-                    
-                    # 3. Glove (T, 22) - Kinematic ground truth
-                    run_group.create_dataset("glove", data=glove[start:end], compression="lzf")
-                    run_group["glove"].attrs['sample_rate'] = sess_std.get('sample_rate', 200)
-                    run_group["glove"].attrs['sensor_type'] = 'cyber_glove'
+                    emg_meta = {
+                        'sample_rate': run_std.get('sample_rate', 200),
+                        'sensor_type': str(mat.get('sensor', ['unknown'])[0]),
+                        'units': 'normalized [-1, 1]',
+                    }
+                    write_modality(run_group, "emg", emg[start:end], emg_meta)
 
+                    accel_meta = {
+                        'sample_rate': run_std.get('sample_rate', 200),
+                        'sensor_type': str(mat.get('sensor', ['unknown'])[0]),
+                    }
+                    write_modality(run_group, "accel", acc[start:end], accel_meta)
+
+                    jntang_meta = {
+                        'sample_rate': run_std.get('sample_rate', 200),
+                        'sensor_type': 'CyberGlove II',
+                        'units': 'degrees',  # Assuming joint angles are in degrees; adjust if in radians
+                    }
+                    write_modality(run_group, "jntang", glove[start:end], jntang_meta)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_dir", type=str, default="data/ninapro_db5")
     parser.add_argument("--output_dir", type=str)
     parser.add_argument("--download_data", action='store_true', help="If set, will attempt to download the raw .mat files from the official Ninapro DB5 source")
+    parser.add_argument("--include_rest", action='store_true', help="If set, will include rest periods (stimulus=0) as a separate class in the dataset. WARNING: This may cause label leakage due to different signal lengths and distributions for rest vs active periods.")
+    parser.add_argument("--segment_gestures", action='store_true', help="If set, will segment continuous recordings into individual gesture runs based on stimulus transitions. Otherwise, each exercise will be treated as a single run.")
     args = parser.parse_args()
     
-    convert_ninapro_db5(args.dataset_dir, args.output_dir, args.download_data)
+    convert_ninapro_db5(args.dataset_dir, args.output_dir, args.download_data, include_rest=args.include_rest, segment_gestures=args.segment_gestures)

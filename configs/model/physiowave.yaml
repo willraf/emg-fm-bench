@@ -50,14 +50,14 @@ data:
   transforms:
     train:
       - ${transforms.standardise}
-      - ${transforms.per_channel_z_score_normalise}
+      # - ${transforms.per_channel_z_score_normalise}
       - ${transforms.resample}
       - ${transforms.random_scale}
       - ${transforms.channel_dropout}
       
     val:
       - ${transforms.standardise}
-      - ${transforms.per_channel_z_score_normalise}
+      # - ${transforms.per_channel_z_score_normalise}
       - ${transforms.resample}
 
     test: ${data.transforms.val}

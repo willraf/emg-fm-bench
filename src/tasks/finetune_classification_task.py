@@ -135,7 +135,8 @@ class FinetuneClassificationTask(BaseTask):
         # Only update weights if its an update step
         if is_update_step:
             self.scaler.unscale_(self.optimiser)
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.)
+            trainable_params = [p for p in self.model.parameters() if p.requires_grad]
+            torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=1.)   
             self.scaler.step(self.optimiser)
             self.scaler.update()
             self.optimiser.zero_grad(set_to_none=True)
@@ -368,7 +369,8 @@ class FinetuneClassificationTask(BaseTask):
         # Run a forward + backward pass to trigger hooks
         self.model.train()
         with torch.enable_grad():
-            output = self.model(sample_batch)
+            emg = sample_batch["emg"].to(self.device)
+            output = self.model(emg)
             if isinstance(output, torch.Tensor):
                 output.sum().backward()
             elif isinstance(output, (tuple, list)):

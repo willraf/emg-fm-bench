@@ -208,7 +208,7 @@ def main(dataset_dir, output_dir=None, download_data=False):
                 # Create the session group
                 # EPN does not explicitly state that each sample (idx_1, idx_2, etc.) is from a different recording session, 
                 # so we treat them all being from the same session
-                session_key = f'session-001'  # Single session per user
+                session_key = f'ses-001'  # Single session per user
                 session_group = subj_group.create_group(session_key)
                 for k, v in session_std.items():
                     session_group.attrs[k] = v

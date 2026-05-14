@@ -26,7 +26,7 @@ experiment:
 
 logging:
   log_interval: 10
-  use_wandb: True
+  use_wandb: False
   wandb_project: "TEST"
 
 training:

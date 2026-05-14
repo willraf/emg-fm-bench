@@ -83,23 +83,17 @@ class HDF5WindowedDataset(BaseDataset):
 
                         is_match = False
                         if self.split_type == "inter_subject":
-                            if "inter_subject_split" in run_group.attrs:
-                                subject_split = run_group.attrs['inter_subject_split']
-                            elif 'inter_subject_split' in session_group.attrs:
-                                subject_split = session_group.attrs['inter_subject_split']
-                            elif 'inter_subject_split' in user_group.attrs:
+                            if 'inter_subject_split' in user_group.attrs:
                                 subject_split = user_group.attrs['inter_subject_split']
                             else:
-                                raise ValueError(f"Missing 'inter_subject_split' attribute in both session and user groups for {user_key}/{session_key}/{run_key}. Please ensure your HDF5 file has the correct metadata structure.")
+                                raise ValueError(f"Missing 'inter_subject_split' attribute in user group for {user_key}. Please ensure your HDF5 file has the correct metadata structure.")
                             is_match = (self.mode == subject_split)
 
                         elif self.split_type == "inter_session":
-                            if 'inter_session_split' in run_group.attrs:
-                                inter_session_split = run_group.attrs['inter_session_split']
-                            elif "inter_session_split" in session_group.attrs:
+                            if "inter_session_split" in session_group.attrs:
                                 inter_session_split = session_group.attrs['inter_session_split']
                             else:
-                                raise ValueError(f"Missing 'inter_session_split' attribute in session group for {user_key}/{session_key}/{run_key}. Please ensure your HDF5 file has the correct metadata structure.")
+                                raise ValueError(f"Missing 'inter_session_split' attribute in session group for {user_key}/{session_key}. Please ensure your HDF5 file has the correct metadata structure.")
                             is_match = (self.mode == inter_session_split)
 
 
@@ -141,12 +135,12 @@ class HDF5WindowedDataset(BaseDataset):
         # 1. Look up where this window lives
         group_path, start_idx = self.global_index[idx]
 
-        session_group = self.file[group_path]
-        user_group = session_group.parent
+        run_group = self.file[group_path]
+        user_group = run_group.parent
 
-        # 2. Slice the data directly from the master file
+        # Slice the data directly from the master file
         # HDF5 is very fast at random-access slicing
-        primary_data = session_group[self.primary_data_key]
+        primary_data = run_group[self.primary_data_key]
         T = primary_data.shape[0]
 
         if self.jitter and self.mode == "train":
@@ -173,8 +167,8 @@ class HDF5WindowedDataset(BaseDataset):
 
         # Go through other timeseries keys and slice them as well, applying scaling if sample rates differ
         for key in self.timeseries_keys:
-            if key in session_group:
-                data = session_group[key]
+            if key in run_group:
+                data = run_group[key]
                 sample_rate = data.attrs.get("sample_rate") 
                 if sample_rate is not None:
                     output[key + "_sample_rate"] = sample_rate
@@ -194,7 +188,7 @@ class HDF5WindowedDataset(BaseDataset):
 
         # Just return all metadata for the session and user
         # Could specifiy which keys to return in the config if we want to be more selective
-        for k, v in session_group.attrs.items():
+        for k, v in run_group.attrs.items():
             output[k] = v
         for k, v in user_group.attrs.items():
             output[k] = v

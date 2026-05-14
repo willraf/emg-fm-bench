@@ -149,8 +149,10 @@ def generate_latex_table(df):
     models = sorted(df['model_name'].unique())
     tunings = sorted(df['tuning'].unique())
 
+    # Start with table, centering and resizing to fit column width
+    header = "\\begin{table}[]\n\\centering\n\\resizebox{\\columnwidth}{!}{%\n"
     # Header with 2 columns per dataset
-    header = "\\begin{tabular}{ll" + "cc" * len(datasets) + "}\n"
+    header += "\\begin{tabular}{ll" + "cc" * len(datasets) + "}\n"
     header += "\\toprule\n"
     
     # Row 1: Merged Dataset Names
@@ -186,7 +188,8 @@ def generate_latex_table(df):
             body += row_str + " \\\\\n"
         
     footer = "\\bottomrule\n\\end{tabular}"
-    
+    footer += "%\n}\n\caption{Caption}\n\\label{tab:placeholder}\n\\end{table}\n"
+
     return header + body + footer
     
 
@@ -254,9 +257,11 @@ def generate_paper_table(df):
     datasets = sorted(grouped['dataset_pretty'].unique())
     models = sorted(grouped['model_name'].unique())
     tunings = sorted(grouped['tuning'].unique())
-
+    
+    # Start with table, centering and resizing to fit column width
+    header = "\\begin{table}[]\n\\centering\n\\resizebox{\\columnwidth}{!}{%\n"
     # Header with 2 columns per dataset
-    header = "\\begin{tabular}{ll" + "cc" * len(datasets) + "}\n"
+    header += "\\begin{tabular}{ll" + "cc" * len(datasets) + "}\n"
     header += "\\toprule\n"
     
     # Row 1: Merged Dataset Names
@@ -292,6 +297,7 @@ def generate_paper_table(df):
             body += row_str + " \\\\\n"
         
     footer = "\\bottomrule\n\\end{tabular}"
+    footer += "%\n}\n\caption{Caption}\n\\label{tab:placeholder}\n\\end{table}\n"
     
     return header + body + footer
 

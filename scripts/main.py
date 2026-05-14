@@ -10,6 +10,7 @@ Usage:
     
     With Hydra:
     % python -m scripts.main --config-name other_config
+    % python -m scripts.main +experiment=other_experiment
     % python -m torch.distributed.run   --nproc_per_node=4 -m scripts.main --config-name other_config
     % python -m torch.distributed.run   --nproc_per_node=4 -m scripts.main +experiment=test
 
@@ -128,6 +129,8 @@ def main(cfg=None):
     # 2. Setup distributed training
     distributed, device, rank, local_rank = setup_distributed(ddp_debug_mode=ddp_debug_mode)
     is_main = (rank == 0)
+    
+    logging.info(f"Rank {rank}, Local Rank {local_rank}, Device {device}, Distributed {distributed}")
 
     # 3. setup logging and results, config, figures etc. saving directory
     # Only the main process should log to console
