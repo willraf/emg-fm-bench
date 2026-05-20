@@ -29,8 +29,8 @@ import zipfile
 import io
 
 TRAIN_SUBJS = [1, 3, 4, 6, 8, 9, 10]
-VAL_SUBJS = [11]
-TEST_SUBJS = [5, 7]
+VAL_SUBJS = [7]
+TEST_SUBJS = [5, 11]
 
 TRAIN_REPS = [1, 3, 4, 6]
 VAL_REPS = [2]
@@ -161,30 +161,10 @@ def write_modality(run_group, modality_name, data_array, metadata):
     run_group[modality_name].attrs['recording_duration'] = data_array.shape[0] / metadata.get('sample_rate', 200)
 
 
-def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False, include_rest=False, segment_gestures=True):
-    dataset_dir = Path(dataset_dir)
-    dataset_dir.mkdir(parents=True, exist_ok=True)
-
-    if output_dir is None:
-        output_fpath = dataset_dir / "ninapro_db5.hdf5"
-    else:
-        output_dir = Path(output_dir)
-        output_dir.parent.mkdir(parents=True, exist_ok=True)
-        output_fpath = output_dir / "ninapro_db5.hdf5"
+def convert_ninapro_db5(dataset_dir, output_fpath=None, include_rest=False, segment_gestures=True):
 
     # Should work with both nested and flat dir structures
     mat_files = sorted(dataset_dir.rglob("*.mat"))
-
-    if download_data and len(mat_files) == 0:
-        print("No .mat files found. Attempting to download data...")
-        download_ninapro_db5(dataset_dir)
-        mat_files = sorted(dataset_dir.glob("*.mat"))
-        if len(mat_files) == 0:
-            print("Download failed or no .mat files found after download. Please check the dataset directory.")
-            return
-    elif len(mat_files) == 0:
-        print("No .mat files found in the dataset directory. Please provide the raw data or enable download with --download_data.")
-        return
 
     with h5py.File(output_fpath, 'w') as f:
         root = f.create_group("ninapro_db5")
@@ -202,6 +182,8 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False, inclu
                 subj_group = root.create_group(subj_key)
                 for k, v in user_std.items():
                     subj_group.attrs[k] = v
+
+                subj_group.attrs['origin_path'] = str(fpath)
 
                 subject_id_int = int(mat['subject'][0][0])
                 if subject_id_int in TRAIN_SUBJS:
@@ -230,6 +212,8 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False, inclu
                 sess_group = subj_group.create_group(session_key)
                 for k, v in sess_std.items():
                     sess_group.attrs[k] = v
+
+                sess_group.attrs['origin_path'] = str(fpath)
             else:
                 sess_group = subj_group[session_key]
 
@@ -238,7 +222,7 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False, inclu
             #            get timeseries data and labels
             # --------------------------------------------------
             # Continuous data arrays
-            emg = mat['emg'].astype(np.float32) #/ 128.0 # Standardize to [-1, 1]
+            emg = mat['emg'].astype(np.float32) / 128.0 # Standardize to [-1, 1]
             acc = mat['acc'].astype(np.float32)
             glove = mat['glove'].astype(np.float32)
             
@@ -258,6 +242,8 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False, inclu
 
                 for k, v in run_std.items():
                     run_group.attrs[k] = v
+
+                run_group.attrs['origin_path'] = str(fpath)
 
                 # NinaPro DB5 has already been resampled to 200Hz, so all modalities should be aligned by index
                 emg_meta = {
@@ -284,7 +270,8 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False, inclu
                     'description': "Original restimulus labels from NinaPro DB5",
                     'sample_rate': run_std.get('sample_rate', 200),
                 }
-                write_modality(run_group, "gesture_id", stimulus, gesture_id_meta)
+                gesture_id_array = np.array([get_gesture_id(exercise_id, stim) for stim in stimulus], dtype=np.int16)
+                write_modality(run_group, "gesture_id", gesture_id_array, gesture_id_meta)
 
                 repetition_meta = {
                     'description': "Original rerepetition labels from NinaPro DB5",
@@ -349,6 +336,8 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False, inclu
 
                     for k, v in run_std.items():
                         run_group.attrs[k] = v
+                    
+                    run_group.attrs['origin_path'] = str(fpath)
 
                     # All modalities are oversampled to 200Hz, so they should be aligned by index
                     emg_meta = {
@@ -371,6 +360,38 @@ def convert_ninapro_db5(dataset_dir, output_dir=None, download_data=False, inclu
                     }
                     write_modality(run_group, "jntang", glove[start:end], jntang_meta)
 
+
+def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=False, segment_gestures=True):
+    hdf5_root = os.getenv("HDF5_ROOT")
+
+    if dataset_dir is None:
+        # Default to HDF5_ROOT environment variable or current directory
+        if hdf5_root is None:
+            print("Warning: HDF5_ROOT environment variable not set. Please define the dataset directory or set HDF5_ROOT environment variable.")
+            exit(1)
+        print(f"HDF5_ROOT is set to: {hdf5_root}, dataset will be saved here")
+        dataset_dir = hdf5_root / "ninapro_db5"
+    
+    dataset_dir = Path(dataset_dir)
+
+    if output_dir is None:
+        if hdf5_root is None:
+            print("Warning: HDF5_ROOT environment variable not set and output_dir not provided. Output will be saved in the same directory as the input dataset.")
+            output_fpath = dataset_dir / "ninapro_db5.hdf5"
+        else:
+            output_fpath = Path(hdf5_root) / "ninapro_db5" / "ninapro_db5.hdf5"
+    else:
+        output_dir = Path(output_dir)
+        output_dir.parent.mkdir(parents=True, exist_ok=True)
+        output_fpath = output_dir / "ninapro_db5.hdf5"
+
+    if download_data:
+        download_ninapro_db5(dataset_dir)
+        print(f"Finished downloading and extracting raw .mat files to {dataset_dir}")
+
+    convert_ninapro_db5(dataset_dir, output_fpath, include_rest=include_rest, segment_gestures=segment_gestures)
+    print(f"Finished converting NinaPro DB5 to HDF5 format at {output_fpath}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset_dir", type=str, default="data/ninapro_db5")
@@ -380,4 +401,4 @@ if __name__ == "__main__":
     parser.add_argument("--segment_gestures", action='store_true', help="If set, will segment continuous recordings into individual gesture runs based on stimulus transitions. Otherwise, each exercise will be treated as a single run.")
     args = parser.parse_args()
     
-    convert_ninapro_db5(args.dataset_dir, args.output_dir, args.download_data, include_rest=args.include_rest, segment_gestures=args.segment_gestures)
+    main(args.dataset_dir, args.output_dir, args.download_data, include_rest=args.include_rest, segment_gestures=args.segment_gestures)

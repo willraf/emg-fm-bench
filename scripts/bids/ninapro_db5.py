@@ -3,7 +3,7 @@
 Script to convert the Ninapro DB5 dataset into BIDS format
 
 Usage:
-    $ python -m scripts.bids.ninapro_db5 --dataset_dir data/ninapro_db5/ --output_dir data/ninapro_db5/ --download_data
+    $ python -m scripts.bids.ninapro_db5 --dataset_dir data/ninapro_db5/ --output_dir data/ninapro_db5_bid/ --download_data
 
 
 Authors:
@@ -193,81 +193,6 @@ def create_participants_json(output_dir):
 
 
 def create_events_json(output_dir, exercise_name):
-
-    if exercise_name == "ExerciseA":
-        gesture_id = {
-            "Description": "The gesture number (0-12, where 1-12 are movements and 0 is rest)",
-            "Levels": {
-                0: "rest",
-                1: "Index flexion",
-                2: "Index extension",
-                3: "Middle flexion",
-                4: "Middle extension",
-                5: "Ring flexion",
-                6: "Ring extension",
-                7: "Little flexion",
-                8: "Little extension",
-                9: "Thumb adduction",
-                10: "Thumb abduction",
-                11: "Thumb flexion",
-                12: "Thumb extension"
-            }
-        }
-    elif exercise_name == "ExerciseB":
-        gesture_id = {
-            "Description": "The gesture number (0-17, where 1-17 are movements and 0 is rest)",
-            "Levels": {
-                0: "rest",
-                1: "Thumb up",
-                2: "Extension of index and middle, flexion of others",
-                3: "Flexion of ring and little finger, extension of others",
-                4: "Thumb opposing base of little finger",
-                5: "Abduction of all fingers",
-                6: "Fingers flexed together in fist",
-                7: "Pointing index",
-                8: "Adduction of extended fingers",
-                9: "Wrist supination (axis: middle finger)",
-                10: "Wrist pronation (axis: middle finger)",
-                11: "Wrist supination (axis: little finger)",
-                12: "Wrist pronation (axis: little finger)",
-                13: "Wrist flexion",
-                14: "Wrist extension",
-                15: "Wrist radial deviation",
-                16: "Wrist ulnar deviation",
-                17: "Wrist extension with closed hand"
-            }
-        }
-    elif exercise_name == "ExerciseC":
-        gesture_id = {
-            "Description": "The gesture number (0-23, where 1-23 are movements and 0 is rest)",
-            "Levels": {
-                0: "rest",
-                1: "Large diameter grasp",
-                2: "Small diameter grasp (power grip)",
-                3: "Fixed hook grasp",
-                4: "Index finger extension grasp",
-                5: "Medium wrap",
-                6: "Ring grasp",
-                7: "Prismatic four fingers grasp",
-                8: "Stick grasp",
-                9: "Writing tripod grasp",
-                10: "Power sphere grasp",
-                11: "Three finger sphere grasp",
-                12: "Precision sphere grasp",
-                13: "Tripod grasp",
-                14: "Prismatic pinch grasp",
-                15: "Tip pinch grasp",
-                16: "Quadpod grasp",
-                17: "Lateral grasp",
-                18: "Parallel extension grasp",
-                19: "Extension type grasp",
-                20: "Power disk grasp",
-                21: "Open a bottle with a tripod grasp",
-                22: "Turn a screw (grasp the screwdriver with a stick grasp)",
-                23: "Cut something (grasp the knife with an index finger extension grasp)"
-            }
-        }
-
     events = {
         "onset": {
             "Description": "Time of the event onset",
@@ -293,13 +218,12 @@ def create_events_json(output_dir, exercise_name):
                 "action": "restimulus/rerepetition aligned event (the actual movement onset)",
             }
         },
-        "gesture_id": gesture_id,
         "repetition": {
             "Description": "The repetition number of the movement (1-6)",
             "Units": "repetitions"
         },
-        "global_gesture_id": {
-            "Description": "The global gesture number (0-52, where 1-52 are movements and 0 is rest)",
+        "gesture_id": {
+            "Description": "The global gesture number (0-52, where 1-52 are movements and 0 is rest). Gestures 1-12 are from Exercise A, 13-29 are from Exercise B, and 30-52 are from Exercise C.",
             "Levels": {
                 0: "rest",
                 1: "Index flexion",
@@ -435,10 +359,10 @@ def write_emg(emg, emg_fpath):
                 'label': f'EMG{i+1}',
                 'dimension': 'arbitrary',
                 'sample_frequency': 200,  
-                'physical_min': -128.0,
-                'physical_max': 128.0,
-                'digital_min': -128,   
-                'digital_max': 128,  
+                'physical_min': -1.0,
+                'physical_max':  1.0,
+                'digital_min':  -32768,
+                'digital_max':   32767,
             })
         edf_writer.setSignalHeaders(channel_info)
         edf_writer.writeSamples(emg)
@@ -510,8 +434,8 @@ def extract_events(label_array, rep_array, trial_type_label, frequency, exercise
         stim_val = int(label_array[start])
         rep_val  = int(rep_array[start])
 
-        gesture_id = stim_val
-        global_gesture_id = get_global_gesture_id(gesture_id, exercise_id)
+        # Map stimulus value to gesture_id (0 for rest, 1-12 for Exercise A, 13-29 for Exercise B, 30-52 for Exercise C)
+        global_gesture_id = get_global_gesture_id(stim_val, exercise_id)
 
         rows.append({
             "onset": round(start / frequency, 6),
@@ -519,9 +443,8 @@ def extract_events(label_array, rep_array, trial_type_label, frequency, exercise
             "sample": start,
             "sample_duration": end - start,
             "trial_type": trial_type_label,
-            "gesture_id": gesture_id,
+            "gesture_id": global_gesture_id,
             "repetition": rep_val,
-            "global_gesture_id": global_gesture_id,
         })
 
     return rows
@@ -543,7 +466,7 @@ def create_events_tsv(mat, filepath):
     # Sort by onset time
     rows = sorted(rows, key=lambda x: x['onset'])
     
-    df = pd.DataFrame(rows, columns=["onset", "duration", "sample", "sample_duration", "trial_type", "gesture_id", "repetition", "global_gesture_id"])
+    df = pd.DataFrame(rows, columns=["onset", "duration", "sample", "sample_duration", "trial_type", "gesture_id", "repetition"])
     
     # Save to all fpaths if its a list
     if isinstance(filepath, list):
@@ -670,7 +593,8 @@ def main(dataset_dir, output_dir, download_data=False):
         create_events_tsv(mat, events_fpath)
 
         # Save EMG data in edf
-        emg = mat['emg'].astype(np.float32).T      # (T, C) -> (C, T)
+        emg = mat['emg'].astype(np.float32).T  / 128   # (T, C) -> (C, T) normalise to [-1, 1] range since Myo armband has 8-bit resolution and range of [-128, 127]
+
         emg_fpath = emg_dir / f"{base_filename}_emg.edf"
         write_emg(emg, emg_fpath)
 
@@ -680,7 +604,7 @@ def main(dataset_dir, output_dir, download_data=False):
         create_emg_json(emg_dir / f"{base_filename}_emg.json", sampling_rate, duration, task_label)
 
         # Save kinematics data in tsv
-        acc = mat['acc'].astype(np.float32)     #
+        acc = mat['acc'].astype(np.float32)
         glove = mat['glove'].astype(np.float32)
         
         # Save acc and glove data in separate files

@@ -7,7 +7,9 @@ defaults:
 
 data:
   window_length: 1000
-  split_type: inter_subject
+  # split_type: inter_subject
+  split_type: loso
+  loso_subject: null
   batch_size: 1
 
 task:

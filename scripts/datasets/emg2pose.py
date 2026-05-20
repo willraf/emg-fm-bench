@@ -1,3 +1,18 @@
+""" Script emg2pose.py
+
+Convert emg2pose dataset from origninal HDF5 to my HDF5 format. Optionally, download the raw dataset from Zenodo if not already available locally.
+
+Usage:
+    % python -m scripts.datasets.emg2pose --dataset_dir data/emg2pose/ --output_dir data/emg2pose/ --download_data
+
+
+Authors:
+    Will Raftery
+
+Date:
+    14/03/2026
+"""
+
 import h5py
 import numpy as np
 import pandas as pd
@@ -85,7 +100,17 @@ def convert_emg2pose(src_dir, dest_h5_path):
                 run_grp.create_dataset("kinematics", data=pose, compression="gzip", compression_opts=4)
 
                 run_grp['emg'].attrs['sample_rate'] = attrs['sample_rate']
+                run_grp['emg'].attrs['sensor_type'] = 'Meta EMG-RD'
+                run_grp['emg'].attrs['n_channels'] = emg.shape[1]
+                run_grp['emg'].attrs['n_samples'] = emg.shape[0]
+                run_grp['emg'].attrs['recording_duration'] = emg.shape[0] / attrs['sample_rate']
+                run_grp['emg'].attrs['units'] = 'mV'  # Assuming raw EMG is in microvolts; adjust if scaled
+
                 run_grp['kinematics'].attrs['sample_rate'] = attrs['sample_rate']
+                run_grp['kinematics'].attrs['n_channels'] = pose.shape[1]
+                run_grp['kinematics'].attrs['n_samples'] = pose.shape[0]
+                run_grp['kinematics'].attrs['recording_duration'] = pose.shape[0] / attrs['sample_rate']
+                run_grp['kinematics'].attrs['units'] = 'degrees'  # Assuming joint angles are in degrees; adjust if in radians
                 
                 # 4. Copy specific attributes to Run level
                 run_grp.attrs['sample_rate'] = attrs['sample_rate']
@@ -182,10 +207,23 @@ def download_dataset(dataset_dir, mini=True):
 
 def main(dataset_dir, output_dir=None, download_data=False, mini=True):
 
+    if dataset_dir is None:
+        # Default to HDF5_ROOT environment variable or current directory
+        hdf5_root = os.getenv("HDF5_ROOT")
+        if hdf5_root is None:
+            print("Warning: HDF5_ROOT environment variable not set. Please define the dataset directory or set HDF5_ROOT environment variable.")
+            exit(1)
+        print(f"HDF5_ROOT is set to: {hdf5_root}, dataset will be saved here")
+        dataset_dir = hdf5_root / "emg2pose"
+
     dataset_dir = Path(dataset_dir)
 
     if output_dir is None:
-        output_fpath = dataset_dir / "emg2pose.hdf5"
+        if hdf5_root is None:
+            print("Warning: HDF5_ROOT environment variable not set and output_dir not provided. Output will be saved in the same directory as the input dataset.")
+            output_fpath = dataset_dir / "emg2pose.hdf5"
+        else:
+            output_fpath = Path(hdf5_root) / "emg2pose" / "emg2pose.hdf5"
     else:
         output_dir = Path(output_dir)
         output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -199,8 +237,8 @@ def main(dataset_dir, output_dir=None, download_data=False, mini=True):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_dir", type=str, default="data/emg2pose/")
-    parser.add_argument("--output_dir", type=str, default=None, help="Directory to save the converted HDF5 files. Defaults to the dataset directory.")
+    parser.add_argument("--dataset_dir", type=str, default=None, help="Directory containing the original emg2pose HDF5 files. Defaults to the dataset directory defined by the HDF5_ROOT environment variable. If --download_data is set, this is also the directory where the raw dataset will be downloaded and extracted.")
+    parser.add_argument("--output_dir", type=str, default=None, help="Directory to save the converted HDF5 files. Defaults to the dataset directory defined by the HDF5_ROOT environment variable.")
     parser.add_argument("--download_data", action="store_true", help="Whether to download the emg2pose dataset.")
     parser.add_argument("--mini", action="store_true", help="Whether to download the mini version of the dataset (for testing).")
     args = parser.parse_args()

@@ -37,8 +37,13 @@ class HDF5WindowedDataset(BaseDataset):
         self.window_length = cfg.window_length
 
         # The type of split/generalisation we are evaluating
-        self.split_type = cfg.split_type            # Should be either "user" or "session"
-        assert self.split_type in ["inter_subject", "intra_session", "inter_session"], "split_type must be either 'inter_subject', 'intra_session', or 'inter_session'"
+        self.split_type = cfg.split_type          
+        assert self.split_type in ["inter_subject", "intra_session", "inter_session", "loso"], "split_type must be either 'inter_subject', 'intra_session', 'inter_session' or 'loso' (leave-one-subject-out)"
+
+        if self.split_type == "loso":
+            self.loso_subj = cfg.loso_subject
+            assert self.loso_subj is not None, "loso_subject must be set in cfg when split_type is 'loso'"
+            logging.info(f"LOSO mode: test subject = {self.loso_subj}")
 
         stride = cfg.stride
         self.stride = stride if stride is not None else self.window_length  # Default to non-overlapping windows
@@ -53,6 +58,13 @@ class HDF5WindowedDataset(BaseDataset):
 
         # We build this ONCE at startup
         self.global_index = self._build_global_index()
+
+        if len(self.global_index) == 0:
+            raise ValueError(
+                f"Global index is empty for mode='{self.mode}', split_type='{self.split_type}'"
+                + (f", loso_subject='{self.loso_subj}'" if self.split_type == 'loso' else "")
+                + f". Check your HDF5 file and config."
+            )
 
         # Log stats about memery size of index
         if len(self.global_index) > 0:
@@ -70,8 +82,12 @@ class HDF5WindowedDataset(BaseDataset):
         Version using loops which may be faster
         """
         index = []
+        logging.info(f"Building global index for mode='{self.mode}', split_type='{self.split_type}'" + (f", loso_subject='{self.loso_subj}'" if self.split_type == 'loso' else ""))
+        logging.info(f"Scanning HDF5 file at {self.hdf5_path}'")
+        skipped_users = set()
         with h5py.File(self.hdf5_path, 'r') as f:
             root = f[self.root_key] # e.g., "epn612"
+        
             for user_key in root:
                 user_group = root[user_key]
                 
@@ -80,6 +96,10 @@ class HDF5WindowedDataset(BaseDataset):
 
                     for run_key in session_group:
                         run_group = session_group[run_key]
+
+                        # Skips runs that are explicitly marked as unlabelled
+                        if not run_group.attrs.get('is_labelled', True):
+                            continue
 
                         is_match = False
                         if self.split_type == "inter_subject":
@@ -104,6 +124,18 @@ class HDF5WindowedDataset(BaseDataset):
                                 raise ValueError(f"Missing 'intra_session_split' attribute in session group for {user_key}/{session_key}/{run_key}. Please ensure your HDF5 file has the correct metadata structure.")
                             is_match = (self.mode == intra_session_split)
 
+                        elif self.split_type == "loso":
+                            # If this subject is explicitly marked as 'test' in the inter_subject_split, we skip them entirely from all splits (train/val/test) to avoid any data leakage. 
+                            if user_group.attrs.get('inter_subject_split', '') == "test":       
+                                 is_match = False
+                                 skipped_users.add(user_key)
+                            elif self.mode == "test":
+                                is_match = (user_key == self.loso_subj)
+                            elif self.mode == "train":
+                                is_match = (user_key != self.loso_subj)
+                            elif self.mode == "val":
+                                is_match = (user_key == self.loso_subj)              # Just use the same subject for validation in LOSO setting, since we don't have a separate set of subjects to hold out for validation. Final test set is held out anyway
+ 
                         else:
                             raise ValueError(f"Invalid split_type: {self.split_type}. Must be one of 'inter_subject', 'intra_session', or 'inter_session'.")
 
@@ -120,6 +152,9 @@ class HDF5WindowedDataset(BaseDataset):
 
                             for w in range(num_windows):
                                 index.append((f"{root.name}/{user_key}/{session_key}/{run_key}", w * self.stride))
+        
+        if self.split_type == "loso" and len(list(skipped_users)) > 0:
+            logging.warning(f"The following users were skipped in LOSO split because they were marked as 'test' in inter_subject_split: {skipped_users}")
         return index
 
     @property
@@ -136,7 +171,8 @@ class HDF5WindowedDataset(BaseDataset):
         group_path, start_idx = self.global_index[idx]
 
         run_group = self.file[group_path]
-        user_group = run_group.parent
+        session_group = run_group.parent
+        user_group = session_group.parent
 
         # Slice the data directly from the master file
         # HDF5 is very fast at random-access slicing
@@ -189,6 +225,8 @@ class HDF5WindowedDataset(BaseDataset):
         # Just return all metadata for the session and user
         # Could specifiy which keys to return in the config if we want to be more selective
         for k, v in run_group.attrs.items():
+            output[k] = v
+        for k, v in session_group.attrs.items():
             output[k] = v
         for k, v in user_group.attrs.items():
             output[k] = v
