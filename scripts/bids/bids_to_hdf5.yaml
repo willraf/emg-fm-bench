@@ -1,0 +1,29 @@
+# bids_dir: data/eeg-emg-wristmotion/
+# output_path: data/eeg-emg-wristmotion/eeg-emg-wristmotion.hdf5
+# dataset_name: eeg-emg-wristmotion
+# train_ratio: 0.7
+# val_ratio: 0.1
+# seed: 42
+# primary_key: eeg
+# timeseries_events_cols: ['event_id']
+
+
+bids_dir: data/ninapro_db5  
+output_path: data/ninapro_db5/ninapro_db5.hdf5
+dataset_name: ninapro_db5
+train_ratio: 0.7
+val_ratio: 0.1
+seed: 42
+primary_key: emg
+timeseries_events_cols: ['gesture_id', 'repetition']
+preferred_trial_type: 'action'
+
+event_segmenation:
+  enabled: true
+  filter_col: 'trial_type'
+  filter_val: 'action'
+  segment_col: 'gesture_id'
+  exclude_vals: [0]
+  attr_cols: ['gesture_id', 'repetition']
+  min_duration: 0.5
+  keep_source_run: false
