@@ -12,6 +12,7 @@ pretrained_models/
 multirun/
 outputs/
 pbs/
+depricated/
 
 !/src/data
 !src/models

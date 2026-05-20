@@ -1,0 +1,28 @@
+# @package _global_
+defaults:
+  - override /transforms: transforms
+  - override /dataset: ninapro_db5
+  - _self_
+
+model:
+  name: lda
+
+data:
+  window_length: 1000
+  split_type: inter_subject
+  batch_size: 2
+
+experiment:
+  name: ${data.root_key}/${model.name}_${data.window_length}_${data.split_type}/seed${experiment.random_seed}
+  log_interval: 10
+  wandb_project: ${data.root_key}
+
+  
+# hydra:
+#   mode: MULTIRUN
+#   sweeper:
+#     params:
+#       # data.split_type: inter_subject, intra_session
+#       dataset: ninapro_db5, uci_emg
+#       # model.name: lda, svm, rf
+#       # experiment.random_seed: 2, 50, 100

@@ -1,0 +1,17 @@
+# @package _global_
+model:
+  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
+  sample_rate: 200
+  fm:
+    name: identity_model
+    checkpoint: null
+
+  wrapper:
+    # Parameters needed to construct the BioFMWrapper
+    # For some reason, neuroRVQ's real embed dim is 4 times 
+    embed_dim: ${data.window_length} # Just return the raw signal as the "embedding"
+    n_classes: ${data.n_classes}
+    patch_size: ${model.fm.patch_size}
+    num_channels: ${data.num_channels}
+    pooling_type: concat
+    finetune_spacial_embedding: True
