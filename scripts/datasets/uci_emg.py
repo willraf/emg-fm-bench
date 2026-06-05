@@ -28,9 +28,9 @@ from scipy.interpolate import interp1d
 import os
 
 
-TRAIN_USERS = [1, 3, 5, 6, 7, 8, 10, 11, 12, 15, 16, 18, 19, 20, 21, 22, 23, 26, 27, 28, 30, 31, 32, 34, 35]
+TRAIN_USERS = [1, 3, 5, 6, 7, 8, 10, 11, 12, 15, 16, 18, 19, 20, 21, 22, 23, 26, 27, 28, 30, 31, 32, 34, 35, 36]
 VAL_USERS = [4, 13, 25, 33]
-TEST_USERS =[2, 9, 14, 17, 24, 29, 36]
+TEST_USERS =[2, 9, 14, 17, 24, 29]
 
 assert len(set(TRAIN_USERS) & set(VAL_USERS)) == 0, "Overlap between train and val users"
 assert len(set(TRAIN_USERS) & set(TEST_USERS)) == 0, "Overlap between train and test users"
@@ -120,6 +120,8 @@ def convert_dataset(dataset_dir, output_fpath=None):
         root = f.create_group("uci_emg")
 
         user_dirs = list(dataset_dir.iterdir())
+        # User dir are numberic 
+        user_dirs = [d for d in user_dirs if d.name.isdigit()]
         participant_num = 0
         for user_dir in tqdm(user_dirs):
             if not user_dir.is_dir(): continue
@@ -176,9 +178,9 @@ def convert_dataset(dataset_dir, output_fpath=None):
 
                     emg_data = emg_data / 0.0013  # Normalise emg to be between -1 and 1 (the original data is in
 
-                    write_modality(run_group, "time", t, {'units': 'seconds'})
+                    write_modality(run_group, "time", t, {'sample_rate': 200, 'units': 'seconds'})
                     write_modality(run_group, "emg", emg_data, {'sample_rate': 200, 'units': 'normalised [-1, 1]'})
-                    write_modality(run_group, "labels", labels, {'description': "Gesture class labels corresponding to each time point"})
+                    write_modality(run_group, "labels", labels, {'sample_rate': 200, 'description': "Gesture class labels corresponding to each time point"})
 
                 else:
                     times, emg_runs, labels, reps = segment_run(t, emg_data, labels, gesture_counter)
@@ -201,9 +203,9 @@ def convert_dataset(dataset_dir, output_fpath=None):
                         emg_run = emg_run / 0.0013
                         label_run = np.array(label_run, dtype=np.int16)
 
-                        write_modality(run_group, "time", t_run, {'units': 'seconds'})
+                        write_modality(run_group, "time", t_run, {'sample_rate': 200, 'units': 'seconds'})
                         write_modality(run_group, "emg", emg_run, {'sample_rate': 200, 'units': 'normalised [-1, 1]'})
-                        write_modality(run_group, "labels", label_run, {'description': "Gesture class labels corresponding to each time point"})
+                        write_modality(run_group, "labels", label_run, {'sample_rate': 200, 'description': "Gesture class labels corresponding to each time point"})
 
                         gesture_id = int(label_run[0])      # Assuming all labels in the run are the same gesture
                         run_group.attrs['gesture_id'] = gesture_id
@@ -336,7 +338,9 @@ def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=Fa
             print("Warning: HDF5_ROOT environment variable not set and output_dir not provided. Output will be saved in the same directory as the input dataset.")
             output_fpath = dataset_dir / "uci_emg.hdf5"
         else:
-            output_fpath = Path(hdf5_root) / "uci_emg" / "uci_emg.hdf5"
+            dataset_dir = Path(dataset_dir) / "uci_emg"
+            dataset_dir.mkdir(parents=True, exist_ok=True)
+            output_fpath = dataset_dir / "uci_emg.hdf5"
     else:
         output_dir = Path(output_dir)
         output_dir.parent.mkdir(parents=True, exist_ok=True)

@@ -45,7 +45,7 @@ data:
       - ${transforms.standardise}
       - ${transforms.band_pass}
       - ${transforms.notch_filter}
-      # - ${transforms.per_channel_z_score_normalise}
+      - ${transforms.global_z_score_normalise}
       - ${transforms.resample}
       - ${transforms.random_scale}
       - ${transforms.channel_dropout}
@@ -54,7 +54,7 @@ data:
       - ${transforms.standardise}
       - ${transforms.band_pass}
       - ${transforms.notch_filter}
-      # - ${transforms.per_channel_z_score_normalise}
+      - ${transforms.global_z_score_normalise}
       - ${transforms.resample}
 
     test: ${data.transforms.val}

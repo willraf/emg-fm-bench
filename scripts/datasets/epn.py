@@ -95,7 +95,9 @@ def process_metadata(user_info, general_info, participant_id, json_file):
         'sample_rate': int(general_info.get('samplingFrequencyInHertz', -1)),
         'recording_time_s': int(general_info.get('recordingTimeInSeconds', -1)),
         'repetitions_for_sync_gesture': int(general_info.get('repetitionsForSynchronizationGesture', -1)),
-        'date': user_info.get('date', 'unknown')
+        'date': user_info.get('date', 'unknown'),
+        'side': 'r',
+        'inter_session_split': 'n/a',  
     }
 
     standardised_run_info = {

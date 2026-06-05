@@ -1,13 +1,13 @@
 # @package _global_
 defaults:
   - override /transforms: transforms
-  - override /dataset: ninapro_db5
+  - override /dataset: epn612
   - override /model: neurorvq
   - _self_
 
 data:
   window_length: 1000
-  split_type: loso
+  split_type: inter_subject
   batch_size: 2
 
 task:
@@ -15,20 +15,19 @@ task:
   freeze_backbone: True
 
 experiment:
-  name: normalisation/no_norm/${data.root_key}/${model.fm.name}_${data.window_length}_${data.split_type}_frozen_${task.freeze_backbone}_scratch_${task.from_scratch}_${model.wrapper.pooling_type}
+  name: final/${data.root_key}/${model.fm.name}_${data.window_length}_${data.split_type}_frozen-${task.freeze_backbone}_scratch-${task.from_scratch}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
   log_interval: 10
   wandb_project: ${data.root_key}
 
 
-  
 hydra:
   mode: MULTIRUN
   sweeper:
     params:
       # data.split_type: inter_subject, intra_session
-      # dataset: epn612, ninapro_db5 #, uci_emg
-      model: tinymyo, physiowave, neurorvq
+      dataset: epn612 #, ninapro_db5, uci_emg # 
+      model: tinymyo, neurorvq, physiowave
       # data.window_length: 200, 1000
-      # task.from_scratch: True,False
+      task.from_scratch: True,False
       task.freeze_backbone: True,False
-      # experiment.random_seed: 2, 50, 100
+      experiment.random_seed: 2, 50, 100

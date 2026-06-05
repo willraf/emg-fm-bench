@@ -7,6 +7,7 @@ Usage:
     $ python scripts/datasets/data_audit.py --fpath data/epn612/epn612.hdf5 --dataset_key epn612 --primary_key emg
     $ python scripts/datasets/data_audit.py --fpath data/ninapro_db5/ninapro_db5.hdf5 --dataset_key ninapro_db5 --primary_key emg
     $ python scripts/datasets/data_audit.py --fpath data/ninapro_db2/ninapro_db2.hdf5 --dataset_key ninapro_db2 --primary_key emg
+    $ python scripts/datasets/data_audit.py --fpath data/uci_emg/uci_emg.hdf5 --dataset_key uci_emg --primary_key emg
 
 Authors:
     Will Raftery
@@ -400,12 +401,14 @@ class BiosignalAuditor:
 
 
         # 6. Sex Distribution pie chart
-        axes[4,0].pie(self.df_clean['sex'].value_counts(), labels=self.df_clean['sex'].unique(), autopct='%1.1f%%', colors=sns.color_palette('Set2')) 
-        axes[4,0].set_title("Gender Distribution")
+        if 'sex' in self.df_clean.columns:
+            axes[4,0].pie(self.df_clean['sex'].value_counts(), labels=self.df_clean['sex'].unique(), autopct='%1.1f%%', colors=sns.color_palette('Set2')) 
+            axes[4,0].set_title("Gender Distribution")
 
         # 7. Handedness Distribution
-        axes[4,1].pie(self.df_clean['handedness'].value_counts(), labels=self.df_clean['handedness'].unique(), autopct='%1.1f%%', colors=sns.color_palette('Set2'))
-        axes[4,1].set_title("Handedness Distribution")
+        if 'handedness' in self.df_clean.columns:
+            axes[4,1].pie(self.df_clean['handedness'].value_counts(), labels=self.df_clean['handedness'].unique(), autopct='%1.1f%%', colors=sns.color_palette('Set2'))
+            axes[4,1].set_title("Handedness Distribution")
 
         if self.fig_path:
             fpath = Path(self.fig_path) / "dataset_overview.png"

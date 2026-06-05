@@ -328,7 +328,7 @@ class GlobalZScoreNormalise(DictTransform):
         mean = x.mean()
         std = x.std() + 1e-6
         return (x - mean) / std
-    
+
 
 @dataclass
 class MinMaxNormalise(DictTransform):
@@ -339,8 +339,8 @@ class MinMaxNormalise(DictTransform):
         super().__init__(self.field)
 
     def transform(self, x: torch.Tensor) -> torch.Tensor:
-        min_val = x.min(dim=-1, keepdim=True).values
-        max_val = x.max(dim=-1, keepdim=True).values
+        min_val = x.min()
+        max_val = x.max()
         return 2 * (x - min_val) / (max_val - min_val + 1e-6) - 1
     
 
