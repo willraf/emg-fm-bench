@@ -56,9 +56,26 @@ class BioFMWrapper(nn.Module):
             logits: (Batch, num_classes)
         """
         tokens = self.fm(x)
-        
-        B, C, N, D = tokens.shape # (B, Channels, num_temporal_patches,Embed_Dim)
 
+        feat = self._aggregate(tokens)
+
+
+        return self.head(self.fc_norm(feat))
+    
+
+    def _aggregate(self, tokens):
+        """
+        Aggregate the tokens across time and/or channels
+
+        Args:
+            tokens: (B, C, N, D) per patch embeddings from the foundation model
+
+        Returns:
+            feat: (B, D) aggregated feature vector for classification
+            feat: (B, N, D) if pooling_type is "channel_mean"
+        """
+
+        B, C, N, D = tokens.shape # (B, Channels, num_temporal_patches,Embed_Dim)
 
         if self.pooling_type == "mean":
             # Global Average across all patches (Simple & robust)
@@ -80,11 +97,14 @@ class BioFMWrapper(nn.Module):
             q = self.query.expand(B, -1, -1)
             feat, _ = self.attn(q, flat_tokens, flat_tokens)
             feat = feat.squeeze(1) # (B, 200)
+        elif self.pooling_type == "channel_mean":
+            # Mean across channels
+            feat = tokens.mean(dim=1) # (B, Time, 200)
         else:
             raise ValueError(f"Unknown pooling type: {self.pooling_type}")
+        
+        return feat
 
-        return self.head(self.fc_norm(feat))
-    
 
     def get_fine_tuning_parameters(self):
         """

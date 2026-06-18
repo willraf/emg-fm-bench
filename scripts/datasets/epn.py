@@ -3,7 +3,7 @@
 Convert epn612 dataset from JSON to HDF5 format. Optionally, download the raw dataset from Zenodo if not already available locally.
 
 Usage:
-    % python -m scripts.datasets.epn --dataset_dir data/epn612/ --output_dir data/epn612/ --download_data
+    % python -m scripts.datasets.epn --dataset_dir data/epn612/ --output_dir data/epn612/ --download_data --segment_gestures
 
 
 Authors:
@@ -98,6 +98,7 @@ def process_metadata(user_info, general_info, participant_id, json_file):
         'date': user_info.get('date', 'unknown'),
         'side': 'r',
         'inter_session_split': 'n/a',  
+        'origin_path': str(json_file)
     }
 
     standardised_run_info = {
@@ -154,7 +155,7 @@ def download_epn612(data_dir):
             zip_path.unlink()
 
 
-def process_run(run_std, run_group, run_json_data, origin_path, new_run_id, gesture_counter):
+def process_run(run_std, run_group, run_json_data, origin_path, new_run_id, gesture_counter, segment_gesture_flag=False):
     """
     Process a single session data and store it in the session_group.
     """
@@ -203,40 +204,68 @@ def process_run(run_std, run_group, run_json_data, origin_path, new_run_id, gest
     emg_dict = run_json_data.get('emg', {})
     # Shape (8, T)
     emg_data = np.array([emg_dict.get(f'ch{i}', []) for i in range(1, 9)], dtype=np.float32)
-    
+
     # Dead sample check
     if emg_data.size == 0 or np.std(emg_data) == 0:
         return
 
-    emg_data /= 128.0  # Normalize to [-1, 1]
-    emg_data = emg_data.T  # Shape (T, 8)
-    emg_meta = {
-        'sample_rate': run_metadata.get('sample_rate', 200),
+    sample_rate = run_metadata.get('sample_rate', 200)
+
+    if segment_gesture_flag:
+        window_len = 1.0
+        if gesture_id == 0:
+            # For rest/noGesture, take the middle window
+            mid = emg_data.shape[1] // 2
+            half = int(window_len * sample_rate // 2)
+            start, end = mid - half, mid + half
+            start = max(0, start)
+            end   = min(emg_data.shape[1], end)
+        else:
+            start, end = segment_gesture(emg_data, sample_rate, window_s=window_len)
+    else:
+        start, end = 0, emg_data.shape[1]
+    
+    run_group.attrs['segment_start'] = start
+    run_group.attrs['segment_end']   = end
+
+
+    emg_seg = emg_data[:, start:end]   # (8, T')
+    emg_seg = emg_seg / 128.0          # normalise to [-1, 1]
+    emg_seg = emg_seg.T                # (T', 8)
+
+    write_modality(run_group, "emg", emg_seg, {
+        'sample_rate': sample_rate,
         'sensor_type': 'Thalmic Myo Armband',
-        'units': 'normalized [-1, 1]',
-    }
-    write_modality(run_group, "emg", emg_data, emg_meta)
+        'units':       'normalized [-1, 1]',
+    })
+
+    imu_sample_rate = 50
+    imu_start = round(start * (imu_sample_rate / sample_rate))
+    imu_end   = round(end   * (imu_sample_rate / sample_rate))
 
     accel = run_json_data.get('accelerometer', {})
     accel_data = np.array([accel.get(axis, []) for axis in ['x', 'y', 'z']], dtype=np.float32).T  # Shape (T, 3)
+    accel_data = accel_data[imu_start:imu_end, :]  # Align
     accel_meta = {
-        'sample_rate': 50,
+        'sample_rate': imu_sample_rate,
         'sensor_type': 'Thalmic Myo Armband',
     }
     write_modality(run_group, "accel", accel_data, accel_meta)
 
     gyro = run_json_data.get('gyroscope', {})
     gyro_data = np.array([gyro.get(axis, []) for axis in ['x', 'y', 'z']], dtype=np.float32).T  # Shape (T, 3)
+    gyro_data = gyro_data[imu_start:imu_end, :]  # Align
     gyro_meta = {
-        'sample_rate': 50,
+        'sample_rate': imu_sample_rate,
         'sensor_type': 'Thalmic Myo Armband',
     }
     write_modality(run_group, "gyro", gyro_data, gyro_meta)
 
     quat = run_json_data.get('quaternion', {})
     quat_data = np.array([quat.get(axis, []) for axis in ['w', 'x', 'y', 'z']], dtype=np.float32).T  # Shape (T, 4)
+    quat_data = quat_data[imu_start:imu_end, :]  # Align
     quat_meta = {
-        'sample_rate': 50,
+        'sample_rate': imu_sample_rate,
         'sensor_type': 'Thalmic Myo Armband',
     }
     write_modality(run_group, "quat", quat_data, quat_meta)
@@ -264,6 +293,71 @@ def process_run(run_std, run_group, run_json_data, origin_path, new_run_id, gest
     # session_group.create_dataset("imu", data=imu_array, compression="gzip")
 
 
+def segment_gesture(emg_data: np.ndarray,
+                    sample_rate: int,
+                    window_s: float = 2.0,
+                    smooth_ms: int = 100) -> tuple[int, int]:
+    """
+    Find the most active window in an EMG recording using a smoothed
+    RMS envelope, then return the start and end sample indices of the
+    best window.
+
+    Strategy:
+        1. Compute per-sample RMS across all channels
+        2. Smooth with a rectangular (boxcar) window to get a stable envelope
+        3. Use a sliding window of length `window_s` seconds to find the
+           position with the highest mean envelope energy
+        4. Return that window's start and end indices
+
+    For 'noGesture' recordings the signal is approximately uniform, so
+    the function still returns a valid window (the highest-energy region,
+    which is arbitrary but consistent).
+
+    Args:
+        emg_data:   Raw EMG array of shape (C, T) — channels first, BEFORE
+                    normalisation and transpose
+        sample_rate: Sampling frequency in Hz
+        window_s:   Desired output window length in seconds
+        smooth_ms:  Smoothing kernel width in milliseconds
+
+    Returns:
+        (start, end) sample indices into the original T dimension
+    """
+    C, T = emg_data.shape
+    window_samples = int(window_s * sample_rate)
+    smooth_samples = max(1, int(smooth_ms * sample_rate / 1000))
+
+    # ------------------------------------------------------------------
+    # 1. RMS across channels → shape (T,)
+    # ------------------------------------------------------------------
+    rms = np.sqrt(np.mean(emg_data ** 2, axis=0))   # (T,)
+
+    # ------------------------------------------------------------------
+    # 2. Smooth with a boxcar (uniform) kernel
+    # ------------------------------------------------------------------
+    kernel = np.ones(smooth_samples) / smooth_samples
+    rms_smooth = np.convolve(rms, kernel, mode='same')   # (T,)
+
+    # ------------------------------------------------------------------
+    # 3. Sliding window sum to find highest-energy position
+    #    Use cumsum trick for O(T) efficiency
+    # ------------------------------------------------------------------
+    if T <= window_samples:
+        # Signal is shorter than or equal to desired window — return full signal
+        return 0, T
+
+    cumsum = np.cumsum(rms_smooth)
+    cumsum = np.insert(cumsum, 0, 0)   # prepend 0 for clean indexing
+
+    # window_energy[i] = sum of rms_smooth[i : i + window_samples]
+    window_energy = cumsum[window_samples:] - cumsum[:-window_samples]
+
+    best_start = int(np.argmax(window_energy))
+    best_end   = best_start + window_samples
+
+    return best_start, best_end
+
+
 def write_modality(run_group, modality_name, data_array, metadata):
     """Save a single modality dataset with its metadata to the run group."""
     run_group.create_dataset(modality_name, data=data_array, compression="lzf")
@@ -281,7 +375,7 @@ def write_modality(run_group, modality_name, data_array, metadata):
         run_group[modality_name].attrs['recording_duration'] = data_array.shape[0] / metadata.get('sample_rate')
 
 
-def convert_dataset(dataset_dir, output_fpath):
+def convert_dataset(dataset_dir, output_fpath, segment_gestures):
     # Reallocate subject ids. Originally, ids are repeated across training and testing splits
     # We want unique ids for each user to avoid conflicts when storing in the same HDF5 file.
     new_subject_id = 0     
@@ -350,7 +444,7 @@ def convert_dataset(dataset_dir, output_fpath):
                     run_key = f"run-{new_run_id:03d}"
                     run_group = session_group.create_group(run_key)
                     origin_path = f'{str(json_file)}:trainingSamples.{original_run_id}'
-                    process_run(run_std, run_group, run_data, origin_path, run_key, gesture_counter)
+                    process_run(run_std, run_group, run_data, origin_path, run_key, gesture_counter, segment_gestures)
 
                 testing_samples = user_data.get('testingSamples', {})
                 gesture_counter = {}  # Reset gesture counter for testing samples
@@ -359,10 +453,10 @@ def convert_dataset(dataset_dir, output_fpath):
                     run_key = f"run-{new_run_id:03d}"
                     run_group = session_group.create_group(run_key)
                     origin_path = f'{str(json_file)}:testingSamples.{original_run_id}'
-                    process_run(run_std, run_group, run_data, origin_path, run_key, gesture_counter)
+                    process_run(run_std, run_group, run_data, origin_path, run_key, gesture_counter, segment_gestures)
 
 
-def main(dataset_dir=None, output_dir=None, download_data=False):
+def main(dataset_dir=None, output_dir=None, download_data=False, segment_gestures=False):
     hdf5_root = os.getenv("HDF5_ROOT")
 
     if dataset_dir is None:
@@ -389,7 +483,7 @@ def main(dataset_dir=None, output_dir=None, download_data=False):
     if download_data:
         download_epn612(dataset_dir)
 
-    convert_dataset(dataset_dir, output_fpath)
+    convert_dataset(dataset_dir, output_fpath, segment_gestures)
 
 
 
@@ -398,8 +492,9 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_dir", type=str, default="data/epn612/")
     parser.add_argument("--output_dir", type=str, default=None, help="Directory to save the converted HDF5 files. Defaults to the dataset directory.")
     parser.add_argument("--download_data", action="store_true", help="Whether to download the EPN612 dataset.")
+    parser.add_argument("--segment_gestures", action="store_true", help="Whether to segment the EMG data to only include the gesture execution period.")
     args = parser.parse_args()
-    main(args.dataset_dir, args.output_dir, args.download_data)
+    main(args.dataset_dir, args.output_dir, args.download_data, args.segment_gestures)
 
 
 

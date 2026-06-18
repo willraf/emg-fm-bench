@@ -6,7 +6,7 @@ defaults:
   - _self_
 
 data:
-  window_length: 1000
+  window_length: 200
   split_type: inter_subject
   batch_size: 2
 
@@ -26,8 +26,8 @@ hydra:
     params:
       # data.split_type: inter_subject, intra_session
       dataset: epn612 #, ninapro_db5, uci_emg # 
-      model: tinymyo, neurorvq, physiowave
+      model: physiowave, tinymyo, neurorvq
       # data.window_length: 200, 1000
-      task.from_scratch: True,False
+      task.from_scratch: False, True
       task.freeze_backbone: True,False
       experiment.random_seed: 2, 50, 100
