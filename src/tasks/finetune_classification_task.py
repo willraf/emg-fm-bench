@@ -17,7 +17,7 @@ import contextlib
 from src.tasks.base_task import BaseTask
 from src.models import setup_model
 import src.utils.visualisation as vis
-from src.utils.metrics import Metrics
+from src.utils.metrics import ClassificationMetrics
 from src.models.bio_fm_wrapper import BioFMWrapper 
 
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -102,9 +102,9 @@ class FinetuneClassificationTask(BaseTask):
 
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
-        self.train_metrics = Metrics(device, distributed, is_main)
-        self.val_metrics = Metrics(device, distributed, is_main)
-        self.test_metrics = Metrics(device, distributed, is_main)
+        self.train_metrics = ClassificationMetrics(device, distributed, is_main)
+        self.val_metrics = ClassificationMetrics(device, distributed, is_main)
+        self.test_metrics = ClassificationMetrics(device, distributed, is_main)
 
 
     def train_step(self, batch, is_update_step=True, batch_idx=None, epoch=None):
@@ -126,7 +126,9 @@ class FinetuneClassificationTask(BaseTask):
             # This stuff is for amp scaling for memory efficiency
             with torch.autocast(device_type=self.device.type, enabled=self.use_amp, dtype=self.amp_dtype):
                 logits = self.model(emg)  
-                loss = self.loss_fn(logits, targets) / self.num_accumulation_steps
+                unscaled_loss = self.loss_fn(logits, targets)
+                loss = unscaled_loss / self.num_accumulation_steps
+               
 
             # Always perform (scaled) backward pass, even if not updating weights yet.
             # Prevents needing to store multiple forward passes in memory
@@ -143,7 +145,7 @@ class FinetuneClassificationTask(BaseTask):
 
         with torch.no_grad():
             preds = logits.argmax(dim=1)
-            self.train_metrics.update(preds, targets, loss=loss, num_samples=targets.size(0))
+            self.train_metrics.update(preds, targets, loss=unscaled_loss, num_samples=targets.size(0))
 
         return loss.item()     
 

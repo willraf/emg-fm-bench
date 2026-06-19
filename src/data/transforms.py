@@ -42,7 +42,7 @@ class DictTransform:
 @dataclass
 class StandardiseSignal(DictTransform):
     """Ensures signal is (C, T) and float32"""
-    field: str = "emg"
+    fields: str = ["emg"]
 
     def __post_init__(self):
         super().__init__(self.field)
