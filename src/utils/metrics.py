@@ -79,14 +79,21 @@ class Metrics:
 class ClassificationMetrics(Metrics):
     """
     Metrics for classification tasks.
-    Expects preds and targets of shape (B,) — class indices.
+    Expects:
+        preds:   (B, K) raw logits
+        targets: (B,)   class indices
     """
+
+    def update(self, preds, targets, loss=None, num_samples=None):
+        # Convert logits to class indices before accumulating
+        class_preds = preds.argmax(dim=1)  # (B,)
+        super().update(class_preds, targets, loss=loss, num_samples=num_samples)
 
     def compute(self):
         preds, targets, final_loss = self._gather()
 
         if preds is None:
-            return None  # Non-main process in distributed mode
+            return None
 
         acc = skmetrics.accuracy_score(targets, preds)
         prec, recall, f1, _ = skmetrics.precision_recall_fscore_support(
@@ -102,7 +109,6 @@ class ClassificationMetrics(Metrics):
             "recall":           recall,
             "confusion_matrix": cm,
         }
-
 
 # --------------------------------------------------------------------------- #
 
