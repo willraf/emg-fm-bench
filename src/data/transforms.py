@@ -21,7 +21,6 @@ TTransformIn = TypeVar("TTransformIn")
 TTransformOut = TypeVar("TTransformOut")
 Transform = Callable[[TTransformIn], TTransformOut]
 
-
 class DictTransform:
     """
     A base class for transforms that operate on a dictionary of data. The transform is applied to the specified fields in the dictionary.
@@ -42,7 +41,7 @@ class DictTransform:
 @dataclass
 class StandardiseSignal(DictTransform):
     """Ensures signal is (C, T) and float32"""
-    fields: str = ["emg"]
+    field: str = "emg"
 
     def __post_init__(self):
         super().__init__(self.field)

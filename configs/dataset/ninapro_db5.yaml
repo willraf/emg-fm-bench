@@ -3,7 +3,8 @@ data:
   name: hdf5_windowed
   root_key: ninapro_db5
   primary_data_key: emg
-  timeseries_keys: null
+  timeseries_keys: 
+    - jntang
   # Resolves $HDF5_ROOT env var, falls back to "data" if not set
   data_root: ${oc.env:HDF5_ROOT,data}
   hdf5_path: ${data.data_root}/ninapro_db5/ninapro_db5.hdf5

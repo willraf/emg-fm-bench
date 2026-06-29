@@ -53,18 +53,19 @@ class PatchEmbed(nn.Module):
         Forward pass
         
         Args:
-            x: [B, C, H, W] - Input tensor
+            x: [B, C, H, W] - Input tensor 
+                    [B, 1, F, T] after wavelet decomposition where F = (max_level+1)*C, T = time dimension
             
         Returns:
-            [B, num_patches, embed_dim] if flatten=True
+            [B, num_patches, embed_dim] if flatten=True         num_patches = H' * W' where H' = F/patch_size[0], W' = T/patch_size[1]
             [B, embed_dim, H', W'] if flatten=False
         """
-        x = self.proj(x)
-        x = x.permute(0,2,3,1)
+        x = self.proj(x)        # [B, embed_dim, H', W'] where H' = F/patch_size[0], W' = T/patch_size[1]
+        x = x.permute(0,2,3,1)      # [B, H', W', embed_dim]
         x = self.norm(x); x = self.act(x)
-        x = x.permute(0,3,1,2)
+        x = x.permute(0,3,1,2)      # [B, embed_dim, H', W']
         if self.flatten:
-            x = x.flatten(2).transpose(1,2)
+            x = x.flatten(2).transpose(1,2) # [B, num_patches, embed_dim] where num_patches = H'*W'
         return x
 
 

@@ -6,7 +6,8 @@ import argparse
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-TUNING_ORDER = ["Full Fine-tuning", "From-Scratch Fine-tuning", "Linear Probing", "From-Scratch Linear Probing"]
+# TUNING_ORDER = ["Full Fine-tuning", "From-Scratch Fine-tuning", "Linear Probing", "From-Scratch Linear Probing"]
+TUNING_ORDER = ["Full FT", "From-Scratch FT", "LP", "From-Scratch LP"]
 MODEL_ORDER  = ["NeuroRVQ", "PhysioWave", "TinyMyo"]
 
 def get_nested_cfg(cfg, keys):
@@ -60,13 +61,13 @@ def compile_benchmarks(exp_root="./experiments"):
             from_scratch = get_nested_cfg(cfg, ["task.from_scratch",    "finetuning.from_scratch"])
 
             if frozen is True and from_scratch is False:
-                tuning = "Linear Probing"
+                tuning = "LP"
             elif frozen is True and from_scratch is True:
-                tuning = "From-Scratch Linear Probing"
+                tuning = "From-Scratch LP"
             elif frozen is False and from_scratch is True:
-                tuning = "From-Scratch Fine-tuning"
+                tuning = "From-Scratch FT"
             else:
-                tuning = "Full Fine-tuning"
+                tuning = "Full FT"
 
             record = {
                 "exp_path":       str(res_path.parent.parent.name),
@@ -127,7 +128,7 @@ def refine_table(df):
         "physiowave": "PhysioWave",
     }
     dataset_map = {
-        "epn612":       "EPN-612 (5s)",
+        "epn612":       "EPN-612 (1s)",
         "ninapro_db5":  "NinaPro DB5 (1s)",
         "uci_emg":      "UCI-EMG (1s)",
     }
@@ -136,7 +137,7 @@ def refine_table(df):
     df["model_name"]     = df["model_name"].map(lambda x: model_map.get(x, x))
     df["dataset_pretty"] = df["dataset"].map(lambda x: dataset_map.get(x, x))
 
-    mask_epn   = (df["dataset"] == "epn612")      & (df["window_duration"] == 5)
+    mask_epn   = (df["dataset"] == "epn612")      & (df["window_duration"] == 1)
     mask_nina  = (df["dataset"] == "ninapro_db5") & (df["window_duration"] == 1)
     mask_uci   = (df["dataset"] == "uci_emg")     & (df["window_duration"] == 1)
     mask_split = (df["split"] == "inter_subject")
@@ -178,7 +179,7 @@ def generate_paper_table(df):
     ]
 
     # Use fixed meaningful orderings
-    datasets = ["NinaPro DB5 (1s)", "UCI-EMG (1s)", "EPN-612 (5s)"]
+    datasets = ["NinaPro DB5 (1s)", "UCI-EMG (1s)", "EPN-612 (1s)"]
     datasets = [d for d in datasets if d in df["dataset_pretty"].unique()]
     models   = [m for m in MODEL_ORDER  if m in df["model_name"].unique()]
     tunings  = [t for t in TUNING_ORDER if t in df["tuning"].unique()]
@@ -284,27 +285,10 @@ def plot_benchmark_results(df, output_dir="figures"):
 
 
 def compute_deltas(df):
-
-    delta_records = []
-
-    models   = df["model_name"].unique()
-    datasets = df["dataset_pretty"].unique()
-
-    for model in models:
-        for dataset in datasets:
-            subset = df[
-                (df["model_name"]     == model) &
-                (df["dataset_pretty"] == dataset)
-            ]
-
-
-
-
-def compute_deltas(df):
     """
     Compute two pretraining benefit deltas per model/dataset:
         - ft_delta:   Full FT accuracy - From Scratch accuracy
-        - head_delta: Head Only accuracy - Frozen Scratch accuracy
+        - head_delta: LP  accuracy - from Scratch LP accuracy
 
     A positive value means pretraining helped.
 
@@ -336,15 +320,15 @@ def compute_deltas(df):
                 row = subset[subset["tuning"] == tuning]
                 return row.iloc[0]["f1_mean"] if not row.empty else None
 
-            full_ft       = get_acc("Full Fine-tuning")
-            from_scratch  = get_acc("From-Scratch Fine-tuning")
-            head          = get_acc("Linear Probing")
-            frozen_scratch = get_acc("From-Scratch Linear Probing")
+            full_ft       = get_acc("Full FT")
+            from_scratch  = get_acc("From-Scratch FT")
+            head          = get_acc("LP")
+            frozen_scratch = get_acc("From-Scratch LP")
 
-            full_ft_f1      = get_f1("Full Fine-tuning")
-            from_scratch_f1 = get_f1("From-Scratch Fine-tuning")
-            head_f1         = get_f1("Linear Probing")
-            frozen_scratch_f1 = get_f1("From-Scratch Linear Probing")
+            full_ft_f1      = get_f1("Full FT")
+            from_scratch_f1 = get_f1("From-Scratch FT")
+            head_f1         = get_f1("LP")
+            frozen_scratch_f1 = get_f1("From-Scratch LP")
 
             # Only include row if we have at least one delta
             if any(v is not None for v in [full_ft, from_scratch, head, frozen_scratch]):
@@ -377,7 +361,7 @@ def generate_delta_table(delta_df):
     """
     Generate a LaTeX table showing pretraining benefit deltas.
 
-    Columns: Model | Dataset | Full FT - Scratch (Acc) | Head - Frozen Scratch (Acc)
+    Columns: Model | Dataset | Full FT - Scratch FT (Acc) | LP - Scratch LP (Acc)
     Positive = pretraining helped. Negative = pretraining hurt.
     Best per dataset is bolded.
     """
@@ -390,7 +374,7 @@ def generate_delta_table(delta_df):
         return f"\\textbf{{{base}}}" if is_best else base
 
     # Fixed dataset ordering — consistent with main table
-    datasets = ["NinaPro DB5 (1s)", "UCI-EMG (1s)", "EPN-612 (5s)"]
+    datasets = ["NinaPro DB5 (1s)", "UCI-EMG (1s)", "EPN-612 (1s)"]
     datasets = [d for d in datasets if d in delta_df["dataset_pretty"].unique()]
     models   = [m for m in MODEL_ORDER if m in delta_df["model_name"].unique()]
 
@@ -399,8 +383,8 @@ def generate_delta_table(delta_df):
     lines.append(r"\centering")
     lines.append(r"\caption{Pretraining benefit: accuracy gain (\%) from pretrained initialisaton "
                  r"over random initialisation. "
-                 r"\textit{Full FT $\Delta$} = Full FT $-$ From Scratch; "
-                 r"\textit{Head $\Delta$} = Head Only $-$ Frozen Random. "
+                 r"\textit{Full FT $\Delta$} = Full FT $-$ From-Scratch FT; "
+                 r"\textit{LP $\Delta$} = LP $-$ From-Scratch LP. "
                  r"Positive values indicate that pretraining improved performance. "
                  r"Best per dataset is \textbf{bolded}.}")
     lines.append(r"\label{tab:pretraining_delta}")
@@ -426,7 +410,7 @@ def generate_delta_table(delta_df):
     # Row 2: column headers
     row2 = "\\textbf{Model}"
     for _ in datasets:
-        row2 += r" & Full FT $\Delta$ & Head $\Delta$"
+        row2 += r" & Full FT $\Delta$ & LP $\Delta$"
     lines.append(row2 + r" \\")
     lines.append(r"\midrule")
 

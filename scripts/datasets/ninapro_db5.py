@@ -7,7 +7,7 @@ NOTE:
     Rest portions (stimulus=0) are ignored in the final dataset, so final gesture IDs range from 1-52
 
 Usage:
-    % python -m scripts.datasets.ninapro_db5 --dataset_dir data/ninapro_db5/ --output_dir data/ninapro_db5/ --download_data
+    % python -m scripts.datasets.ninapro_db5 --dataset_dir data/ninapro_db5/ --output_dir data/ninapro_db5/ --download_data --segment_gestures
 
 
 Authors:
@@ -35,6 +35,30 @@ TEST_SUBJS = [5, 11]
 TRAIN_REPS = [1, 3, 4, 6]
 VAL_REPS = [2]
 TEST_REPS = [5]
+
+# Precomputed per-joint min/max from training subjects only (sub-01,03,04,06,08,09,10)
+# Computed in notebooks/ninapro_db5_jntang_stats.ipynb
+# Channel 10 has anomalously large range (~2000 units) — likely a sensor calibration issue
+# Per-joint normalisation handles this correctly without special casing
+JNTANG_TRAIN_MIN = np.array([
+      -44.12763214,  -94.74728394,  -65.11074066,  -47.24693298,
+      -64.37309265,  -28.87206841,  -18.53434753,  -49.31587982,
+      -61.05163193,  -33.44902039, -1069.40991211,  -80.38005066,
+      -38.44103241,  -38.09302902,  -23.54822731,  -36.09608459,
+      -29.32806778,  -46.95530701,   -2.37881947,  -40.74927139,
+     -109.05863953,  -19.48239899
+], dtype=np.float32)
+
+JNTANG_TRAIN_MAX = np.array([
+     161.41166687,   75.17311859,   93.00727844,   70.04275513,
+      96.21552277,  105.76824951,   86.50091553,  117.03561401,
+     146.05380249,   47.89705276, 1076.46875,     129.52818298,
+     123.36170197,   74.21311188,   16.05175972,  105.02424622,
+     102.81341553,   84.05649567,   20.77408218,   66.91215515,
+      63.17636108,   98.25905609
+], dtype=np.float32)
+
+
 
 def get_gesture_id(exercise_id, stimulus_id):
     """NinaPro DB5 has a unique gesture distribution across exercises:
@@ -161,14 +185,16 @@ def write_modality(run_group, modality_name, data_array, metadata):
     run_group[modality_name].attrs['recording_duration'] = data_array.shape[0] / metadata.get('sample_rate', 200)
 
 
-def convert_ninapro_db5(dataset_dir, output_fpath=None, include_rest=False, segment_gestures=True):
+def convert_ninapro_db5(dataset_dir, output_fpath=None, include_rest=False, segment_gestures=True, normalise_joint_angles=True):
 
     # Should work with both nested and flat dir structures
     mat_files = sorted(dataset_dir.rglob("*.mat"))
 
     with h5py.File(output_fpath, 'w') as f:
         root = f.create_group("ninapro_db5")
-        
+        root.attrs['jntang_train_min'] = JNTANG_TRAIN_MIN
+        root.attrs['jntang_train_max'] = JNTANG_TRAIN_MAX        
+
         for fpath in tqdm(mat_files, desc="Converting NinaPro DB5"):
             mat = scipy.io.loadmat(str(fpath))
 
@@ -225,6 +251,11 @@ def convert_ninapro_db5(dataset_dir, output_fpath=None, include_rest=False, segm
             emg = mat['emg'].astype(np.float32) / 128.0 # Standardize to [-1, 1]
             acc = mat['acc'].astype(np.float32)
             glove = mat['glove'].astype(np.float32)
+
+            if normalise_joint_angles:
+                # Normalise joint angles to [0, 1] based on training set min/max
+                glove = (glove - JNTANG_TRAIN_MIN) / (JNTANG_TRAIN_MAX - JNTANG_TRAIN_MIN)
+                glove = np.clip(glove, 0.0, 1.0)
             
             # Use 'restimulus' and 'rerepetition' for refined labels
             stimulus = mat['restimulus'].flatten()
@@ -262,8 +293,12 @@ def convert_ninapro_db5(dataset_dir, output_fpath=None, include_rest=False, segm
                 jntang_meta = {
                     'sample_rate': run_std.get('sample_rate', 200),
                     'sensor_type': 'CyberGlove II',
-                    'units': 'degrees',  # Assuming joint angles are in degrees; adjust if in radians
                 }
+                if normalise_joint_angles:
+                    jntang_meta['units'] = 'normalised [0, 1]'
+                else: 
+                    jntang_meta['units'] = 'raw'
+
                 write_modality(run_group, "jntang", glove, jntang_meta)
 
                 gesture_id_meta = {
@@ -356,8 +391,11 @@ def convert_ninapro_db5(dataset_dir, output_fpath=None, include_rest=False, segm
                     jntang_meta = {
                         'sample_rate': run_std.get('sample_rate', 200),
                         'sensor_type': 'CyberGlove II',
-                        'units': 'degrees',  # Assuming joint angles are in degrees; adjust if in radians
                     }
+                    if normalise_joint_angles:
+                        jntang_meta['units'] = 'normalised [0, 1]'
+                    else: 
+                        jntang_meta['units'] = 'raw'
                     write_modality(run_group, "jntang", glove[start:end], jntang_meta)
 
 

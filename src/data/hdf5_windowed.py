@@ -173,6 +173,7 @@ class HDF5WindowedDataset(BaseDataset):
         run_group = self.file[group_path]
         session_group = run_group.parent
         user_group = session_group.parent
+        root_group = user_group.parent
 
         # Slice the data directly from the master file
         # HDF5 is very fast at random-access slicing
@@ -215,7 +216,7 @@ class HDF5WindowedDataset(BaseDataset):
                     
                     scaled_end_idx = scaled_start_idx + scaled_window_length
                     # Pad or crop to ensure consistent length
-                    # Should only happen is the full singal is shorter than the window length after scaling, in which case we pad from the left
+                    # Should only happen if the full signal is shorter than the window length after scaling, in which case we pad from the left
                     window = self.pad_crop_to_length(data[scaled_start_idx : scaled_end_idx], scaled_window_length)
                 else:
                     window = self.pad_crop_to_length(data[start_idx : end_idx], self.window_length)
@@ -230,15 +231,17 @@ class HDF5WindowedDataset(BaseDataset):
             output[k] = v
         for k, v in user_group.attrs.items():
             output[k] = v
+        for k, v in root_group.attrs.items():
+            output[k] = v
 
         for key, value in output.items():
-            output[key] = self._auto_convert_type(key, value)
+            output[key] = self._auto_convert_type(value)
 
         if self.transform:
             output = self.transform(output)
         return output
 
-    def _auto_convert_type(self, key: str, value):
+    def _auto_convert_type(self, value):
         """
         Heuristic-based type conversion for a general-purpose dataset.
         """

@@ -38,11 +38,13 @@ model:
 
   wrapper:
     # Parameters needed to construct the BioFMWrapper
-    embed_dim: ${model.fm.embed_dim}
+    # embed_dim: ${model.fm.embed_dim}
+    embed_dim: 1024
     n_classes: ${data.n_classes}
     patch_size: ${model.fm.patch_size}
-    num_channels: ${data.num_channels}
-    pooling_type: concat
+    window_length: ${data.window_length}
+    num_channels: ${model.fm.in_channels}
+    pooling_type: chan_concat_time_mean
     finetune_spacial_embedding: False
     
 data:

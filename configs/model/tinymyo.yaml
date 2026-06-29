@@ -34,8 +34,9 @@ model:
     embed_dim: ${model.fm.embed_dim}
     n_classes: ${data.n_classes}
     patch_size: ${model.fm.patch_size}
+    window_length: ${data.window_length}
     num_channels: ${data.num_channels}
-    pooling_type: concat
+    pooling_type: chan_concat_time_mean
     finetune_spacial_embedding: False
 
 data:

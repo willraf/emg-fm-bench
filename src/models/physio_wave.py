@@ -247,11 +247,15 @@ class PhysioWave(nn.Module):
         return x
 
     def prepare_tokens(self, x):
-        """Prepare tokens and add position encoding"""
-        B, C, F, T = x.shape
+        """Prepare tokens and add position encoding
+        
+        Input shape: [B, 1, (max_level+1)*C, T] after wavelet decomposition
+        Output shape: [B, num_patches, embed_dim] where num_patches = (F/patch_size[0])*(T/patch_size[1])
+        """
+        B, C, F, T = x.shape        # [B, 1, (max_level+1)*C, T] after wavelet decomposition
         
         # Patch embedding
-        tokens = self.patch_embed(x)
+        tokens = self.patch_embed(x)        # [B, num_patches, embed_dim] num_patches = (F/patch_size[0])*(T/patch_size[1])
         _, L, D = tokens.shape
         
         # Add position encoding
@@ -271,16 +275,21 @@ class PhysioWave(nn.Module):
         
         Args:
             x: [B, C, T] - Input time series signal
+
+        Returns:
+            features: [B, num_patches, embed_dim] where num_patches = (F/patch_size[0])*(T/patch_size[1])
+                F = (max_level+1)*C
+                T = time dimension
         """
         # 1. Wavelet decomposition
         wave_spec = self.wavelet_decomp(x)      #[B, (max_level+1)*C, T]
         wave_2d = wave_spec.unsqueeze(1)        #[B, 1, (max_level+1)*C, T]
         
         # 2. Patch embedding and position encoding
-        tokens = self.prepare_tokens(wave_2d)   # [B, num_patches, embed_dim] num_patches = T/patch_size*max_level+1*C
+        tokens = self.prepare_tokens(wave_2d)   # [B, num_patches, embed_dim] num_patches = (F/patch_size[0])*(T/patch_size[1])
         
         # 3. Transformer encoding
-        features = self.encoder(tokens)
+        features = self.encoder(tokens)    # [B, num_patches, embed_dim] 
         
         return features
 
@@ -348,11 +357,22 @@ class PhysioWave(nn.Module):
             x = self.resample_channels(x, self.in_channels)
 
         if task == 'features':
-            features = self.forward_features(x)   # [B, num_patches, embed_dim] num_patches = T/patch_size*max_level+1*C
+            features = self.forward_features(x)   # [B, num_patches, embed_dim] num_patches = (max_level+1*C)/patch_size[0] * T/patch_size[1]
+
             # ------------------- Adaptation!! -------------------
-            # Reshape features to [B, C, num_patches, embed_dim] for compatibility
             B, N, D = features.shape
-            features = features.reshape(B, C, -1, D)
+            p_f, p_t = self.patch_size  
+
+            freq_dim = (self.max_level + 1) * self.in_channels  # Number of frequency channels after wavelet decomposition
+            freq_patches = freq_dim // p_f
+
+            time_patches = N // freq_patches  # Calculate time patches based on total patches and frequency patches
+            assert time_patches == T // p_t, f"Calculated time patches {time_patches} does not match expected {T // p_t}"
+
+            features = features.reshape(B, freq_patches, time_patches, D)
+
+            features = features.reshape(B, self.in_channels, -1, time_patches, D)       # [B, C, freq_patches_per_channel, time_patches, D]
+            features = features.permute(0, 1, 3, 2, 4).reshape(B, self.in_channels, time_patches, -1)  # [B, C, time_patches, freq_patches_per_channel * D]
             return features
             # ----------------------------------------------------
         elif task == 'pretrain':

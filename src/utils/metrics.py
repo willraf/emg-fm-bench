@@ -30,14 +30,14 @@ class Metrics:
         Returns (preds_np, targets_np, final_loss) on main process,
         returns None on non-main processes in distributed mode.
         """
-        local_preds   = torch.cat(self.preds)
-        local_targets = torch.cat(self.targets)
+        local_preds   = torch.cat(self.preds).float()
+        local_targets = torch.cat(self.targets).float()
 
         if self.distributed:
             output_preds   = [None for _ in range(dist.get_world_size())]
             output_targets = [None for _ in range(dist.get_world_size())]
 
-            dist.all_gather_object(output_preds,   local_preds)
+            dist.all_gather_object(output_preds, local_preds)
             dist.all_gather_object(output_targets, local_targets)
 
             loss_tensor = torch.tensor(
@@ -48,13 +48,13 @@ class Metrics:
             if not self.is_main:
                 return None, None, None
 
-            preds   = torch.cat(output_preds).numpy()
+            preds = torch.cat(output_preds).numpy()
             targets = torch.cat(output_targets).numpy()
             final_loss = (loss_tensor[0] / loss_tensor[1]).item() \
                          if loss_tensor[1] > 0 else 0.0
         else:
-            preds      = local_preds.numpy()
-            targets    = local_targets.numpy()
+            preds = local_preds.numpy()
+            targets = local_targets.numpy()
             final_loss = (self.total_loss / self.total_samples) \
                          if self.total_samples > 0 else 0.0
 

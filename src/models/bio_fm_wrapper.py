@@ -33,19 +33,38 @@ class BioFMWrapper(nn.Module):
         self.finetune_spacial_embedding = cfg.finetune_spacial_embedding
         self.n_channels = cfg.num_channels
 
+        n_patches = 1
+
         # Head Definition
-        if self.pooling_type == "concat":
+        if self.pooling_type == "chan_concat_time_mean":
             # Concat across channels: dim = embed_dim * n_channels
             self.fc_norm = nn.LayerNorm(self.embed_dim * self.n_channels)
             self.head = nn.Linear(self.embed_dim * self.n_channels, self.num_classes)
+
+        elif self.pooling_type == "time_concat_chan_mean":
+            self.fc_norm = nn.LayerNorm(self.embed_dim * n_patches)
+            self.head = nn.Linear(self.embed_dim * n_patches, self.num_classes)
+
         elif self.pooling_type == "attention_pool":
             self.query = nn.Parameter(torch.randn(1, 1, self.embed_dim))
             self.attn = nn.MultiheadAttention(self.embed_dim, num_heads=8, batch_first=True)
             self.fc_norm = nn.LayerNorm(self.embed_dim)
             self.head = nn.Linear(self.embed_dim, self.num_classes)
-        else: # "mean" or "tiny_myo_mean"
+
+        elif self.pooling_type == "chan_mean" or self.pooling_type == "time_mean" or self.pooling_type == "mean":
             self.fc_norm = nn.LayerNorm(self.embed_dim)
             self.head = nn.Linear(self.embed_dim, self.num_classes)
+
+        elif self.pooling_type == "chan_concat":
+            self.fc_norm = nn.LayerNorm(self.embed_dim * self.n_channels)
+            self.head = nn.Linear(self.embed_dim * self.n_channels, self.num_classes)
+
+        elif self.pooling_type == "time_concat":
+            self.fc_norm = nn.LayerNorm(self.embed_dim * n_patches)
+            self.head = nn.Linear(self.embed_dim * n_patches, self.num_classes)
+
+        else:  
+            raise ValueError(f"Unknown pooling type: {self.pooling_type}")
 
     def forward(self, x):
         """
@@ -58,7 +77,6 @@ class BioFMWrapper(nn.Module):
         tokens = self.fm(x)
 
         feat = self._aggregate(tokens)
-
 
         return self.head(self.fc_norm(feat))
     
@@ -75,31 +93,43 @@ class BioFMWrapper(nn.Module):
             feat: (B, N, D) if pooling_type is "channel_mean"
         """
 
-        B, C, N, D = tokens.shape # (B, Channels, num_temporal_patches,Embed_Dim)
+        B, C, N, D = tokens.shape # (B, Channels, num_temporal_patches, Embed_Dim) --> (B, C, N, D)
 
         if self.pooling_type == "mean":
             # Global Average across all patches (Simple & robust)
-            feat = tokens.mean(dim=(1, 2)) # (B, 200)
+            feat = tokens.mean(dim=(1, 2)) # (B, D)
             
-        elif self.pooling_type == "tiny_myo_mean":
-            # Mean across channels, then mean across time
-            feat = tokens.mean(dim=1).mean(dim=1) # (B, 200)
-            
-        elif self.pooling_type == "concat":
-            # Concat channels: (B, Time, Chan*Embed) -> (B, 32, 1600)
+        elif self.pooling_type == "chan_concat_time_mean":
+            # Concat channels: (B, N, C*D) 
             feat = tokens.permute(0, 2, 1, 3).reshape(B, N, -1)
-            feat = feat.mean(dim=1) # Average over time -> (B, 1600)
+            feat = feat.mean(dim=1) # Average over time -> (B, C*D)
+
+        elif self.pooling_type == "time_concat_chan_mean":
+            feat = tokens.reshape(B, C, -1) # (B, C, N*D)
+            feat = feat.mean(dim=1) # Average over channels -> (B, N*D)
 
         elif self.pooling_type == "attention_pool":
-            # Strategy 4: Model learns which patches represent the gesture
-            # Flatten to (B, 256, 200) for attention
+            # TODO: Strategy 4: Model learns which patches represent the gesture
+            # Flatten to (B, 256, D) for attention
             flat_tokens = tokens.reshape(B, N, D)
             q = self.query.expand(B, -1, -1)
             feat, _ = self.attn(q, flat_tokens, flat_tokens)
-            feat = feat.squeeze(1) # (B, 200)
-        elif self.pooling_type == "channel_mean":
+            feat = feat.squeeze(1) # (B, D)
+
+        elif self.pooling_type == "chan_mean":
             # Mean across channels
-            feat = tokens.mean(dim=1) # (B, Time, 200)
+            feat = tokens.mean(dim=1) # (B, N, D)
+
+        elif self.pooling_type == "time_mean":
+            # Mean across time
+            feat = tokens.mean(dim=2) # (B, Channels, D)
+        
+        elif self.pooling_type == "chan_concat":
+            feat = tokens.permute(0, 2, 1, 3).reshape(B, N, -1) # (B, N, C*D)
+
+        elif self.pooling_type == "time_concat":
+            feat = tokens.reshape(B, C, -1) # (B, C, N*D)   
+
         else:
             raise ValueError(f"Unknown pooling type: {self.pooling_type}")
         
