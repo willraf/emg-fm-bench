@@ -53,7 +53,7 @@ class PhysioWave(nn.Module):
                  head_config=None,
                  pooling='mean',
                  # **ADAPTATION** Whether to apply additional transformation to features (if needed) [B, num_patches, embed_dim] -> [B, C, time_patches, freq_patches_per_channel * D]
-                 transform_features=True,
+                 reshape_features=False
                  ):
         super().__init__()
 
@@ -71,6 +71,8 @@ class PhysioWave(nn.Module):
         self.importance_ratio = importance_ratio
         self.mask_ratio = mask_ratio
         self.task_type = task_type
+
+        self.reshape_features = reshape_features
         
         # Calculate patch dimension
         self.patch_dim = patch_size[0] * patch_size[1]
@@ -366,7 +368,7 @@ class PhysioWave(nn.Module):
             # The purpose of the following is to transform features into the standardised [B, C, N, D] shape, 
             #    allowing them to tbe interpreted as per patch embeddings and enabling aggregation across channels and time.
             #    Achieved by absorbing the frequency dimension into the embedding dimension
-            if transform_features:
+            if self.reshape_features:
                 B, N, D = features.shape
                 p_f, p_t = self.patch_size  
 
