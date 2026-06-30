@@ -28,6 +28,7 @@ model:
     use_for_pretraining: True
     return_patch_embeddings: True
     sample_channels: ${data.sample_channels}
+    transform_features: True
 
   wrapper:
     # Parameters needed to construct the BioFMWrapper

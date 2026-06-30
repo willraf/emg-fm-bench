@@ -87,11 +87,15 @@ class BioFMWrapper(nn.Module):
 
         Args:
             tokens: (B, C, N, D) per patch embeddings from the foundation model
+                    or (B, num_patches, D) 
 
         Returns:
             feat: (B, D) aggregated feature vector for classification
             feat: (B, N, D) if pooling_type is "channel_mean"
         """
+        if tokens.ndim == 3:
+            # If tokens are (B, N, D), we can treat it as a single channel case
+            tokens = tokens.unsqueeze(1)  # (B, 1, N, D)
 
         B, C, N, D = tokens.shape # (B, Channels, num_temporal_patches, Embed_Dim) --> (B, C, N, D)
 
@@ -110,7 +114,7 @@ class BioFMWrapper(nn.Module):
 
         elif self.pooling_type == "attention_pool":
             # TODO: Strategy 4: Model learns which patches represent the gesture
-            # Flatten to (B, 256, D) for attention
+            # Flatten to (B, num_patches, D) for attention
             flat_tokens = tokens.reshape(B, N, D)
             q = self.query.expand(B, -1, -1)
             feat, _ = self.attn(q, flat_tokens, flat_tokens)

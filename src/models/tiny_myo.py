@@ -765,8 +765,7 @@ class TinyMyo(nn.Module):
         # ----------------- Adaptation!! -----------------  
         # Standardise output shape for compatability with bio fm wrapper
         if self.return_latent:
-            # return x_latent.view(B, self.in_chans, -1, self.embed_dim)  # [B, num_patches_per_channel, in_chans, embed_dim]
-            x_latent = rearrange(x_latent, "b (c p) d -> b c p d", c=self.in_chans)  # [B, num_patches, in_chans, embed_dim]
+            x_latent = rearrange(x_latent, "b (c p) d -> b c p d", c=self.in_chans)  # [B, C, N, D]
             return x_latent
         # ------------------------------------------------
         else:  # classification or regression

@@ -51,7 +51,10 @@ class PhysioWave(nn.Module):
                  num_classes=None,
                  output_dim=None,
                  head_config=None,
-                 pooling='mean'):
+                 pooling='mean',
+                 # **ADAPTATION** Whether to apply additional transformation to features (if needed) [B, num_patches, embed_dim] -> [B, C, time_patches, freq_patches_per_channel * D]
+                 transform_features=True,
+                 ):
         super().__init__()
 
         if isinstance(patch_size, int):
@@ -360,21 +363,25 @@ class PhysioWave(nn.Module):
             features = self.forward_features(x)   # [B, num_patches, embed_dim] num_patches = (max_level+1*C)/patch_size[0] * T/patch_size[1]
 
             # ------------------- Adaptation!! -------------------
-            B, N, D = features.shape
-            p_f, p_t = self.patch_size  
+            # The purpose of the following is to transform features into the standardised [B, C, N, D] shape, 
+            #    allowing them to tbe interpreted as per patch embeddings and enabling aggregation across channels and time.
+            #    Achieved by absorbing the frequency dimension into the embedding dimension
+            if transform_features:
+                B, N, D = features.shape
+                p_f, p_t = self.patch_size  
 
-            freq_dim = (self.max_level + 1) * self.in_channels  # Number of frequency channels after wavelet decomposition
-            freq_patches = freq_dim // p_f
+                freq_dim = (self.max_level + 1) * self.in_channels  # Number of frequency channels after wavelet decomposition
+                freq_patches = freq_dim // p_f
 
-            time_patches = N // freq_patches  # Calculate time patches based on total patches and frequency patches
-            assert time_patches == T // p_t, f"Calculated time patches {time_patches} does not match expected {T // p_t}"
+                time_patches = N // freq_patches  # Calculate time patches based on total patches and frequency patches
+                assert time_patches == T // p_t, f"Calculated time patches {time_patches} does not match expected {T // p_t}"
 
-            features = features.reshape(B, freq_patches, time_patches, D)
+                features = features.reshape(B, freq_patches, time_patches, D)
 
-            features = features.reshape(B, self.in_channels, -1, time_patches, D)       # [B, C, freq_patches_per_channel, time_patches, D]
-            features = features.permute(0, 1, 3, 2, 4).reshape(B, self.in_channels, time_patches, -1)  # [B, C, time_patches, freq_patches_per_channel * D]
-            return features
+                features = features.reshape(B, self.in_channels, -1, time_patches, D)       # [B, C, freq_patches_per_channel, time_patches, D]
+                features = features.permute(0, 1, 3, 2, 4).reshape(B, self.in_channels, time_patches, -1)  # [B, C, time_patches, freq_patches_per_channel * D]
             # ----------------------------------------------------
+            return features
         elif task == 'pretrain':
             return self.forward_pretrain(x, mask_ratio)
         elif task == 'downstream':

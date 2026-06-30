@@ -20,7 +20,7 @@ import logging
 import torch.nn.functional as F
 
 
-class FinetuneRegressionTask(BaseFinetuneTask):
+class VelocityRegressionTask(BaseFinetuneTask):
 
     def __init__(self, cfg, device, distributed=False, is_main=False):
         super().__init__(cfg, device, distributed, is_main)
