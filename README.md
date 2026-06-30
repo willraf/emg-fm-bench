@@ -12,7 +12,9 @@ python -m scripts.main +experiment=full_sweep
 
 From virtual environment with python==3.12:
 
-`$ pip install -r requirements.txt`
+```bash
+pip install -r requirements.txt
+```
 
 or using conda:
 
@@ -23,7 +25,9 @@ conda activate emg-fm-bench
 
 To freeze:
 
-`$ pip list --format=freeze > requirements.txt`
+```bash
+pip list --format=freeze > requirements.txt
+```
 
 
 ## Data Setup
