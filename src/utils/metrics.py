@@ -139,7 +139,10 @@ class RegressionMetrics(Metrics):
         if preds is None:
             return None
 
-        total_windows, N, J = preds.shape
+        if preds.ndim == 3:
+            _, _, J = preds.shape
+        elif preds.ndim == 2:
+            J = preds.shape[1]
 
         # Flatten to (total_windows * N, J) for per-joint stats
         preds_flat   = preds.reshape(-1, J)    # (M, J)  M = total_windows * N
