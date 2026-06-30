@@ -2,37 +2,39 @@
 defaults:
   - override /transforms: transforms
   - override /dataset: ninapro_db5
-  - override /model: physiowave
+  - override /model: tinymyo
   - _self_
 
 data:
-  window_length: 200
+  window_duration: 1.0
+  stride_duration: 0.25
   split_type: inter_subject
   batch_size: 2
   # 22 joint angles for regression task
-  # n_classes: 22
+  n_classes: 22
 
 experiment:
-  name: final/physiowave_rerun/${data.root_key}/${model.fm.name}_${data.window_length}_${data.split_type}_frozen-${task.freeze_backbone}_scratch-${task.from_scratch}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  name: final/regression/${data.root_key}/${model.fm.name}_${data.window_duration}_${data.split_type}_frozen-${task.freeze_backbone}_scratch-${task.from_scratch}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
   log_interval: 10
   wandb_project: ${data.root_key}
   random_seed: 50
+  use_wandb: False
 
 
-# # task specific parameters
-# task:
-#   name: finetune_regression
-#   # target_field: jntang
-#   learning_rate: 0.0001
-#   weight_decay: 0.001
-#   warmup_epochs: 5
-#   use_amp: True
-#   freeze_backbone: False
-#   from_scratch: False
+# task specific parameters
+task:
+  name: finetune_regression
+  target_field: jntang
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  warmup_epochs: 5
+  use_amp: True
+  freeze_backbone: True
+  from_scratch: False
 
 model:
   wrapper:
-    pooling_type: chan_concat_time_mean
+    pooling_type: time_concat_chan_mean
 
 
 hydra:
@@ -40,9 +42,9 @@ hydra:
   sweeper:
     params:
       # data.split_type: inter_subject, intra_session
-      # model: physiowave, neurorvq #, tinymyo
-      # data.window_length: 200, 1000
+      model: physiowave, neurorvq, tinymyo
+      # data.window_duration: 1.0, 5.0
       # dataset: epn612, ninapro_db5, uci_emg 
       task.from_scratch: False, True
       task.freeze_backbone: True,False
-      experiment.random_seed: 2, 50, 100
+      # experiment.random_seed: 2, 50, 100

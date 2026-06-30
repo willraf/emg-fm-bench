@@ -9,9 +9,9 @@ data:
   hdf5_path: ${data.data_root}/uci_emg/uci_emg.hdf5 
   split_type: inter_subject
   num_channels: 8
-  window_length: 200      
+  window_duration: 1.0
+  stride_duration: 0.25
   sample_rate: 200        # Original sample rate of the (primary) data
-  stride: 50
   jitter: True
   num_workers: 5
   batch_size: 256

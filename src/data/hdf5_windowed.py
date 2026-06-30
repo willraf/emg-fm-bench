@@ -34,7 +34,13 @@ class HDF5WindowedDataset(BaseDataset):
         self.mode = mode
         
         self.hdf5_path = Path(cfg.hdf5_path)
-        self.window_length = cfg.window_length
+        self.window_duration = cfg.window_duration
+        self.sample_rate = cfg.sample_rate
+
+        self.window_length = int(self.window_duration * self.sample_rate)  # Calculate window length in samples based on duration and sample rate
+        stride_duration = cfg.get("stride_duration", self.window_duration)
+        self.stride = int(stride_duration * self.sample_rate)
+        self.jitter = cfg.jitter
 
         # The type of split/generalisation we are evaluating
         self.split_type = cfg.split_type          
@@ -44,10 +50,6 @@ class HDF5WindowedDataset(BaseDataset):
             self.loso_subj = cfg.loso_subject
             assert self.loso_subj is not None, "loso_subject must be set in cfg when split_type is 'loso'"
             logging.info(f"LOSO mode: test subject = {self.loso_subj}")
-
-        stride = cfg.stride
-        self.stride = stride if stride is not None else self.window_length  # Default to non-overlapping windows
-        self.jitter = cfg.jitter
 
         self.primary_data_key = cfg.primary_data_key
         self.root_key = cfg.root_key

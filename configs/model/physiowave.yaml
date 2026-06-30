@@ -35,18 +35,16 @@ model:
     head_config: null
     pooling: null
     # ADAPTATION: Add a flag to control whether to reshape the features before passing to the wrapper
-    reshape_features: True
+    reshape_features: False
 
   wrapper:
     # Parameters needed to construct the BioFMWrapper
-    # embed_dim: ${model.fm.embed_dim}
-    embed_dim: 1024
     n_classes: ${data.n_classes}
-    patch_size: ${model.fm.patch_size}
-    window_length: ${data.window_length}
-    num_channels: ${model.fm.in_channels}
     pooling_type: chan_concat_time_mean
     finetune_spacial_embedding: False
+    num_channels: ${model.fm.in_channels}
+    sample_rate: ${model.sample_rate}
+
     
 data:
   # No band pass filter, per channel z score normalisation and resampling to test original method done by physiowave

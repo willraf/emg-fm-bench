@@ -383,6 +383,7 @@ class PhysioWave(nn.Module):
                 features = features.reshape(B, self.in_channels, -1, time_patches, D)       # [B, C, freq_patches_per_channel, time_patches, D]
                 features = features.permute(0, 1, 3, 2, 4).reshape(B, self.in_channels, time_patches, -1)  # [B, C, time_patches, freq_patches_per_channel * D]
             # ----------------------------------------------------
+            print(features.shape)
             return features
         elif task == 'pretrain':
             return self.forward_pretrain(x, mask_ratio)

@@ -9,9 +9,9 @@ data:
   hdf5_path: ${data.data_root}/eeg-emg-wristmotion/eeg-emg-wristmotion.hdf5  
   split_type: inter_subject
   num_channels: 8
-  window_length: 1000      
+  window_duration: 1.0
   sample_rate: 512        # Original sample rate of the (primary) data
-  stride: null
+  stride_duration: null
   jitter: True
   num_workers: 5
   batch_size: 32

@@ -751,6 +751,13 @@ class TinyMyo(nn.Module):
         """
         x_original = x_signal.clone()
         B, C, T = x_signal.shape
+
+        # ------------------ Adaptation!! -----------------
+        # Check that input shape is as expected
+        assert (C == self.in_chans), f"Expected input channels {self.in_chans}, but got {C}"
+        assert (T == self.img_size), f"Expected input length {self.img_size}, but got {T}"
+        # ------------------------------------------------
+
         x = self.prepare_tokens(x_signal, mask=mask)
 
         # forward pass through transformer blocks

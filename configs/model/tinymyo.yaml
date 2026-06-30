@@ -9,7 +9,8 @@ model:
     checkpoint: pretrained_models/TinyMyo/pretraining/TinyMyo.safetensors
     # checkpoint: pretrained_models/TinyMyo/UCI_EMG/UCI_EMG.safetensors
     # checkpoint: pretrained_models/TinyMyo/DB5/DB5.safetensors
-    img_size: ${data.window_length}
+    # img_size: ${data.window_duration * model.sample_rate}
+    img_size: 2000
     patch_size: 20
     in_chans: ${data.num_channels}
     embed_dim: 192
@@ -31,13 +32,12 @@ model:
 
   wrapper:
     # Parameters needed to construct the BioFMWrapper
-    embed_dim: ${model.fm.embed_dim}
     n_classes: ${data.n_classes}
-    patch_size: ${model.fm.patch_size}
-    window_length: ${data.window_length}
-    num_channels: ${data.num_channels}
     pooling_type: chan_concat_time_mean
     finetune_spacial_embedding: False
+    num_channels: ${data.num_channels}
+    sample_rate: ${model.sample_rate}
+    window_duration: ${data.window_duration}
 
 data:
   # Band pass filter, notch filter, per channel z score normalisation (same as tinymyo paper)

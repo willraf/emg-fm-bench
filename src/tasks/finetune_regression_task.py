@@ -32,46 +32,46 @@ class FinetuneRegressionTask(BaseFinetuneTask):
         self.val_metrics   = RegressionMetrics(device, distributed, is_main)
         self.test_metrics  = RegressionMetrics(device, distributed, is_main)
 
-    def _prepare_targets(self, batch) -> torch.Tensor:
-        """
-        Per-patch prediction of joint angles. Averages joint angles over each patch (in time) to produce a single label per patch.
-        """
-        raw = batch[self.target_field].to(self.device)  # (B, T, J)
-
-        assert raw.ndim == 3, (
-            f"Expected (B, T, J), got {raw.shape}. "
-            f"Check '{self.target_field}' is returned as (B, T, J) by the dataset."
-        )
-    
-        # Resample to match EMG length if necessary
-        emg = batch["emg"].to(self.device)              # (B, C, T_emg)
-        T_emg = emg.shape[2]
-        T_label = raw.shape[1]
-
-        # Resample timeseries labels to match EMG length if necessary
-        if T_label != T_emg:
-            raw = self._resample_labels(raw, target_length=T_emg)  # (B, T_emg, J)
-
-        B, T, J = raw.shape
-        patch_len = self.cfg.model.wrapper.patch_size
-        N = T // patch_len
-
-        assert N > 0, (
-            f"patch_len ({patch_len}) > sequence length ({T}). "
-            f"Check patch_size config."
-        )
-
-        raw = raw[:, :N * patch_len, :]
-        # raw = raw.mean(dim=1).reshape(B, N, J)  # (B, J)
-        raw = raw.reshape(B, N, patch_len, J).mean(dim=2)  # (B, N, J)
-        return raw
-    
     # def _prepare_targets(self, batch) -> torch.Tensor:
     #     """
-    #     Per-window prediction of joint angles. Takes the final frame of the window as the target label for the whole window.
+    #     Per-patch prediction of joint angles. Averages joint angles over each patch (in time) to produce a single label per patch.
     #     """
     #     raw = batch[self.target_field].to(self.device)  # (B, T, J)
-    #     return raw[:, -1, :]  # (B, J) — final frame of window
+
+    #     assert raw.ndim == 3, (
+    #         f"Expected (B, T, J), got {raw.shape}. "
+    #         f"Check '{self.target_field}' is returned as (B, T, J) by the dataset."
+    #     )
+    
+    #     # Resample to match EMG length if necessary
+    #     emg = batch["emg"].to(self.device)              # (B, C, T_emg)
+    #     T_emg = emg.shape[2]
+    #     T_label = raw.shape[1]
+
+    #     # Resample timeseries labels to match EMG length if necessary
+    #     if T_label != T_emg:
+    #         raw = self._resample_labels(raw, target_length=T_emg)  # (B, T_emg, J)
+
+    #     B, T, J = raw.shape
+    #     patch_len = self.cfg.model.wrapper.patch_size
+    #     N = T // patch_len
+
+    #     assert N > 0, (
+    #         f"patch_len ({patch_len}) > sequence length ({T}). "
+    #         f"Check patch_size config."
+    #     )
+
+    #     raw = raw[:, :N * patch_len, :]
+    #     # raw = raw.mean(dim=1).reshape(B, N, J)  # (B, J)
+    #     raw = raw.reshape(B, N, patch_len, J).mean(dim=2)  # (B, N, J)
+    #     return raw
+    
+    def _prepare_targets(self, batch) -> torch.Tensor:
+        """
+        Per-window prediction of joint angles. Takes the final frame of the window as the target label for the whole window.
+        """
+        raw = batch[self.target_field].to(self.device)  # (B, T, J)
+        return raw[:, -1, :]  # (B, J) — final frame of window
     
     def _resample_labels(self, labels: torch.Tensor, target_length: int) -> torch.Tensor:
         """

@@ -6,7 +6,8 @@ defaults:
   - _self_
 
 data:
-  window_length: 1000
+  window_duration: 1.0
+  stride_duration: 0.25
   # split_type: inter_subject
   split_type: loso
   loso_subject: null
@@ -39,7 +40,7 @@ training:
 #   sweeper:
 #     params:
 #       # data.split_type: inter_subject, intra_session
-#       # data.window_length: 200, 1000
+#       # data.window_duration: 1.0, 5.0
 #       # task.freeze_backbone: True,False
 #       experiment.random_seed: 2, 50, 100
 

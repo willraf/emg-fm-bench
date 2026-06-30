@@ -30,13 +30,11 @@ model:
     sample_channels: ${data.sample_channels}
     transform_features: True
 
+
   wrapper:
     # Parameters needed to construct the BioFMWrapper
-    # For some reason, neuroRVQ's real embed dim is 4 times 
-    embed_dim: 800
     n_classes: ${data.n_classes}
-    patch_size: ${model.fm.patch_size}
-    window_length: ${data.window_length}
-    num_channels: ${data.num_channels}
     pooling_type: chan_concat_time_mean
     finetune_spacial_embedding: True
+    num_channels: ${data.num_channels}
+    sample_rate: ${model.sample_rate}

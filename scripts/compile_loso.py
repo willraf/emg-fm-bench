@@ -74,14 +74,18 @@ def compile_benchmarks(exp_root="./experiments"):
             metrics_df = pd.read_csv(res_path)
             metrics = metrics_df.iloc[0].to_dict()
 
-            window_length = get_nested_cfg(cfg, ["data.window_length"])
-            fs            = get_nested_cfg(cfg, ["data.sample_rate"])
-            window_duration = (
-                window_length / fs
-                if window_length is not None and fs is not None
-                else None
-            )
 
+
+            window_duration = get_nested_cfg(cfg, ["data.window_duration"])
+            if window_duration is None:
+                window_length = get_nested_cfg(cfg, ["data.window_length"])
+                fs            = get_nested_cfg(cfg, ["data.sample_rate"])
+                window_duration = (
+                    window_length / fs
+                    if window_length is not None and fs is not None
+                    else None
+                )
+            
             model_name = get_nested_cfg(cfg, ["model.fm.name", "model.name"])
             model_name = model_name.replace("_fm", "").replace("_", "")
 
@@ -107,7 +111,6 @@ def compile_benchmarks(exp_root="./experiments"):
                 "seed":            get_nested_cfg(cfg, ["experiment.random_seed"]),
                 "model_name":      model_name,
                 "dataset":         get_nested_cfg(cfg, ["data.root_key"]),
-                "window":          window_length,
                 "fs":              fs,
                 "window_duration": window_duration,
                 "split":           split,

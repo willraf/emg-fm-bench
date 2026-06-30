@@ -10,9 +10,9 @@ data:
   # hdf5_path: /mnt/data/emg2pose_data/emg2pose.hdf5
   split_type: inter_subject
   num_channels: 16
-  window_length: 200      
-  sample_rate: 200        # Original sample rate of the (primary) data
-  stride: null
+  window_duration: 1.0
+  stride_duration: null
+  sample_rate: 2000        # Original sample rate of the (primary) data
   jitter: True
   num_workers: 5
   batch_size: 32
