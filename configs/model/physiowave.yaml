@@ -44,6 +44,7 @@ model:
     finetune_spacial_embedding: False
     num_channels: ${model.fm.in_channels}
     sample_rate: ${model.sample_rate}
+    window_duration: ${data.window_duration}
 
     
 data:
