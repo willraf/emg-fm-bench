@@ -6,7 +6,7 @@ model:
   checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
   fm:
     name: tiny_myo
-    checkpoint: pretrained_models/TinyMyo/pretraining/base.safetensors
+    checkpoint: pretrained_models/TinyMyo/pretraining/TinyMyo.safetensors
     # checkpoint: pretrained_models/TinyMyo/UCI_EMG/UCI_EMG.safetensors
     # checkpoint: pretrained_models/TinyMyo/DB5/DB5.safetensors
     img_size: ${data.window_length}

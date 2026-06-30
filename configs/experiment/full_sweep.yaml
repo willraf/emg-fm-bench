@@ -42,7 +42,7 @@ hydra:
       # data.split_type: inter_subject, intra_session
       # model: physiowave, neurorvq #, tinymyo
       # data.window_length: 200, 1000
-      dataset: epn612, ninapro_db5, uci_emg 
+      # dataset: epn612, ninapro_db5, uci_emg 
       task.from_scratch: False, True
       task.freeze_backbone: True,False
       experiment.random_seed: 2, 50, 100
