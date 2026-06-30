@@ -264,6 +264,10 @@ class HDF5WindowedDataset(BaseDataset):
         if isinstance(value, (float, np.floating)):
             return torch.tensor(value, dtype=torch.float32)
 
+                
+        if isinstance(value, (bool, np.bool_)):
+            return bool(value)
+
         # Leave Strings/None/Booleans as they are (Dataloader will handle strings)
         return value
     
