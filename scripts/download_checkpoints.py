@@ -65,34 +65,83 @@ def download_tinymyo():
 
 NEURORVQ_FILES = [
     "pretrained_models/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt",
+    "pretrained_models/tokenizers/NeuroRVQ_EMG_tokenizer_v1.pt",
 ]
 
 def download_neurorvq():
-    """
-    Downloads NeuroRVQ checkpoints from HuggingFace Hub.
-    Repo: https://huggingface.co/ntinosbarmpas/NeuroRVQ
-    """
     try:
         from huggingface_hub import hf_hub_download
     except ImportError:
-        raise ImportError("huggingface_hub is required. Install with: pip install huggingface_hub")
+        raise ImportError(
+            "huggingface_hub is required. Install with: pip install huggingface_hub"
+        )
+
+    output_dir = PRETRAINED_DIR / "NeuroRVQ"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     logging.info("Downloading NeuroRVQ from HuggingFace...")
+
     for filename in NEURORVQ_FILES:
-        # Check if already downloaded — hf_hub_download saves relative to local_dir
-        local_path = PRETRAINED_DIR.parent / filename
+        # filename in repo: "pretrained_models/foundation_models/NeuroRVQ_EMG_..."
+        # we want it saved to: pretrained_models/NeuroRVQ/foundation_models/...
+        # so strip the "pretrained_models/" prefix from the repo path
+        relative_path = Path(filename).relative_to("pretrained_models")
+        local_path = output_dir / relative_path
+
         if local_path.exists():
             logging.info(f"Already exists: {local_path}, skipping.")
             continue
 
-        logging.info(f"Downloading {filename}...")
-        hf_hub_download(
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+
+        logging.info(f"Downloading {filename} → {local_path}")
+        downloaded = hf_hub_download(
             repo_id="ntinosbarmpas/NeuroRVQ",
             filename=filename,
-            local_dir=str(PRETRAINED_DIR.parent),  # saves to ./pretrained_models/NeuroRVQ/...
+            local_dir=str(output_dir),
+            local_dir_use_symlinks=False,  # force actual copy, not symlink
         )
 
-    logging.info(f"NeuroRVQ downloaded to {PRETRAINED_DIR / 'NeuroRVQ'}")
+        # hf_hub_download may save with the full repo path structure
+        # move to our desired location if needed
+        downloaded_path = Path(downloaded)
+        if downloaded_path != local_path and downloaded_path.exists():
+            downloaded_path.rename(local_path)
+            logging.info(f"Moved to {local_path}")
+
+    logging.info(f"NeuroRVQ downloaded to {output_dir}")
+
+# NEURORVQ_FILES = [
+#     "pretrained_models/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt"
+# ]
+
+# def download_neurorvq():
+#     """
+#     Downloads NeuroRVQ checkpoints from HuggingFace Hub.
+#     Repo: https://huggingface.co/ntinosbarmpas/NeuroRVQ
+#     """
+#     try:
+#         from huggingface_hub import hf_hub_download
+#     except ImportError:
+#         raise ImportError("huggingface_hub is required. Install with: pip install huggingface_hub")
+
+#     logging.info("Downloading NeuroRVQ from HuggingFace...")
+#     for filename in NEURORVQ_FILES:
+#         # Check if already downloaded — hf_hub_download saves relative to local_dir
+#         local_path = PRETRAINED_DIR / "NeuroRVQ" / filename
+#         local_path = PRETRAINED_DIR.parent / filename
+#         if local_path.exists():
+#             logging.info(f"Already exists: {local_path}, skipping.")
+#             continue
+
+#         logging.info(f"Downloading {filename}...")
+#         hf_hub_download(
+#             repo_id="ntinosbarmpas/NeuroRVQ",
+#             filename=filename,
+#             local_dir=str(PRETRAINED_DIR.parent),  # saves to ./pretrained_models/NeuroRVQ/...
+#         )
+
+#     logging.info(f"NeuroRVQ downloaded to {PRETRAINED_DIR / 'NeuroRVQ'}")
 
 
 # ------------------------------------------------------------------ #
