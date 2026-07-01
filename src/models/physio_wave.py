@@ -53,7 +53,7 @@ class PhysioWave(nn.Module):
                  head_config=None,
                  pooling='mean',
                  # **ADAPTATION** Whether to apply additional transformation to features (if needed) [B, num_patches, embed_dim] -> [B, C, time_patches, freq_patches_per_channel * D]
-                 reshape_features=False
+                 reshape_features=False,
                  ):
         super().__init__()
 
