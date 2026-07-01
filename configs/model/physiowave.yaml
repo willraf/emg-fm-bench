@@ -35,7 +35,7 @@ model:
     head_config: null
     pooling: null
     # ADAPTATION: Add a flag to control whether to reshape the features before passing to the wrapper
-    reshape_features: False
+    reshape_features: True
 
   wrapper:
     # Parameters needed to construct the BioFMWrapper
