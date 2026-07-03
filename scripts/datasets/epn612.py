@@ -108,7 +108,7 @@ def process_metadata(user_info, general_info, participant_id, json_file):
     return standardised_user_info, standardised_session_info, standardised_run_info
 
 
-def download_epn612(data_dir):
+def download_dataset(data_dir):
     """
     Downloads EPN612 from Zenodo and flattens the directory structure.
     URL: https://zenodo.org/records/4421500
@@ -456,8 +456,10 @@ def convert_dataset(dataset_dir, output_fpath, segment_gestures):
                     process_run(run_std, run_group, run_data, origin_path, run_key, gesture_counter, segment_gestures)
 
 
-def main(dataset_dir=None, output_dir=None, download_data=False, segment_gestures=False):
+
+def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=False, segment_gestures=True, dataset_name="epn612"):
     hdf5_root = os.getenv("HDF5_ROOT")
+    hdf5_root = Path(hdf5_root) if hdf5_root else None
 
     if dataset_dir is None:
         # Default to HDF5_ROOT environment variable or current directory
@@ -465,26 +467,26 @@ def main(dataset_dir=None, output_dir=None, download_data=False, segment_gesture
             print("Warning: HDF5_ROOT environment variable not set. Please define the dataset directory or set HDF5_ROOT environment variable.")
             exit(1)
         print(f"HDF5_ROOT is set to: {hdf5_root}, dataset will be saved here")
-        dataset_dir = hdf5_root / "epn612"
-    
+        dataset_dir = hdf5_root / dataset_name
+
     dataset_dir = Path(dataset_dir)
+    dataset_dir.mkdir(parents=True, exist_ok=True)
 
     if output_dir is None:
         if hdf5_root is None:
             print("Warning: HDF5_ROOT environment variable not set and output_dir not provided. Output will be saved in the same directory as the input dataset.")
-            output_fpath = dataset_dir / "epn612.hdf5"
+            output_dir = dataset_dir
         else:
-            output_fpath = Path(hdf5_root) / "epn612" / "epn612.hdf5"
-    else:
-        output_dir = Path(output_dir)
-        output_dir.parent.mkdir(parents=True, exist_ok=True)
-        output_fpath = output_dir / "epn612.hdf5"
+            output_dir = hdf5_root / dataset_name
+    
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_fpath = output_dir / f"{dataset_name}.hdf5"
 
     if download_data:
-        download_epn612(dataset_dir)
+        download_dataset(dataset_dir)
 
-    convert_dataset(dataset_dir, output_fpath, segment_gestures)
-
+    convert_dataset(dataset_dir, output_fpath)
 
 
 if __name__ == "__main__":

@@ -138,7 +138,7 @@ def process_metadata(mat):
     
     return standard_user, standard_session, standard_run
 
-def download_ninapro_db5(data_dir):
+def download_dataset(data_dir):
     """
     Downloads and flattens the NinaPro DB5 structure.
     Official URL: https://ninapro.hevs.ch/files/DB5_Preproc/
@@ -185,7 +185,7 @@ def write_modality(run_group, modality_name, data_array, metadata):
     run_group[modality_name].attrs['recording_duration'] = data_array.shape[0] / metadata.get('sample_rate', 200)
 
 
-def convert_ninapro_db5(dataset_dir, output_fpath=None, include_rest=False, segment_gestures=True, normalise_joint_angles=True):
+def convert_dataset(dataset_dir, output_fpath=None, include_rest=False, segment_gestures=True, normalise_joint_angles=True):
 
     # Should work with both nested and flat dir structures
     mat_files = sorted(dataset_dir.rglob("*.mat"))
@@ -399,8 +399,9 @@ def convert_ninapro_db5(dataset_dir, output_fpath=None, include_rest=False, segm
                     write_modality(run_group, "jntang", glove[start:end], jntang_meta)
 
 
-def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=False, segment_gestures=True):
+def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=False, segment_gestures=True, dataset_name="ninapro_db5"):
     hdf5_root = os.getenv("HDF5_ROOT")
+    hdf5_root = Path(hdf5_root) if hdf5_root else None
 
     if dataset_dir is None:
         # Default to HDF5_ROOT environment variable or current directory
@@ -408,27 +409,26 @@ def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=Fa
             print("Warning: HDF5_ROOT environment variable not set. Please define the dataset directory or set HDF5_ROOT environment variable.")
             exit(1)
         print(f"HDF5_ROOT is set to: {hdf5_root}, dataset will be saved here")
-        dataset_dir = hdf5_root / "ninapro_db5"
-    
+        dataset_dir = hdf5_root / dataset_name
+
     dataset_dir = Path(dataset_dir)
+    dataset_dir.mkdir(parents=True, exist_ok=True)
 
     if output_dir is None:
         if hdf5_root is None:
             print("Warning: HDF5_ROOT environment variable not set and output_dir not provided. Output will be saved in the same directory as the input dataset.")
-            output_fpath = dataset_dir / "ninapro_db5.hdf5"
+            output_dir = dataset_dir
         else:
-            output_fpath = Path(hdf5_root) / "ninapro_db5" / "ninapro_db5.hdf5"
-    else:
-        output_dir = Path(output_dir)
-        output_dir.parent.mkdir(parents=True, exist_ok=True)
-        output_fpath = output_dir / "ninapro_db5.hdf5"
+            output_dir = hdf5_root / dataset_name
+    
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_fpath = output_dir / f"{dataset_name}.hdf5"
 
     if download_data:
-        download_ninapro_db5(dataset_dir)
-        print(f"Finished downloading and extracting raw .mat files to {dataset_dir}")
+        download_dataset(dataset_dir)
 
-    convert_ninapro_db5(dataset_dir, output_fpath, include_rest=include_rest, segment_gestures=segment_gestures)
-    print(f"Finished converting NinaPro DB5 to HDF5 format at {output_fpath}")
+    convert_dataset(dataset_dir, output_fpath)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -322,6 +322,7 @@ def load_and_clean_uci_emg(file_path, target_fs=200):
 
 def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=False, segment_gestures=True):
     hdf5_root = os.getenv("HDF5_ROOT")
+    hdf5_root = Path(hdf5_root) if hdf5_root is not None else None
 
     if dataset_dir is None:
         # Default to HDF5_ROOT environment variable or current directory
@@ -329,28 +330,59 @@ def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=Fa
             print("Warning: HDF5_ROOT environment variable not set. Please define the dataset directory or set HDF5_ROOT environment variable.")
             exit(1)
         print(f"HDF5_ROOT is set to: {hdf5_root}, dataset will be saved here")
-        dataset_dir = hdf5_root / "uci_emg"
+        dataset_dir = hdf5_root / "neuromotor_wrist"
     
     dataset_dir = Path(dataset_dir)
+    dataset_dir.mkdir(parents=True, exist_ok=True)
 
     if output_dir is None:
         if hdf5_root is None:
             print("Warning: HDF5_ROOT environment variable not set and output_dir not provided. Output will be saved in the same directory as the input dataset.")
-            output_fpath = dataset_dir / "uci_emg.hdf5"
+            output_fpath = dataset_dir / "neuromotor_wrist.hdf5"
         else:
-            dataset_dir = Path(dataset_dir) / "uci_emg"
-            dataset_dir.mkdir(parents=True, exist_ok=True)
-            output_fpath = dataset_dir / "uci_emg.hdf5"
+            output_fpath = hdf5_root / "neuromotor_wrist" / "neuromotor_wrist.hdf5"
+            output_fpath.parent.mkdir(parents=True, exist_ok=True)
     else:
         output_dir = Path(output_dir)
         output_dir.parent.mkdir(parents=True, exist_ok=True)
-        output_fpath = output_dir / "uci_emg.hdf5"
+        output_fpath = output_dir / "neuromotor_wrist.hdf5"
 
     if download_data:
         download_dataset(dataset_dir)
 
     convert_dataset(dataset_dir, output_fpath)
 
+
+def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=False, segment_gestures=True, dataset_name="uci_emg"):
+    hdf5_root = os.getenv("HDF5_ROOT")
+    hdf5_root = Path(hdf5_root) if hdf5_root else None
+
+    if dataset_dir is None:
+        # Default to HDF5_ROOT environment variable or current directory
+        if hdf5_root is None:
+            print("Warning: HDF5_ROOT environment variable not set. Please define the dataset directory or set HDF5_ROOT environment variable.")
+            exit(1)
+        print(f"HDF5_ROOT is set to: {hdf5_root}, dataset will be saved here")
+        dataset_dir = hdf5_root / dataset_name
+
+    dataset_dir = Path(dataset_dir)
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+
+    if output_dir is None:
+        if hdf5_root is None:
+            print("Warning: HDF5_ROOT environment variable not set and output_dir not provided. Output will be saved in the same directory as the input dataset.")
+            output_dir = dataset_dir
+        else:
+            output_dir = hdf5_root / dataset_name
+    
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_fpath = output_dir / f"{dataset_name}.hdf5"
+
+    if download_data:
+        download_dataset(dataset_dir)
+
+    convert_dataset(dataset_dir, output_fpath)
 
 
 if __name__ == "__main__":

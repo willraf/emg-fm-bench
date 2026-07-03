@@ -8,6 +8,7 @@ Usage:
     $ python scripts/datasets/data_audit.py --fpath data/ninapro_db5/ninapro_db5.hdf5 --dataset_key ninapro_db5 --primary_key emg
     $ python scripts/datasets/data_audit.py --fpath data/ninapro_db2/ninapro_db2.hdf5 --dataset_key ninapro_db2 --primary_key emg
     $ python scripts/datasets/data_audit.py --fpath data/uci_emg/uci_emg.hdf5 --dataset_key uci_emg --primary_key emg
+    $  
 
 Authors:
     Will Raftery
@@ -188,7 +189,7 @@ def validate_run_attrs(attrs):
 
 def validate_modality_attrs(attrs):
     required_attrs = {
-        'sample_rate': (int, np.integer),
+        'sample_rate': (int, np.integer, float, np.floating),
         'n_samples': (int, np.integer),
         'n_channels': (int, np.integer),
     }

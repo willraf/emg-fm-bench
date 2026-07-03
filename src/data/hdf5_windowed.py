@@ -39,6 +39,8 @@ class HDF5WindowedDataset(BaseDataset):
 
         self.window_length = int(self.window_duration * self.sample_rate)  # Calculate window length in samples based on duration and sample rate
         stride_duration = cfg.get("stride_duration", self.window_duration)
+        # Could be set to null in config, in which case we default to window_duration
+        stride_duration = stride_duration if stride_duration is not None else self.window_duration    
         self.stride = int(stride_duration * self.sample_rate)
         self.jitter = cfg.jitter
 
