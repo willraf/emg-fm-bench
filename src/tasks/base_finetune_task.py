@@ -131,8 +131,6 @@ class BaseFinetuneTask(BaseTask):
         inputs = self._prepare_inputs(batch)  
         targets = self._prepare_targets(batch)  
 
-        # print(f"Train Step: inputs shape {inputs.shape}, targets shape {targets.shape}")
-
         # Check the model is in training mode (defensive)
         if not self.model.training:
             logging.warning("Model is not in training mode during train_step. This may cause issues with certain layers like dropout or batchnorm. Make sure to call model.train() before training.")
