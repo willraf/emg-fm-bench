@@ -13,7 +13,7 @@ data:
   n_classes: 22
 
 experiment:
-  name: final/regression/${data.root_key}/${model.fm.name}_${data.window_length}_${data.split_type}_frozen-${task.freeze_backbone}_scratch-${task.from_scratch}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  name: final_mean/${data.root_key}/${model.fm.name}_${data.window_length}_${data.split_type}_frozen-${task.freeze_backbone}_scratch-${task.from_scratch}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
   log_interval: 10
   # wandb_project: ${data.root_key}
   random_seed: 50
@@ -32,20 +32,19 @@ task:
   freeze_backbone: False
   from_scratch: False
 
-# model:
-#   wrapper:
-#     pooling_type: time_concat_chan_mean
+model:
+  wrapper:
+    pooling_type: mean
 
 
 hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      data.split_type: intra_session, inter_subject
-      model.wrapper.pooling_type: time_concat_chan_mean, mean, chan_concat_time_mean
+      # data.split_type: inter_subject, intra_session
       model: neurorvq, tinymyo, physiowave
-      # data.window_duration: 1.0, 5.0
-      # dataset: epn612, ninapro_db5, uci_emg 
-      # task.from_scratch: False, True
-      # task.freeze_backbone: True,False
-      # experiment.random_seed: 2, 50, 100
+      # data.window_length: 200, 1000
+      dataset: ninapro_db5, uci_emg, epn612
+      task.from_scratch: False, True
+      task.freeze_backbone: True,False
+      experiment.random_seed: 2, 50, 100
