@@ -303,7 +303,7 @@ def get_stage_for_segment(seg_start: float, seg_end: float,
     return best_name
 
 
-def convert_dataset(dataset_dir, output_fpath, segment_gestures=True):
+def convert_dataset(dataset_dir, output_fpath, segment_gestures, segment_intra_session):
 
     # Load corpus — defines segments and their splits
     corpus = load_corpus(dataset_dir)
@@ -417,7 +417,7 @@ def convert_dataset(dataset_dir, output_fpath, segment_gestures=True):
                     run_group = session_group.create_group(run_id)
 
                     run_group.attrs["run_id"]              = run_id
-                    run_group.attrs["intra_session_split"] = split
+                    run_group.attrs["corpus_split"]      = split
                     run_group.attrs["origin_path"]         = str(h5_file)
                     run_group.attrs["task_name"]           = "wrist_kinematics"
                     run_group.attrs["stage_name"]          = stage_name
@@ -441,6 +441,44 @@ def convert_dataset(dataset_dir, output_fpath, segment_gestures=True):
                         "units":       "degrees",
                     })
                 pass
+
+            elif segment_intra_session:
+                # Segment the run into train, val and test splits with a 70/10/20 ratio
+                total_samples = emg_data.shape[0]
+                train_end = int(total_samples * 0.7)
+                val_end = int(total_samples * 0.8)
+
+                splits = {
+                    "train": (0, train_end),
+                    "val": (train_end, val_end),
+                    "test": (val_end, total_samples)
+                }
+
+                for split_name, (start_idx, end_idx) in splits.items():
+                    run_id = get_next_run_id(session_group)
+                    if run_id in session_group:
+                        print(f"Warning: {subj_id}/{session_id}/{run_id} already exists, skipping.")
+                        continue
+
+                    run_group = session_group.create_group(run_id)
+                    run_group.attrs['run_id'] = run_id
+                    run_group.attrs["origin_path"] = str(h5_file) + f"-segment[{start_idx}:{end_idx}]"
+                    run_group.attrs["intra_session_split"] = split_name
+
+                    emg_seg    = emg_data[start_idx:end_idx]
+                    angles_seg = wrist_angles[start_idx:end_idx]
+
+                    write_modality(run_group, "emg", emg_seg, {
+                        "sample_rate": 2000,
+                        "sensor_type": "sEMG-RD",
+                        "units":       "raw",
+                    })
+                    write_modality(run_group, "jntang", angles_seg, {
+                        "sample_rate": 2000,
+                        "sensor_type": "motion capture",
+                        "units":       "degrees",
+                    })
+
             else:
                 
                 run_id = f"run-{run_num:03d}"
@@ -466,7 +504,7 @@ def convert_dataset(dataset_dir, output_fpath, segment_gestures=True):
 
     print("Conversion complete. Output saved to:", output_fpath)
 
-def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=False, segment_gestures=True, dataset_name="neuromotor_wrist"):
+def main(dataset_dir=None, output_dir=None, download_data=False, segment_gestures=False, segment_intra_session=False, dataset_name="neuromotor_wrist"):
     hdf5_root = os.getenv("HDF5_ROOT")
     hdf5_root = Path(hdf5_root) if hdf5_root else None
 
@@ -495,7 +533,7 @@ def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=Fa
     if download_data:
         download_dataset(dataset_dir)
 
-    convert_dataset(dataset_dir, output_fpath, segment_gestures=segment_gestures)
+    convert_dataset(dataset_dir, output_fpath, segment_gestures=segment_gestures, segment_intra_session=segment_intra_session)
 
 
 
@@ -505,6 +543,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default=None, help="Directory to save the converted HDF5 files. Defaults to the dataset directory.")
     parser.add_argument("--download_data", action="store_true", help="Whether to download the Neuromotor Wrist dataset.")
     parser.add_argument("--segment_gestures", action="store_true", help="Whether to segment the dataset into individual gestures based on the corpus CSV and hdf5 stages dataframe.")
+    parser.add_argument("--segment_intra_session", action="store_true", help="Whether to segment the dataset into train/val/test splits within each session.")
     args = parser.parse_args()
 
-    main(args.dataset_dir, args.output_dir, args.download_data, segment_gestures=args.segment_gestures)
+    main(args.dataset_dir, args.output_dir, args.download_data, segment_gestures=args.segment_gestures, segment_intra_session=args.segment_intra_session)

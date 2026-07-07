@@ -8,8 +8,7 @@ Usage:
     $ python scripts/datasets/data_audit.py --fpath data/ninapro_db5/ninapro_db5.hdf5 --dataset_key ninapro_db5 --primary_key emg
     $ python scripts/datasets/data_audit.py --fpath data/ninapro_db2/ninapro_db2.hdf5 --dataset_key ninapro_db2 --primary_key emg
     $ python scripts/datasets/data_audit.py --fpath data/uci_emg/uci_emg.hdf5 --dataset_key uci_emg --primary_key emg
-    $  
-
+    $ python scripts/datasets/data_audit.py --fpath data/neuromotor_wrist/neuromotor_wrist.hdf5 --dataset_key neuromotor_wrist --primary_key emg --label_key intra_session_split
 Authors:
     Will Raftery
 
