@@ -32,7 +32,7 @@ model:
   wrapper:
     # Parameters needed to construct the BioFMWrapper
     n_classes: ${data.n_classes}
-    pooling_type: chan_concat_time_mean
+    pooling_type: mean
     finetune_spacial_embedding: True
     num_channels: ${data.num_channels}
     sample_rate: ${model.sample_rate}

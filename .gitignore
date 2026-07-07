@@ -12,7 +12,10 @@ pretrained_models/
 multirun/
 outputs/
 pbs/
+slurm/
 depricated/
+
+configs/experiment/full_sweep.yaml
 
 !/src/data
 !src/models
