@@ -491,7 +491,7 @@ def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=Fa
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_dir", type=str, default="data/epn612/")
+    parser.add_argument("--dataset_dir", type=str, default=None, help="Directory where the EPN612 dataset is located or will be downloaded to. Defaults to HDF5_ROOT environment variable.")
     parser.add_argument("--output_dir", type=str, default=None, help="Directory to save the converted HDF5 files. Defaults to the dataset directory.")
     parser.add_argument("--download_data", action="store_true", help="Whether to download the EPN612 dataset.")
     parser.add_argument("--segment_gestures", action="store_true", help="Whether to segment the EMG data to only include the gesture execution period.")

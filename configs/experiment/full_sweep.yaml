@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - override /transforms: transforms
-  - override /dataset: epn612
+  - override /dataset: ninapro_db5
   - override /model: physiowave
   - _self_
 
@@ -11,9 +11,10 @@ data:
   batch_size: 2
   # 22 joint angles for regression task
   n_classes: 22
+  num_workers: 6
 
 experiment:
-  name: final_mean/${data.root_key}/${model.fm.name}_${data.window_length}_${data.split_type}_frozen-${task.freeze_backbone}_scratch-${task.from_scratch}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  name: regression/${data.root_key}/${model.fm.name}_${data.window_length}_${data.split_type}_frozen-${task.freeze_backbone}_scratch-${task.from_scratch}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
   log_interval: 10
   # wandb_project: ${data.root_key}
   random_seed: 50
@@ -41,10 +42,10 @@ hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      # data.split_type: inter_subject, intra_session
+      data.split_type: intra_session, inter_subject
       model: neurorvq, tinymyo, physiowave
       # data.window_length: 200, 1000
-      dataset: ninapro_db5, uci_emg, epn612
+      # dataset: ninapro_db5, uci_emg, epn612
       task.from_scratch: False, True
       task.freeze_backbone: True,False
       experiment.random_seed: 2, 50, 100

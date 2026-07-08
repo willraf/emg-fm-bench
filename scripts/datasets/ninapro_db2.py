@@ -442,8 +442,8 @@ def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=Fa
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_dir", type=str, default="data/ninapro_db2/", help="Directory where the raw .mat files are located (or will be downloaded to if --download_data is set)")
-    parser.add_argument("--output_dir", type=str)
+    parser.add_argument("--dataset_dir", type=str, default=None, help="Directory where the raw .mat files are located (or will be downloaded to if --download_data is set)")
+    parser.add_argument("--output_dir", type=str, default=None, help="Directory to save the converted HDF5 file. Defaults to the HDF5 root if set, then dataset directory.")
     parser.add_argument("--download_data", action='store_true', help="If set, will attempt to download the raw .mat files from the official Ninapro DB2 source")
     parser.add_argument("--include_rest", action='store_true', help="If set, will include rest periods (stimulus=0) as a separate class in the dataset. WARNING: This may cause label leakage due to different signal lengths and distributions for rest vs active periods.")
     parser.add_argument("--segment_gestures", action='store_true', help="If set, will segment continuous recordings into individual gesture runs based on stimulus transitions. Otherwise, each exercise will be treated as a single run.")

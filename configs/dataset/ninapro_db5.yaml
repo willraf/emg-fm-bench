@@ -14,7 +14,7 @@ data:
   stride_duration: 0.25  # Duration of the stride in s
   sample_rate: 200
   jitter: True
-  num_workers: 10
+  num_workers: 6
   batch_size: 32
   transforms:
     train:

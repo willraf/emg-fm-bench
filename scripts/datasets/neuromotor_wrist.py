@@ -513,7 +513,6 @@ def main(dataset_dir=None, output_dir=None, download_data=False, segment_gesture
         if hdf5_root is None:
             print("Warning: HDF5_ROOT environment variable not set. Please define the dataset directory or set HDF5_ROOT environment variable.")
             exit(1)
-        print(f"HDF5_ROOT is set to: {hdf5_root}, dataset will be saved here")
         dataset_dir = hdf5_root / dataset_name
 
     dataset_dir = Path(dataset_dir)
@@ -539,7 +538,7 @@ def main(dataset_dir=None, output_dir=None, download_data=False, segment_gesture
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_dir", type=str, default="data/neuromotor_wrist/")
+    parser.add_argument("--dataset_dir", type=str, default=None, help="Directory where the Neuromotor Wrist dataset is located or will be downloaded to. Defaults to HDF5_ROOT environment variable.")
     parser.add_argument("--output_dir", type=str, default=None, help="Directory to save the converted HDF5 files. Defaults to the dataset directory.")
     parser.add_argument("--download_data", action="store_true", help="Whether to download the Neuromotor Wrist dataset.")
     parser.add_argument("--segment_gestures", action="store_true", help="Whether to segment the dataset into individual gestures based on the corpus CSV and hdf5 stages dataframe.")

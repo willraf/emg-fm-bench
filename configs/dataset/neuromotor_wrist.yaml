@@ -1,0 +1,35 @@
+# @package _global_
+data:
+  name: hdf5_windowed
+  root_key: neuromotor_wrist
+  primary_data_key: emg
+  timeseries_keys: 
+    - jntang
+  # Resolves $HDF5_ROOT env var, falls back to "data" if not set
+  data_root: ${oc.env:HDF5_ROOT,data}
+  hdf5_path: ${data.data_root}/neuromotor_wrist/neuromotor_wrist.hdf5
+  split_type: inter_subject
+  num_channels: 16
+  window_duration: 1.0  # Duration of the window in s
+  stride_duration: null  # Duration of the stride in s
+  sample_rate: 2000
+  jitter: True
+  num_workers: 10
+  batch_size: 32
+  transforms:
+    train:
+      - ${transforms.standardise}
+      - ${transforms.band_pass}
+      - ${transforms.resample}
+      - ${transforms.random_scale}
+      - ${transforms.channel_dropout}
+      # - _target_: src.data.transforms.RotationAugmentation
+    val:
+      - ${transforms.standardise}
+      - ${transforms.band_pass}
+      - ${transforms.resample}
+
+    test: ${data.transforms.val}
+  
+  sample_channels: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16']
+  n_classes: 2  # 2 wrist joint angles for regression task
