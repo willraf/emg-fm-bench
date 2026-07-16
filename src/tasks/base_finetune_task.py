@@ -68,7 +68,8 @@ class BaseFinetuneTask(BaseTask):
                 logging.info(f"Loading foundation model from checkpoint: {fm_path}")
                 fm.load_checkpoint(fm_path)
             else:
-                logging.warning(f"Foundation model checkpoint not found: {fm_path}. Training from scratch instead.")
+                # logging.warning(f"Foundation model checkpoint not found: {fm_path}. Training from scratch instead.")
+                raise FileNotFoundError(f"Foundation model checkpoint not found: {fm_path}. Please provide a valid checkpoint or set 'from_scratch' to True.")
         else:
             logging.info("Training foundation model from scratch. No pretrained weights will be loaded.")
 

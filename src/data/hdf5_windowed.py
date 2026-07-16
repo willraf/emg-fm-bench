@@ -15,7 +15,7 @@ Date:
 from dataclasses import dataclass, field
 import sys
 
-from pyparsing import Callable, Optional
+from typing import Callable, Optional
 from src.data.base import BaseDataset
 import h5py
 import torch
@@ -171,6 +171,14 @@ class HDF5WindowedDataset(BaseDataset):
         return len(self.global_index)
 
     def __getitem__(self, idx: int):
+
+        # Reset handle if we're in a new worker process
+        # worker_info = torch.utils.data.get_worker_info()
+        # worker_id = worker_info.id if worker_info else -1
+        # if not hasattr(self, '_worker_id') or self._worker_id != worker_id:
+        #     self._worker_id = worker_id
+        #     self._file = None  # Force re-open in this worker
+    
         # 1. Look up where this window lives
         group_path, start_idx = self.global_index[idx]
 
