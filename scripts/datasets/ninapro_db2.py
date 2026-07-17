@@ -31,6 +31,13 @@ TRAIN_SUBJS = [2, 3, 4, 6, 7, 8, 9, 10, 12, 15, 17, 18, 19, 22, 23, 24, 25, 26, 
 VAL_SUBJS = [1, 13, 31, 33]
 TEST_SUBJS = [5, 11, 14, 16, 20, 21, 34, 38]
 
+# These statistics are computed over the training set only, and are used to normalise the force values
+# See notebooks/ninapro_db2.ipynb for code
+FORCE_TRAIN_MIN = np.array([-4.980, -4.686, -8.786, -8.105, -15.814, -8.643], dtype=np.float32)
+FORCE_TRAIN_MAX = np.array([27.539, 28.613, 41.016, 49.509,  39.740, 65.722], dtype=np.float32)
+
+
+
 SUBJ_METADATA = {
     1:  {'sex': 'm', 'handedness': 'r', 'age': 29, 'height': 187, 'weight': 75},
     2:  {'sex': 'm', 'handedness': 'r', 'age': 29, 'height': 183, 'weight': 75},
@@ -133,7 +140,7 @@ def process_metadata(mat):
     
     return subject_metadata, session_metadata, run_metadata
 
-def download_ninapro_db2(data_dir):
+def download_dataset(data_dir):
     """
     Downloads and flattens the NinaPro DB2 structure.
     Official URL: https://ninapro.hevs.ch/files/DB2_Preproc/
@@ -180,13 +187,16 @@ def write_modality(run_group, modality_name, data_array, metadata):
     run_group[modality_name].attrs['recording_duration'] = data_array.shape[0] / metadata.get('sample_rate')
 
 
-def convert_ninapro_db2(dataset_dir, output_fpath=None, include_rest=False, segment_gestures=True):
+def convert_dataset(dataset_dir, output_fpath=None, include_rest=False, segment_gestures=True, normalise_force=False):
 
     # Should work with both nested and flat dir structures
     mat_files = sorted(dataset_dir.rglob("*.mat"))
 
     with h5py.File(output_fpath, 'w') as f:
         root = f.create_group("ninapro_db2")
+
+        root.attrs['force_train_min'] = FORCE_TRAIN_MIN
+        root.attrs['force_train_max'] = FORCE_TRAIN_MAX
         
         for fpath in tqdm(mat_files, desc="Converting NinaPro DB2"):
             mat = scipy.io.loadmat(str(fpath))
@@ -247,6 +257,10 @@ def convert_ninapro_db2(dataset_dir, output_fpath=None, include_rest=False, segm
             glove = mat['glove'].astype(np.float32) if 'glove' in mat else None
             inclin = mat['inclin'].astype(np.float32) if 'inclin' in mat else None
             force = mat['force'].astype(np.float32) if 'force' in mat else None
+
+            if force is not None and normalise_force:
+                force = (force - FORCE_TRAIN_MIN) / (FORCE_TRAIN_MAX - FORCE_TRAIN_MIN + 1e-6)
+                force = np.clip(force, 0.0, 1.0)    
 
             # Use 'restimulus' and 'rerepetition' for refined labels
             stimulus = mat['restimulus'].flatten()
@@ -410,8 +424,10 @@ def convert_ninapro_db2(dataset_dir, output_fpath=None, include_rest=False, segm
                         write_modality(run_group, "force", force[start:end], force_meta)
 
 
-def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=False, segment_gestures=True):
+
+def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=False, segment_gestures=True, dataset_name="ninapro_db2"):
     hdf5_root = os.getenv("HDF5_ROOT")
+    hdf5_root = Path(hdf5_root) if hdf5_root else None
 
     if dataset_dir is None:
         # Default to HDF5_ROOT environment variable or current directory
@@ -419,25 +435,30 @@ def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=Fa
             print("Warning: HDF5_ROOT environment variable not set. Please define the dataset directory or set HDF5_ROOT environment variable.")
             exit(1)
         print(f"HDF5_ROOT is set to: {hdf5_root}, dataset will be saved here")
-        dataset_dir = hdf5_root / "ninapro_db2"
-    
+        dataset_dir = hdf5_root / dataset_name
+
     dataset_dir = Path(dataset_dir)
+    dataset_dir.mkdir(parents=True, exist_ok=True)
 
     if output_dir is None:
         if hdf5_root is None:
             print("Warning: HDF5_ROOT environment variable not set and output_dir not provided. Output will be saved in the same directory as the input dataset.")
-            output_fpath = dataset_dir / "ninapro_db2.hdf5"
+            output_dir = dataset_dir
         else:
-            output_fpath = Path(hdf5_root) / "ninapro_db2" / "ninapro_db2.hdf5"
-    else:
-        output_dir = Path(output_dir)
-        output_dir.parent.mkdir(parents=True, exist_ok=True)
-        output_fpath = output_dir / "ninapro_db2.hdf5"
+            output_dir = hdf5_root / dataset_name
+    
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_fpath = output_dir / f"{dataset_name}.hdf5"
+
+    print(f"Dataset directory: {dataset_dir}")
+    print(f"Output HDF5 file will be saved to: {output_fpath}")
 
     if download_data:
-        download_ninapro_db2(dataset_dir)
+        download_dataset(dataset_dir)
 
-    convert_ninapro_db2(dataset_dir, output_fpath, include_rest=include_rest, segment_gestures=segment_gestures)
+    convert_dataset(dataset_dir, output_fpath, include_rest=include_rest, segment_gestures=segment_gestures)
+
 
 
 if __name__ == "__main__":
