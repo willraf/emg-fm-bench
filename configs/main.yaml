@@ -106,7 +106,7 @@ model:
     sample_channels: ${data.sample_channels}
   wrapper:
     embed_dim: 800
-    n_classes: ${data.n_classes}
+    n_outputs: ${data.num_gestures}
     patch_size: ${model.fm.patch_size}
     num_channels: ${data.num_channels}
     pooling_type: concat

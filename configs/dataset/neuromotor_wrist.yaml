@@ -32,4 +32,4 @@ data:
     test: ${data.transforms.val}
   
   sample_channels: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15', 'c16']
-  n_classes: 2  # 2 wrist joint angles for regression task
+  num_jntang: 2  # 2 wrist joint angles for regression task

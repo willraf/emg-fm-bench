@@ -31,4 +31,4 @@ data:
     test: ${data.transforms.val}
 
   sample_channels: ['c2', 'c4', 'c6', 'c8', 'c10', 'c12', 'c14', 'c16']
-  n_classes: 6
+  num_gestures: 6

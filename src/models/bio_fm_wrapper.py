@@ -29,7 +29,7 @@ class BioFMWrapper(nn.Module):
         super().__init__()
         self.fm = fm
 
-        self.num_classes = cfg.n_classes
+        self.output_dim = cfg.n_outputs
         self.pooling_type = cfg.pooling_type
         self.finetune_spacial_embedding = cfg.finetune_spacial_embedding
 
@@ -83,21 +83,21 @@ class BioFMWrapper(nn.Module):
         if self.pooling_type in ["chan_concat_time_mean", "chan_concat"]: 
             # Concat across channels: dim = embed_dim * n_channels
             self.fc_norm = nn.LayerNorm(D * C)
-            self.head = nn.Linear(D * C, self.num_classes)
+            self.head = nn.Linear(D * C, self.output_dim)
 
         elif self.pooling_type in ["time_concat_chan_mean", "time_concat"]:
             self.fc_norm = nn.LayerNorm(D * N)
-            self.head = nn.Linear(D * N, self.num_classes)
+            self.head = nn.Linear(D * N, self.output_dim)
 
         elif self.pooling_type == "attention_pool":
             self.query = nn.Parameter(torch.randn(1, 1, D))
             self.attn = nn.MultiheadAttention(D, num_heads=8, batch_first=True)
             self.fc_norm = nn.LayerNorm(D)
-            self.head = nn.Linear(D, self.num_classes)
+            self.head = nn.Linear(D, self.output_dim)
 
         elif self.pooling_type in ["chan_mean", "time_mean", "mean"]:
             self.fc_norm = nn.LayerNorm(D)
-            self.head = nn.Linear(D, self.num_classes)
+            self.head = nn.Linear(D, self.output_dim)
 
 
         else:  
@@ -106,7 +106,7 @@ class BioFMWrapper(nn.Module):
         logging.info(
             f"BioFMWrapper head built — pooling: {self.pooling_type}, "
             f"C={C}, N={N}, D={D}, head_in={self.head.in_features}, "
-            f"head_out={self.num_classes}"
+            f"head_out={self.output_dim}"
         )
 
 
@@ -116,7 +116,7 @@ class BioFMWrapper(nn.Module):
             x: (Batch, Channels, Time
 
         Returns:
-            logits: (Batch, num_classes)
+            logits: (Batch, output_dim) logits for classification/regression
         """
         tokens = self.fm(x)
 

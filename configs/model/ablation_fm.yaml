@@ -11,7 +11,7 @@ model:
     # For some reason, neuroRVQ's real embed dim is 4 times 
 
     embed_dim: 200
-    n_classes: ${data.n_classes}
+    n_classes: ${data.num_gestures}
     patch_size: ${model.fm.patch_size}
     num_channels: ${data.num_channels}
     pooling_type: concat
@@ -20,7 +20,7 @@ model:
   
   wrapper:
     embed_dim: 200
-    n_classes: ${data.n_classes}
+    n_outputs: ${data.num_gestures}
     patch_size: ${model.fm.patch_size}
     num_channels: ${data.num_channels}
     pooling_type: concat

@@ -32,4 +32,5 @@ data:
     test: ${data.transforms.val}
   
   sample_channels: ['c1', 'c3', 'c5', 'c7', 'c9', 'c11', 'c13', 'c15', 'c2', 'c4', 'c6', 'c8', 'c10', 'c12', 'c14', 'c16']
-  n_classes: 53  # NinaPro DB5 (1-52 + Rest)
+  num_gestures: 53   # NinaPro DB5 (1-52 + Rest)
+  num_jntang: 22      # 22 joint angles for regression task

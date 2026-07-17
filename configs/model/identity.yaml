@@ -8,7 +8,7 @@ model:
 
   wrapper:
     # Parameters needed to construct the BioFMWrapper
-    n_classes: ${data.n_classes}
+    n_outputs: ${data.num_gestures}  # num_gestures for gesture classification, num_jntang for regression etc.
     pooling_type: chan_concat_time_mean
     finetune_spacial_embedding: False
     num_channels: ${data.num_channels}

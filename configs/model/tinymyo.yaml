@@ -32,7 +32,7 @@ model:
 
   wrapper:
     # Parameters needed to construct the BioFMWrapper
-    n_classes: ${data.n_classes}
+    n_outputs: ${data.num_gestures}
     pooling_type: mean
     finetune_spacial_embedding: False
     num_channels: ${data.num_channels}
