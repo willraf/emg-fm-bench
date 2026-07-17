@@ -16,6 +16,8 @@ slurm/
 depricated/
 
 configs/experiment/full_sweep.yaml
+configs/experiment/
 
+!configs/experiment/example.yaml
 !/src/data
 !src/models
