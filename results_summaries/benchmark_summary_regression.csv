@@ -1,0 +1,5 @@
+model_name,dataset,split,tuning,window_duration,task,seed,rmse_mean,rmse_std,pearson_r_mean,pearson_r_std,r2_mean,r2_std,is_model_best,is_overall_best
+tinymyo,ninapro_db5,inter_subject,From-Scratch FT,1.0,regression,1,0.1573015600442886,,0.0964386686682701,,-0.0613155402243137,,False,False
+tinymyo,ninapro_db5,inter_subject,From-Scratch LP,1.0,regression,1,0.1559453308582306,,0.0831783264875412,,-0.0371812470257282,,False,False
+tinymyo,ninapro_db5,inter_subject,Full FT,1.0,regression,1,0.1578002274036407,,0.136651411652565,,-0.0684691444039344,,True,True
+tinymyo,ninapro_db5,inter_subject,LP,1.0,regression,1,0.1577324718236923,,0.0717539861798286,,-0.0667809322476387,,False,False
