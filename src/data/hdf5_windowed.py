@@ -56,6 +56,10 @@ class HDF5WindowedDataset(BaseDataset):
         self.primary_data_key = cfg.primary_data_key
         self.root_key = cfg.root_key
         self.timeseries_keys = cfg.timeseries_keys if cfg.timeseries_keys is not None else []
+
+        # Run filters
+        self.run_attrs_filters = dict(cfg.get("run_attrs_filters",   {}))  # e.g. {"task_name": "ExerciseD"}
+        self.run_modality_filters = list(cfg.get("run_modality_filters", []))  # e.g. ["force"]
         
         transform_cfgs = cfg.transforms.get(self.mode)
         self.transform = self._build_transform(transform_cfgs) if transform_cfgs else None
@@ -100,6 +104,26 @@ class HDF5WindowedDataset(BaseDataset):
 
                     for run_key in session_group:
                         run_group = session_group[run_key]
+
+                        # --- Filter: run attribute filters ---
+                        if self.run_attrs_filters:
+                            skip = False
+                            for k, v in self.run_attrs_filters.items():
+                                if run_group.attrs.get(k) != v:
+                                    skip = True
+                                    break
+                            if skip:
+                                continue
+
+                        # --- Filter: required modalities must be present ---
+                        if self.run_modality_filters:
+                            skip = False
+                            for modality in self.run_modality_filters:
+                                if modality not in run_group:
+                                    skip = True
+                                    break
+                            if skip:
+                                continue
 
                         # Skips runs that are explicitly marked as unlabelled
                         if not run_group.attrs.get('is_labelled', True):
