@@ -1,0 +1,47 @@
+# @package _global_
+data:
+  name: hdf5_windowed
+  root_key: ninapro_db2
+  primary_data_key: emg
+  timeseries_keys: 
+    - jntang
+    - force
+    # - accel 
+    # - inclin
+  run_attrs_filters:
+    task_name: ExerciseD      # only Exercise 3 runs
+  run_modality_filters:
+    - force        
+  # Resolves $HDF5_ROOT env var, falls back to "data" if not set
+  data_root: ${oc.env:HDF5_ROOT,data}
+  hdf5_path: ${data.data_root}/ninapro_db2/ninapro_db2.hdf5
+  split_type: inter_subject
+  num_channels: 12
+  window_duration: 1.0  # Duration of the window in s
+  stride_duration: 0.25  # Duration of the stride in s
+  sample_rate: 200
+  jitter: True
+  num_workers: 6
+  batch_size: 32
+  transforms:
+    train:
+      - ${transforms.standardise}
+      - ${transforms.band_pass}
+      - ${transforms.resample}
+      - ${transforms.random_scale}
+      - ${transforms.channel_dropout}
+      # - _target_: src.data.transforms.RotationAugmentation
+    val:
+      - ${transforms.standardise}
+      - ${transforms.band_pass}
+      - ${transforms.resample}
+
+    test: ${data.transforms.val}
+  
+  sample_channels: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'c11', 'c12']
+  num_classes: 48 # Depricated
+  num_gestures: 48  # NinaPro DB2 , exercises B, C and D (13 - 61). 
+  # num_gestures: 9  # If filtered to be only force, exercise D only (53-61)
+  # num_gestures: 39 # If filtered to have jntang, only exercises B and C (13-52)
+  num_force: 6
+  num_jntang: 22
