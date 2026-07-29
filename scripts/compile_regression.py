@@ -1,63 +1,66 @@
 import pandas as pd
 from pathlib import Path
 from omegaconf import OmegaConf
-import logging
 import argparse
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+# ------------------------------------------------------------------ #
+# Constants
+# ------------------------------------------------------------------ #
 TUNING_ORDER = ["Full FT", "From-Scratch FT", "LP", "From-Scratch LP"]
 MODEL_ORDER  = ["NeuroRVQ", "PhysioWave", "TinyMyo"]
 
+MODEL_MAP = {
+    "tinymyo":    "TinyMyo",
+    "neurorvq":   "NeuroRVQ",
+    "physiowave": "PhysioWave",
+}
+
+DATASET_MAP = {
+    "classification": {
+        "epn612":      "EPN-612 (1s)",
+        "ninapro_db5": "NinaPro DB5 (1s)",
+        "uci_emg":     "UCI-EMG (1s)",
+    },
+    "regression": {
+        "ninapro_db5":      "NinaPro DB5 (1s)",
+        "neuromotor_wrist": "Neuromotor-Wrist (1s)",
+        "ninapro_db2":      "NinaPro DB2 (1s)",
+    },
+}
+
 # ------------------------------------------------------------------ #
-# Task registry — defines which metrics to compile, aggregate and
-# display for each task type.
+# Task registry
+# Each metric entry defines:
+#   col:             column name in results.csv (without "test_" prefix after stripping)
+#   header:          LaTeX column header
+#   scale:           multiply mean/std by this before formatting
+#   higher_is_better: used for best-flagging direction
 # ------------------------------------------------------------------ #
 TASK_REGISTRY = {
     "classification": {
-        "metrics": ["test_acc", "test_f1"],
-        "display": [
-            {"col": "test_acc", "header": "Acc (\\%)",  "scale": 100},
-            {"col": "test_f1",  "header": "F1 Score",   "scale": 100},
+        "metrics": [
+            {"col": "test_acc", "header": "Acc (\\%)",  "scale": 100,  "higher_is_better": True},
+            {"col": "test_f1",  "header": "F1 Score",   "scale": 100,  "higher_is_better": True},
         ],
-        "primary_metric": "test_acc",   # Used for delta computation + best flagging
-        "higher_is_better": True,
+        "primary_metric": "test_acc",  # Used for delta computation only
     },
     "regression": {
-        "metrics": ["test_rmse", "test_pearson_r", "test_r2"],
-        "display": [
-            {"col": "test_rmse",      "header": "RMSE",       "scale": 1},
-            {"col": "test_pearson_r", "header": "Pearson $r$", "scale": 1},
-            {"col": "test_r2",        "header": "$R^2$",       "scale": 1},
+        "metrics": [
+            {"col": "test_mae",       "header": "MAE",          "scale": 1, "higher_is_better": False},
+            {"col": "test_pearson_r", "header": "Pearson $r$",  "scale": 1, "higher_is_better": True},
+            {"col": "test_r2",        "header": "$R^2$",         "scale": 1, "higher_is_better": True},
         ],
         "primary_metric": "test_pearson_r",
-        "higher_is_better": True,
     },
 }
 
-DATASET_TASK_MAP = {
-    "epn612":          "classification",
-    "ninapro_db5":     "classification",   # overridden to "regression" for pose results
-    "uci_emg":         "classification",
-    "neuromotor_wrist": "regression",
-    "ninapro_db2":     "regression",
-}
-
-# When a dataset appears under multiple tasks (e.g. ninapro_db5 for both
-# gesture classification and pose regression), the task is inferred from
-# which metrics are present in results.csv rather than the dataset name alone.
-def infer_task(metrics: dict) -> str:
-    if "test_acc" in metrics:
-        return "classification"
-    if "test_rmse" in metrics:
-        return "regression"
-    return "classification"  # fallback
-
-
 # ------------------------------------------------------------------ #
-# Shared helpers (unchanged from original)
+# Helpers
 # ------------------------------------------------------------------ #
 def get_nested_cfg(cfg, keys):
+    """Try multiple dot-separated key paths, return first non-None value."""
     for key in keys:
         try:
             val = OmegaConf.select(cfg, key)
@@ -68,10 +71,35 @@ def get_nested_cfg(cfg, keys):
     return None
 
 
+def safe_col(metric_col: str) -> str:
+    """Strip 'test_' prefix for use as a DataFrame column name."""
+    return metric_col.replace("test_", "")
+
+
+def infer_task(metrics: dict) -> str:
+    """Infer task type from which metric columns are present in results.csv."""
+    if "test_acc" in metrics:
+        return "classification"
+    if "test_rmse" in metrics or "test_mae" in metrics:
+        return "regression"
+    return "classification"
+
+
+def parse_tuning(frozen: bool, from_scratch: bool) -> str:
+    """Map (frozen, from_scratch) flags to a tuning strategy label."""
+    if frozen and not from_scratch:
+        return "LP"
+    if frozen and from_scratch:
+        return "From-Scratch LP"
+    if not frozen and from_scratch:
+        return "From-Scratch FT"
+    return "Full FT"
+
+
 # ------------------------------------------------------------------ #
 # Compilation
 # ------------------------------------------------------------------ #
-def compile_benchmarks(exp_root="./experiments"):
+def compile_benchmarks(exp_root: str = "./experiments") -> pd.DataFrame:
     root = Path(exp_root)
     all_data = []
 
@@ -84,23 +112,17 @@ def compile_benchmarks(exp_root="./experiments"):
     for res_path in results_files:
         cfg_path = res_path.parent / "config.yaml"
         if not cfg_path.exists():
-            print(f"Skipping {res_path.parent.name}: No resolved config found.")
+            print(f"Skipping {res_path.parent.name}: no config.yaml found.")
             continue
 
         try:
-            cfg = OmegaConf.load(cfg_path)
-            metrics_df = pd.read_csv(res_path)
-            metrics = metrics_df.iloc[0].to_dict()
+            cfg     = OmegaConf.load(cfg_path)
+            metrics = pd.read_csv(res_path).iloc[0].to_dict()
+            task    = infer_task(metrics)
 
-            task = infer_task(metrics)
-
-            window_length = get_nested_cfg(cfg, ["data.window_length"])
-            fs            = get_nested_cfg(cfg, ["data.sample_rate"])
-            window_duration = (
-                window_length / fs
-                if window_length is not None and fs is not None
-                else None
-            )
+            window_length   = get_nested_cfg(cfg, ["data.window_length"])
+            fs              = get_nested_cfg(cfg, ["data.sample_rate"])
+            window_duration = window_length / fs if (window_length and fs) else None
 
             model_name = get_nested_cfg(cfg, ["model.fm.name", "model.name"])
             model_name = model_name.replace("_fm", "").replace("_", "")
@@ -109,13 +131,8 @@ def compile_benchmarks(exp_root="./experiments"):
             if split in ["subject", "user"]:
                 split = "inter_subject"
 
-            frozen       = get_nested_cfg(cfg, ["task.freeze_backbone",  "finetuning.freeze_backbone"])
-            from_scratch = get_nested_cfg(cfg, ["task.from_scratch",     "finetuning.from_scratch"])
-
-            if   frozen is True  and from_scratch is False: tuning = "LP"
-            elif frozen is True  and from_scratch is True:  tuning = "From-Scratch LP"
-            elif frozen is False and from_scratch is True:  tuning = "From-Scratch FT"
-            else:                                           tuning = "Full FT"
+            frozen       = get_nested_cfg(cfg, ["task.freeze_backbone", "finetuning.freeze_backbone"])
+            from_scratch = get_nested_cfg(cfg, ["task.from_scratch",    "finetuning.from_scratch"])
 
             record = {
                 "exp_path":        str(res_path.parent.parent.name),
@@ -123,13 +140,13 @@ def compile_benchmarks(exp_root="./experiments"):
                 "seed":            get_nested_cfg(cfg, ["experiment.random_seed"]),
                 "model_name":      model_name,
                 "dataset":         get_nested_cfg(cfg, ["data.root_key"]),
-                "window":          get_nested_cfg(cfg, ["data.window_length"]),
-                "fs":              get_nested_cfg(cfg, ["data.sample_rate"]),
+                "window":          window_length,
+                "fs":              fs,
                 "window_duration": window_duration,
                 "split":           split,
                 "frozen":          frozen,
                 "from_scratch":    from_scratch,
-                "tuning":          tuning,
+                "tuning":          parse_tuning(frozen, from_scratch),
                 "task":            task,
                 "pooling":         get_nested_cfg(cfg, ["model.wrapper.pooling_type", "task.pooling_type"]),
             }
@@ -145,132 +162,172 @@ def compile_benchmarks(exp_root="./experiments"):
 # ------------------------------------------------------------------ #
 # Aggregation
 # ------------------------------------------------------------------ #
-def aggregate_seeds(df, task="classification"):
-    task_cfg = TASK_REGISTRY[task]
-    metric_cols = task_cfg["metrics"]
-    primary     = task_cfg["primary_metric"]
-    higher      = task_cfg["higher_is_better"]
+def _flag_best(summary: pd.DataFrame, mean_col: str, higher: bool) -> pd.DataFrame:
+    """
+    Add per-metric best-flagging columns to summary DataFrame.
+    Flags the best value per (model, dataset) and overall per dataset.
 
-    # Only keep rows for this task
+    Args:
+        summary:    aggregated DataFrame
+        mean_col:   name of the mean column to flag (e.g. "acc_mean")
+        higher:     True if higher values are better, False if lower
+
+    Returns:
+        summary with two new boolean columns:
+            f"is_model_best_{mean_col}"
+            f"is_overall_best_{mean_col}"
+    """
+    agg_fn = "max" if higher else "min"
+
+    model_best   = summary.groupby(["model_name", "dataset"])[mean_col].transform(agg_fn)
+    overall_best = summary.groupby("dataset")[mean_col].transform(agg_fn)
+
+    summary[f"is_model_best_{mean_col}"]   = summary[mean_col] == model_best
+    summary[f"is_overall_best_{mean_col}"] = summary[mean_col] == overall_best
+    return summary
+
+
+def aggregate_seeds(df: pd.DataFrame, task: str = "classification") -> pd.DataFrame:
+    task_cfg    = TASK_REGISTRY[task]
+    metric_cfgs = task_cfg["metrics"]
+
     df = df[df["task"] == task].copy()
 
-    # Build agg dict dynamically from available metric columns
+    # Build aggregation dict from available metric columns
     agg_dict = {"seed": ("seed", "count")}
-    for col in metric_cols:
+    for mc in metric_cfgs:
+        col = mc["col"]
         if col in df.columns:
-            safe = col.replace("test_", "")
-            agg_dict[f"{safe}_mean"] = (col, "mean")
-            agg_dict[f"{safe}_std"]  = (col, "std")
+            s = safe_col(col)
+            agg_dict[f"{s}_mean"] = (col, "mean")
+            agg_dict[f"{s}_std"]  = (col, "std")
 
     summary = df.groupby(
         ["model_name", "dataset", "split", "tuning", "window_duration", "task"]
     ).agg(**agg_dict).reset_index()
 
-    # Best flagging using primary metric
-    primary_safe  = primary.replace("test_", "")
-    primary_mean  = f"{primary_safe}_mean"
-
-    if primary_mean in summary.columns:
-        if higher:
-            model_best   = summary.groupby(["model_name", "dataset"])[primary_mean].transform("max")
-            overall_best = summary.groupby("dataset")[primary_mean].transform("max")
-        else:
-            model_best   = summary.groupby(["model_name", "dataset"])[primary_mean].transform("min")
-            overall_best = summary.groupby("dataset")[primary_mean].transform("min")
-
-        summary["is_model_best"]   = summary[primary_mean] == model_best
-        summary["is_overall_best"] = summary[primary_mean] == overall_best
+    # Flag best per metric independently
+    for mc in metric_cfgs:
+        mean_col = f"{safe_col(mc['col'])}_mean"
+        if mean_col in summary.columns:
+            summary = _flag_best(summary, mean_col, mc["higher_is_better"])
 
     return summary
 
 
 # ------------------------------------------------------------------ #
-# Dataset / model name prettification
+# Filtering
 # ------------------------------------------------------------------ #
-MODEL_MAP = {
-    "tinymyo":    "TinyMyo",
-    "neurorvq":   "NeuroRVQ",
-    "physiowave": "PhysioWave",
-}
+def refine_table(
+    df: pd.DataFrame,
+    task: str = "classification",
+    expected_split: str | None = None,
+    window_duration: float = 1.0,
+) -> pd.DataFrame:
+    """
+    Filter aggregated summary to the datasets, split and window duration
+    relevant for the paper table.
 
-DATASET_MAP_CLASSIFICATION = {
-    "epn612":      "EPN-612 (1s)",
-    "ninapro_db5": "NinaPro DB5 (1s)",
-    "uci_emg":     "UCI-EMG (1s)",
-}
-
-DATASET_MAP_REGRESSION = {
-    "ninapro_db5":      "NinaPro DB5 (1s)",
-    "neuromotor_wrist": "Neuromotor-Wrist (1s)",
-    "ninapro_db2":      "NinaPro DB2 (1s)",
-}
-
-SPLIT_MAP_CLASSIFICATION = "inter_subject"
-SPLIT_MAP_REGRESSION     = "intra_session"   # default for regression; override if needed
-
-
-def refine_table(df, task="classification"):
-    dataset_map = (
-        DATASET_MAP_CLASSIFICATION if task == "classification"
-        else DATASET_MAP_REGRESSION
-    )
-    expected_split = (
-        SPLIT_MAP_CLASSIFICATION if task == "classification"
-        else SPLIT_MAP_REGRESSION
-    )
+    Args:
+        df:              aggregated summary DataFrame
+        task:            "classification" or "regression"
+        expected_split:  if provided, filter to this split type only
+        window_duration: keep only rows with this window duration (seconds)
+    """
+    dataset_map = DATASET_MAP[task]
 
     df = df.copy()
     df["model_name"]     = df["model_name"].map(lambda x: MODEL_MAP.get(x, x))
     df["dataset_pretty"] = df["dataset"].map(lambda x: dataset_map.get(x, x))
 
-    # Filter to known datasets and correct split
     known_datasets = set(dataset_map.values())
-    mask_dataset = df["dataset_pretty"].isin(known_datasets)
-    mask_split   = df["split"] == expected_split
-    mask_window  = df["window_duration"] == 1
+    mask = (
+        df["dataset_pretty"].isin(known_datasets) &
+        (df["window_duration"] == window_duration)
+    )
+    if expected_split is not None:
+        mask &= df["split"] == expected_split
 
-    return df[mask_dataset & mask_split & mask_window].copy()
+    return df[mask].copy()
 
 
 # ------------------------------------------------------------------ #
-# LaTeX table generation
+# LaTeX formatting helpers
 # ------------------------------------------------------------------ #
-def _format_cell(mean, std, is_model_best, is_overall_best, scale=1, decimals=4):
-    """Format a single mean ± std cell with optional bold/underline."""
+def _format_cell(
+    mean: float,
+    std: float,
+    is_model_best: bool,
+    is_overall_best: bool,
+    scale: float = 1,
+    decimals: int = 4,
+) -> str:
+    """
+    Format a mean ± std cell with bold/underline hierarchy:
+        overall best → \\textbf{\\underline{...}}
+        model best   → \\textbf{...}
+        otherwise    → plain
+    """
     m = mean * scale
     s = std  * scale if not pd.isna(std) else 0.0
-
-    # Choose decimal places based on scale
     dp = 2 if scale == 100 else decimals
     base = f"{m:.{dp}f} $\\pm$ {s:.{dp}f}"
 
     if is_overall_best:
         return f"\\textbf{{\\underline{{{base}}}}}"
-    elif is_model_best:
+    if is_model_best:
         return f"\\textbf{{{base}}}"
     return base
 
 
-def generate_paper_table(df, task="classification"):
-    task_cfg  = TASK_REGISTRY[task]
-    disp_cols = task_cfg["display"]
-    n_metrics = len(disp_cols)
+def _format_delta(val: float | None, is_best: bool) -> str:
+    """Format a delta value with sign and optional bold."""
+    if val is None:
+        return "-"
+    sign = "+" if val >= 0 else ""
+    base = f"{sign}{val:.2f}"
+    return f"\\textbf{{{base}}}" if is_best else base
 
-    dataset_map = (
-        DATASET_MAP_CLASSIFICATION if task == "classification"
-        else DATASET_MAP_REGRESSION
+
+def _latex_table_wrap(inner_lines: list[str], caption: str, label: str) -> list[str]:
+    """Wrap table body lines in standard LaTeX table environment."""
+    return (
+        [r"\begin{table}[]", r"\centering", r"\resizebox{\columnwidth}{!}{%"]
+        + inner_lines
+        + [r"%", r"}", f"\\caption{{{caption}}}", f"\\label{{{label}}}", r"\end{table}"]
     )
+
+
+def _cmidrules(n_datasets: int, start_col: int, span: int) -> str:
+    """Generate a sequence of cmidrule commands for dataset column groups."""
+    return "".join(
+        "\\cmidrule(lr){" + f"{start_col + span*i}-{start_col + span*(i+1) - 1}" + "}"
+        for i in range(n_datasets)
+    )
+
+
+# ------------------------------------------------------------------ #
+# Main results table
+# ------------------------------------------------------------------ #
+def generate_paper_table(df: pd.DataFrame, task: str = "classification") -> str:
+    task_cfg    = TASK_REGISTRY[task]
+    metric_cfgs = task_cfg["metrics"]
+    n_metrics   = len(metric_cfgs)
+
+    dataset_map = DATASET_MAP[task]
     datasets = [v for v in dataset_map.values() if v in df["dataset_pretty"].unique()]
     models   = [m for m in MODEL_ORDER  if m in df["model_name"].unique()]
     tunings  = [t for t in TUNING_ORDER if t in df["tuning"].unique()]
 
-    # Pre-compute formatted cells
-    for dc in disp_cols:
-        col      = dc["col"].replace("test_", "")
+    # Pre-compute formatted cells — one fmt column per metric
+    df = df.copy()
+    for mc in metric_cfgs:
+        col      = safe_col(mc["col"])
         mean_col = f"{col}_mean"
         std_col  = f"{col}_std"
         fmt_col  = f"fmt_{col}"
-        scale    = dc["scale"]
+        model_best_col   = f"is_model_best_{mean_col}"
+        overall_best_col = f"is_overall_best_{mean_col}"
 
         if mean_col not in df.columns:
             df[fmt_col] = "-"
@@ -280,40 +337,32 @@ def generate_paper_table(df, task="classification"):
             _format_cell(
                 r[mean_col],
                 r.get(std_col, float("nan")),
-                r.get("is_model_best",   False),
-                r.get("is_overall_best", False),
-                scale=scale,
+                r.get(model_best_col,   False),
+                r.get(overall_best_col, False),
+                scale=mc["scale"],
             )
             for _, r in df.iterrows()
         ]
 
-    lines = []
-    lines.append(r"\begin{table}[]")
-    lines.append(r"\centering")
-    lines.append(r"\resizebox{\columnwidth}{!}{%")
-    lines.append(r"\begin{tabular}{ll" + "c" * n_metrics * len(datasets) + "}")
-    lines.append(r"\toprule")
+    # Build LaTeX lines
+    inner = []
+    inner.append(r"\begin{tabular}{ll" + "c" * n_metrics * len(datasets) + "}")
+    inner.append(r"\toprule")
 
     # Header row 1: dataset names
     row1 = " & "
     for ds in datasets:
         row1 += f" & \\multicolumn{{{n_metrics}}}{{c}}{{\\textbf{{{ds}}}}}"
-    lines.append(row1 + r" \\")
+    inner.append(row1 + r" \\")
 
-    # Cmidrules
-    cmidrules = "".join(
-        "\\cmidrule(lr){" + f"{3 + n_metrics*i}-{2 + n_metrics*(i+1)}" + "}"
-        for i in range(len(datasets))
-    )
-    lines.append(cmidrules)
-
-    # Header row 2: metric names
+    # Cmidrules + metric headers
+    inner.append(_cmidrules(len(datasets), start_col=3, span=n_metrics))
     row2 = "Model & Tuning"
     for _ in datasets:
-        for dc in disp_cols:
-            row2 += f" & {dc['header']}"
-    lines.append(row2 + r" \\")
-    lines.append(r"\midrule")
+        for mc in metric_cfgs:
+            row2 += f" & {mc['header']}"
+    inner.append(row2 + r" \\")
+    inner.append(r"\midrule")
 
     # Body
     for m_idx, model in enumerate(models):
@@ -325,37 +374,41 @@ def generate_paper_table(df, task="classification"):
                     (df["tuning"]         == tuning) &
                     (df["dataset_pretty"] == ds)
                 ]
-                for dc in disp_cols:
-                    col     = dc["col"].replace("test_", "")
-                    fmt_col = f"fmt_{col}"
-                    if not match.empty and fmt_col in match.columns:
-                        row += f" & {match.iloc[0][fmt_col]}"
-                    else:
-                        row += " & -"
-            lines.append(row + r" \\")
+                for mc in metric_cfgs:
+                    fmt_col = f"fmt_{safe_col(mc['col'])}"
+                    row += f" & {match.iloc[0][fmt_col]}" if not match.empty else " & -"
+            inner.append(row + r" \\")
 
         if m_idx < len(models) - 1:
-            lines.append(r"\midrule")
+            inner.append(r"\midrule")
 
-    lines.append(r"\bottomrule")
-    lines.append(r"\end{tabular}")
-    lines.append(r"%")
-    lines.append(r"}")
-    lines.append(r"\caption{Caption}")
-    lines.append(r"\label{tab:placeholder}")
-    lines.append(r"\end{table}")
+    inner.append(r"\bottomrule")
+    inner.append(r"\end{tabular}")
 
+    lines = _latex_table_wrap(inner, caption="Caption", label="tab:results_" + task)
     return "\n".join(lines)
 
 
 # ------------------------------------------------------------------ #
 # Delta table
 # ------------------------------------------------------------------ #
-def compute_deltas(df, task="classification"):
+def compute_deltas(df: pd.DataFrame, task: str = "classification") -> pd.DataFrame:
+    """
+    Compute pretraining benefit deltas per model/dataset:
+        ft_delta:   Full FT primary metric - From-Scratch FT primary metric
+        head_delta: LP primary metric      - From-Scratch LP primary metric
+
+    Deltas are always reported such that positive = pretraining helped,
+    regardless of whether the primary metric is higher-is-better or not.
+    """
     task_cfg = TASK_REGISTRY[task]
-    primary  = task_cfg["primary_metric"].replace("test_", "")
-    higher   = task_cfg["higher_is_better"]
-    mean_col = f"{primary}_mean"
+    primary  = task_cfg["primary_metric"]
+    higher   = next(
+        mc["higher_is_better"]
+        for mc in task_cfg["metrics"]
+        if mc["col"] == primary
+    )
+    mean_col = f"{safe_col(primary)}_mean"
 
     records = []
     for model in df["model_name"].unique():
@@ -365,22 +418,23 @@ def compute_deltas(df, task="classification"):
                 (df["dataset_pretty"] == dataset)
             ]
 
-            def get_val(tuning):
+            def get_val(tuning: str) -> float | None:
                 row = subset[subset["tuning"] == tuning]
-                return row.iloc[0][mean_col] if (not row.empty and mean_col in row.columns) else None
+                return float(row.iloc[0][mean_col]) if (not row.empty and mean_col in row.columns) else None
 
-            full_ft        = get_val("Full FT")
-            from_scratch   = get_val("From-Scratch FT")
-            lp             = get_val("LP")
-            scratch_lp     = get_val("From-Scratch LP")
+            full_ft      = get_val("Full FT")
+            from_scratch = get_val("From-Scratch FT")
+            lp           = get_val("LP")
+            scratch_lp   = get_val("From-Scratch LP")
 
-            ft_delta   = (full_ft - from_scratch) * 100 if (full_ft   is not None and from_scratch is not None) else None
-            head_delta = (lp - scratch_lp)         * 100 if (lp        is not None and scratch_lp  is not None) else None
+            def delta(a, b):
+                if a is None or b is None:
+                    return None
+                d = (a - b) * 100
+                return d if higher else -d  # flip so positive always = pretraining helped
 
-            # For regression metrics where lower is better (e.g. RMSE), flip sign
-            if not higher:
-                ft_delta   = -ft_delta   if ft_delta   is not None else None
-                head_delta = -head_delta if head_delta is not None else None
+            ft_delta   = delta(full_ft, from_scratch)
+            head_delta = delta(lp, scratch_lp)
 
             if any(v is not None for v in [ft_delta, head_delta]):
                 records.append({
@@ -392,6 +446,7 @@ def compute_deltas(df, task="classification"):
 
     delta_df = pd.DataFrame(records)
 
+    # Flag best per dataset (highest delta = most pretraining benefit)
     for col in ["ft_delta", "head_delta"]:
         if col in delta_df.columns:
             delta_df[f"{col}_is_best"] = (
@@ -401,55 +456,42 @@ def compute_deltas(df, task="classification"):
     return delta_df
 
 
-def generate_delta_table(delta_df, task="classification"):
+def generate_delta_table(delta_df: pd.DataFrame, task: str = "classification") -> str:
     task_cfg = TASK_REGISTRY[task]
-    primary  = task_cfg["primary_metric"].replace("test_", "").replace("_", "\\_")
-    dataset_map = (
-        DATASET_MAP_CLASSIFICATION if task == "classification"
-        else DATASET_MAP_REGRESSION
+    primary  = task_cfg["primary_metric"]
+    primary_header = next(
+        mc["header"] for mc in task_cfg["metrics"] if mc["col"] == primary
     )
+
+    dataset_map = DATASET_MAP[task]
     datasets = [v for v in dataset_map.values() if v in delta_df["dataset_pretty"].unique()]
     models   = [m for m in MODEL_ORDER if m in delta_df["model_name"].unique()]
 
-    def format_delta(val, is_best):
-        if val is None:
-            return "-"
-        sign = "+" if val >= 0 else ""
-        base = f"{sign}{val:.2f}"
-        return f"\\textbf{{{base}}}" if is_best else base
-
-    lines = []
-    lines.append(r"\begin{table}[ht]")
-    lines.append(r"\centering")
-    lines.append(
-        r"\caption{Pretraining benefit: gain in " + primary +
-        r" from pretrained initialisation over random initialisation. "
+    caption = (
+        f"Pretraining benefit: gain in {primary_header} from pretrained initialisation "
+        r"over random initialisation. "
         r"\textit{Full FT $\Delta$} = Full FT $-$ From-Scratch FT; "
         r"\textit{LP $\Delta$} = LP $-$ From-Scratch LP. "
         r"Positive values indicate that pretraining improved performance. "
-        r"Best per dataset is \textbf{bolded}.}"
+        r"Best per dataset is \textbf{bolded}."
     )
-    lines.append(r"\label{tab:pretraining_delta_" + task + r"}")
-    lines.append(r"\resizebox{\columnwidth}{!}{%")
-    lines.append(r"\begin{tabular}{l" + "cc" * len(datasets) + "}")
-    lines.append(r"\toprule")
+
+    inner = []
+    inner.append(r"\begin{tabular}{l" + "cc" * len(datasets) + "}")
+    inner.append(r"\toprule")
 
     row1 = " "
     for ds in datasets:
         row1 += f" & \\multicolumn{{2}}{{c}}{{\\textbf{{{ds}}}}}"
-    lines.append(row1 + r" \\")
+    inner.append(row1 + r" \\")
 
-    cmidrules = "".join(
-        "\\cmidrule(lr){" + f"{2+2*i}-{3+2*i}" + "}"
-        for i in range(len(datasets))
-    )
-    lines.append(cmidrules)
+    inner.append(_cmidrules(len(datasets), start_col=2, span=2))
 
     row2 = "\\textbf{Model}"
     for _ in datasets:
         row2 += r" & Full FT $\Delta$ & LP $\Delta$"
-    lines.append(row2 + r" \\")
-    lines.append(r"\midrule")
+    inner.append(row2 + r" \\")
+    inner.append(r"\midrule")
 
     for model in models:
         row = model
@@ -460,35 +502,39 @@ def generate_delta_table(delta_df, task="classification"):
             ]
             if not match.empty:
                 r = match.iloc[0]
-                row += " & " + format_delta(r["ft_delta"],    r.get("ft_delta_is_best",   False))
-                row += " & " + format_delta(r["head_delta"],  r.get("head_delta_is_best", False))
+                row += " & " + _format_delta(r["ft_delta"],   r.get("ft_delta_is_best",   False))
+                row += " & " + _format_delta(r["head_delta"], r.get("head_delta_is_best", False))
             else:
                 row += " & - & -"
-        lines.append(row + r" \\")
+        inner.append(row + r" \\")
 
-    lines.append(r"\bottomrule")
-    lines.append(r"\end{tabular}")
-    lines.append(r"%")
-    lines.append(r"}")
-    lines.append(r"\end{table}")
+    inner.append(r"\bottomrule")
+    inner.append(r"\end{tabular}")
 
+    lines = _latex_table_wrap(inner, caption=caption, label=f"tab:delta_{task}")
     return "\n".join(lines)
 
 
 # ------------------------------------------------------------------ #
 # Plotting
 # ------------------------------------------------------------------ #
-def plot_benchmark_results(df, task="classification", output_dir="figures"):
+def plot_benchmark_results(
+    df: pd.DataFrame,
+    task: str = "classification",
+    output_dir: str = "figures",
+) -> None:
     output_dir = Path(output_dir)
     output_dir.mkdir(exist_ok=True)
 
-    task_cfg = TASK_REGISTRY[task]
+    task_cfg    = TASK_REGISTRY[task]
+    metric_cfgs = task_cfg["metrics"]
+
     sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
 
     plot_df = refine_table(df[df["task"] == task].copy(), task=task)
 
-    for dc in task_cfg["display"]:
-        col = dc["col"]
+    for mc in metric_cfgs:
+        col = mc["col"]
         if col not in plot_df.columns:
             continue
 
@@ -510,14 +556,13 @@ def plot_benchmark_results(df, task="classification", output_dir="figures"):
             order=MODEL_ORDER,
         )
         g.set_titles("{col_name}")
-        g.set_axis_labels("", dc["header"])
+        g.set_axis_labels("", mc["header"])
         g.legend.set_title("Strategy")
 
-        safe_col = col.replace("test_", "")
-        fpath = output_dir / f"benchmark_{task}_{safe_col}.pdf"
+        fpath = output_dir / f"benchmark_{task}_{safe_col(col)}.pdf"
         plt.savefig(fpath, bbox_inches="tight")
         plt.close()
-        print(f"Saved {col} plot to {fpath}")
+        print(f"Saved plot to {fpath}")
 
 
 # ------------------------------------------------------------------ #
@@ -536,38 +581,39 @@ if __name__ == "__main__":
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True)
 
+    # Split type used as primary evaluation for each task
+    PRIMARY_SPLIT = {
+        "classification": "inter_subject",
+        "regression":     "inter_subject",
+    }
+
     for task in ["classification", "regression"]:
-        task_df = master_df[master_df["task"] == task]
-        if task_df.empty:
+        if master_df[master_df["task"] == task].empty:
             print(f"No results found for task: {task}, skipping.")
             continue
 
-        print(f"\n{'='*60}")
-        print(f"  Task: {task.upper()}")
-        print(f"{'='*60}")
+        print(f"\n{'='*60}\n  Task: {task.upper()}\n{'='*60}")
 
         agg_df = aggregate_seeds(master_df, task=task)
         agg_df.to_csv(f"benchmark_summary_{task}.csv", index=False)
-        print(agg_df)
 
-        ref_df = refine_table(agg_df, task=task)
+        ref_df = refine_table(agg_df, task=task, expected_split=PRIMARY_SPLIT[task])
+        print(ref_df.to_string())
 
         # Main results table
         latex_table = generate_paper_table(ref_df, task=task)
         table_path  = output_dir / f"final_table_{task}.tex"
         table_path.write_text(latex_table)
-        print(f"\n--- LaTeX Table ({task}) ---")
-        print(latex_table)
-        print(f"LaTeX table saved to {table_path}")
+        print(f"\n--- LaTeX Table ({task}) ---\n{latex_table}")
+        print(f"Saved to {table_path}")
 
         # Delta table
         delta_df    = compute_deltas(ref_df, task=task)
         delta_table = generate_delta_table(delta_df, task=task)
         delta_path  = output_dir / f"delta_table_{task}.tex"
         delta_path.write_text(delta_table)
-        print(f"\n--- Delta Table ({task}) ---")
-        print(delta_table)
-        print(f"Delta table saved to {delta_path}")
+        print(f"\n--- Delta Table ({task}) ---\n{delta_table}")
+        print(f"Saved to {delta_path}")
 
         # Plots
         plot_benchmark_results(master_df, task=task, output_dir=args.output_dir)
