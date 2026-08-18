@@ -486,7 +486,7 @@ def main(dataset_dir=None, output_dir=None, download_data=False, include_rest=Fa
     if download_data:
         download_dataset(dataset_dir)
 
-    convert_dataset(dataset_dir, output_fpath)
+    convert_dataset(dataset_dir, output_fpath, segment_gestures)
 
 
 if __name__ == "__main__":

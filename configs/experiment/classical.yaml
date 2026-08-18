@@ -6,23 +6,25 @@ defaults:
 
 model:
   name: lda
-
+  fm:
+    name: null
+    
 data:
   window_duration: 1.0
-  split_type: inter_subject
+  split_type: intra_session
   batch_size: 2
 
 experiment:
-  name: ${data.root_key}/${model.name}_${data.window_duration}_${data.split_type}/seed${experiment.random_seed}
+  name: gesture_classification_intra_session_mean/classical/${data.root_key}/model_${data.window_duration}_${data.split_type}/seed${experiment.random_seed}
   log_interval: 10
   wandb_project: ${data.root_key}
 
   
-# hydra:
-#   mode: MULTIRUN
-#   sweeper:
-#     params:
-#       # data.split_type: inter_subject, intra_session
-#       dataset: ninapro_db5, uci_emg
-#       # model.name: lda, svm, rf
-#       # experiment.random_seed: 2, 50, 100
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      # data.split_type: inter_subject, intra_session
+      dataset: ninapro_db5, uci_emg, epn612
+      # model.name: lda, svm, rf
+      experiment.random_seed: 2, 50, 100

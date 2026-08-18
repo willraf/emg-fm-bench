@@ -140,14 +140,10 @@ def main(cfg=None):
     """
     # Experiment level setup
     seed = cfg.experiment.random_seed
-    experiment_name = cfg.experiment.name
+    base_experiment_name = cfg.experiment.name
     save_experiment = cfg.experiment.save
 
     set_seed(seed)
-
-    experiment_dir = get_experiment_directory(experiment_name=experiment_name, save_flag=save_experiment)
-    setup_logging(experiment_dir=experiment_dir, is_main_process=True)
-    eval_dir = setup_save_dir(cfg, experiment_dir=experiment_dir, overwrite=False, mode='eval', is_main_process=True)
     
     train_loader = setup_data(cfg.data, mode="train", distributed=False)
     test_loader = setup_data(cfg.data, mode="test", distributed=False)
@@ -155,8 +151,18 @@ def main(cfg=None):
     X_train, y_train = extract_features(train_loader, target_field=cfg.task.target_field)
     X_test, y_test = extract_features(test_loader, target_field=cfg.task.target_field)
 
-    metrics = []
+    
     for model in ["lda", "svm", "rf"]:
+        metrics = []
+        experiment_name = base_experiment_name.replace("model", model)
+        cfg.experiment.name = experiment_name
+        cfg.model.name = model
+        cfg.model.fm.name = model
+        
+        experiment_dir = get_experiment_directory(experiment_name=experiment_name, save_flag=save_experiment)
+        setup_logging(experiment_dir=experiment_dir, is_main_process=True)
+        eval_dir = setup_save_dir(cfg, experiment_dir=experiment_dir, overwrite=False, mode='eval', is_main_process=True)
+
         pipeline = Pipeline([
             ("scaler", StandardScaler()),
             ("classifier", get_classical_model(model))
@@ -178,12 +184,12 @@ def main(cfg=None):
         logging.info(result)
         metrics.append(result)
 
-    record_metrics(cfg, metrics, cm, eval_dir)
-
-    logging.info(f"Test Accuracy: {acc:.4f}")
-    logging.info(f"Test Precision: {precision:.4f}")
-    logging.info(f"Test Recall: {recall:.4f}")
-    logging.info(f"Test F1 Score: {f1:.4f}")
+        record_metrics(cfg, metrics, cm, eval_dir)
+        logging.info(f"Results for model '{model}'")
+        logging.info(f"Test Accuracy: {acc:.4f}")
+        logging.info(f"Test Precision: {precision:.4f}")
+        logging.info(f"Test Recall: {recall:.4f}")
+        logging.info(f"Test F1 Score: {f1:.4f}")
 
 
 if __name__ == "__main__":

@@ -21,7 +21,8 @@ transforms:
   resample:
     _target_: src.data.transforms.Resample 
     field: emg
-    target_fs: ${model.sample_rate}
+    # target_fs: ${model.sample_rate:1000}
+    target_fs: ${oc.select:model.sample_rate}
     orig_fs: ${data.sample_rate}
 
   encode_stage:

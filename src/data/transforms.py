@@ -214,6 +214,7 @@ class NotchFilter(DictTransform):
 @dataclass
 class Resample(DictTransform):
     orig_fs: int
+    # Target fs can be None, in which case no resampling is done
     target_fs: int
     field: str
 
@@ -227,6 +228,9 @@ class Resample(DictTransform):
         Returns:
             Tensor with resampled time dimension
         """
+        if self.target_fs is None:
+            return x
+
         if self.orig_fs == self.target_fs:
             return x
 
