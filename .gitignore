@@ -18,6 +18,10 @@ depricated/
 configs/experiment/full_sweep.yaml
 configs/experiment/
 
+results_summaries/
+
 !configs/experiment/example.yaml
 !/src/data
-!src/models
+!/src/models
+!configs/experiment/norm.yaml
+!configs/experiment/resample.yaml

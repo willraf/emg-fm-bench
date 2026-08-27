@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 # Constants
 # ------------------------------------------------------------------ #
 TUNING_ORDER = ["Full FT", "From-Scratch FT", "LP", "From-Scratch LP"]
-MODEL_ORDER  = ["NeuroRVQ", "PhysioWave", "TinyMyo", "LDA", "SVM", "RF"]
+MODEL_ORDER  = ["LDA", "SVM", "RF", "CNN", "NeuroRVQ", "PhysioWave", "TinyMyo"]
 
 MODEL_MAP = {
     "tinymyo":    "TinyMyo",
@@ -18,6 +18,7 @@ MODEL_MAP = {
     "lda":        "LDA",
     "svm":        "SVM",
     "rf":         "RF",
+    "cnn":        "CNN",
 }
 
 DATASET_MAP = {
@@ -87,7 +88,7 @@ def parse_tuning(frozen: bool, from_scratch: bool) -> str:
     if frozen and from_scratch:
         return "From-Scratch LP"
     if not frozen and from_scratch:
-        return "From-Scratch FT"
+        return "From-Scratch"
     return "Full FT"
 
 
@@ -257,7 +258,6 @@ def aggregate_seeds(df: pd.DataFrame, task: str = "classification") -> pd.DataFr
         mean_col = f"{safe_col(mc['col'])}_mean"
         if mean_col in summary.columns:
             summary = _flag_best(summary, mean_col, mc["higher_is_better"])
-
     return summary
 
 
@@ -661,9 +661,22 @@ if __name__ == "__main__":
 
         for split in master_df[master_df["task"] == task]["split"].unique():
             for pooling in master_df[master_df["task"] == task]["pooling"].unique():
+                if pd.isna(pooling):
+                    continue
+                
                 print(f"\n{'='*60}\n  Task: {task.upper()}, Split: {split}, Pooling: {pooling}\n{'='*60}")
 
-                agg_df = aggregate_seeds(master_df, task=task)
+                # Replace null values for methods which dont use pooling or split, so that they are included in every table
+                table_df = master_df.copy()
+                table_df["pooling"] = table_df["pooling"].fillna(pooling)
+                table_df["split"]   = table_df["split"].fillna(split)
+
+                agg_df = aggregate_seeds(table_df, task=task)
+
+                # Set anything with null pooling to "None" for consistency
+                agg_df["pooling"] = agg_df["pooling"].fillna(pooling)
+                agg_df["split"]   = agg_df["split"].fillna(split)
+
                 ref_df = refine_table(agg_df, task=task, split=split, pooling=pooling)
                 ref_df.to_csv(f"results_summaries/refined_results_{task}_{split}_{pooling}.csv", index=False)
                 print(f"Refined results saved to results_summaries/refined_results_{task}_{split}_{pooling}.csv")
@@ -691,4 +704,4 @@ if __name__ == "__main__":
                     print(f"Error computing delta table for task {task}, split {split}, pooling {pooling}: {e}")
 
                 # Plots
-                plot_benchmark_results(master_df, task=task, split=split, pooling=pooling, output_dir=args.output_dir)
+                plot_benchmark_results(table_df, task=task, split=split, pooling=pooling, output_dir=args.output_dir)

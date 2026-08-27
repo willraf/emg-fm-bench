@@ -21,7 +21,7 @@ class CNN(nn.Module):
         self.conv1 = nn.Conv1d(in_channels=input_size, out_channels=64, kernel_size=3)
         self.conv2 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=3)
         self.pool = nn.MaxPool1d(kernel_size=2)
-        self.fc1 = nn.Linear(128 * 6, 256)  # Adjust the input size based on the output of conv layers
+        self.fc1 = nn.Linear(128 * 48, 256)  # Adjust the input size based on the output of conv layers
         self.fc2 = nn.Linear(256, output_size)
 
     def forward(self, x):
@@ -33,3 +33,4 @@ class CNN(nn.Module):
         x = torch.relu(self.fc1(x))
         x = self.fc2(x)
         return x
+    
