@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 # ------------------------------------------------------------------ #
 # Constants
 # ------------------------------------------------------------------ #
-TUNING_ORDER = ["Full FT", "From-Scratch FT", "LP", "From-Scratch LP"]
+TUNING_ORDER = ["Full FT", "From-Scratch", "LP", "From-Scratch LP"]
 MODEL_ORDER  = ["LDA", "SVM", "RF", "CNN", "NeuroRVQ", "PhysioWave", "TinyMyo"]
 
 MODEL_MAP = {
@@ -487,7 +487,7 @@ def compute_deltas(df: pd.DataFrame,
                 return float(row.iloc[0][mean_col]) if (not row.empty and mean_col in row.columns) else None
 
             full_ft      = get_val("Full FT")
-            from_scratch = get_val("From-Scratch FT")
+            from_scratch = get_val("From-Scratch")
             lp           = get_val("LP")
             scratch_lp   = get_val("From-Scratch LP")
 

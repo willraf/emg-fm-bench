@@ -77,6 +77,14 @@ def main(cfg=None):
 
         train_main(fold_cfg)
 
+        # Delete the checkpoint directory to save space, since we only care about the final results
+        checkpoint_dir = f"{fold_cfg.experiment.name}/train/checkpoints"
+        if Path(checkpoint_dir).exists():
+            logging.info(f"Deleting checkpoint directory: {checkpoint_dir}")
+            for file in Path(checkpoint_dir).glob("*"):
+                file.unlink()
+            Path(checkpoint_dir).rmdir()
+
 
 if __name__ == '__main__':
     main()
