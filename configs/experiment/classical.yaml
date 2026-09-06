@@ -11,11 +11,15 @@ model:
     
 data:
   window_duration: 1.0
-  split_type: intra_session
+  split_type: inter_subject
   batch_size: 2
 
+task:
+  name: regression
+  target_field: jntang
+
 experiment:
-  name: gesture_classification_intra_session_mean/classical/${data.root_key}/model_${data.window_duration}_${data.split_type}/seed${experiment.random_seed}
+  name: pose_regression_inter_subject/${data.root_key}/model_${data.window_duration}_${data.split_type}/seed${experiment.random_seed}
   log_interval: 10
   wandb_project: ${data.root_key}
 
@@ -25,6 +29,6 @@ hydra:
   sweeper:
     params:
       # data.split_type: inter_subject, intra_session
-      dataset: ninapro_db5, uci_emg, epn612
+      # dataset: ninapro_db5, uci_emg, epn612
       # model.name: lda, svm, rf
       experiment.random_seed: 2, 50, 100

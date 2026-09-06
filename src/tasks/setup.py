@@ -17,7 +17,7 @@ def find_task_using_name(task_name: str):
     Import the module "src/tasks/[task_name].py".
     The class [TaskName] must exist inside and inherit from BaseModel.
     """
-    module_name = f"src.tasks.{task_name}_task"
+    module_name = f"src.tasks.{task_name}"
     try:
         modellib = importlib.import_module(module_name)
     except ModuleNotFoundError as e:

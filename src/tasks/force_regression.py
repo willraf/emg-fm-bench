@@ -13,7 +13,7 @@ Date:
 """
 """ finetune_regression_task.py """
 
-from src.tasks.base_finetune_task import BaseFinetuneTask
+from src.tasks.base_finetune import BaseFinetuneTask
 from src.utils.metrics import RegressionMetrics
 import torch
 import logging

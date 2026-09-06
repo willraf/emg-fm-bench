@@ -28,6 +28,8 @@ model:
     use_for_pretraining: True
     return_patch_embeddings: True
     sample_channels: ${data.sample_channels}
+    # Not needed for the model, but needed for subject adversarial training
+    final_embedding_dim: 800
 
   wrapper:
     # Parameters needed to construct the BioFMWrapper
@@ -37,3 +39,9 @@ model:
     num_channels: ${data.num_channels}
     sample_rate: ${model.sample_rate}
     window_duration: ${data.window_duration}
+
+  discriminator:
+    name: subject_discriminator
+    input_dim: 800
+    hidden_dim: 512
+    num_subjects: 7   # 7 Training subjects in the inter-subject split of NinaPro DB5

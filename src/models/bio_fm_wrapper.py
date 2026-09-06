@@ -110,7 +110,7 @@ class BioFMWrapper(nn.Module):
         )
 
 
-    def forward(self, x):
+    def forward(self, x, return_embeddings=False):
         """
         Args:
             x: (Batch, Channels, Time
@@ -125,6 +125,10 @@ class BioFMWrapper(nn.Module):
             tokens = tokens.unsqueeze(1)  # (B, 1, N, D)
 
         feat = self._aggregate(tokens)
+
+        if return_embeddings:
+            return self.head(self.fc_norm(feat)), feat
+        
         return self.head(self.fc_norm(feat))
     
 

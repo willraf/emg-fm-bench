@@ -36,6 +36,8 @@ model:
     pooling: null
     # ADAPTATION: Add a flag to control whether to reshape the features before passing to the wrapper
     reshape_features: True
+    # Not needed for the model, but needed for subject adversarial training
+    final_embedding_dim: 1024
 
   wrapper:
     # Parameters needed to construct the BioFMWrapper

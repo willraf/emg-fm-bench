@@ -1,6 +1,6 @@
-""" Module supervised_classification_task.py
+""" Module classification_task.py
 
-Task for training a model on a classification task
+Task for finetuning a foundation model on a classification task
 
 Usage:
 
@@ -9,16 +9,15 @@ Authors:
     Will Raftery
 
 Date:
-    29/07/2026
+    10/03/2026
 """
 
-from src.tasks.base_finetune_task import BaseFinetuneTask
-from src.tasks.base_supervised_task import BaseSupervisedTask
+from src.tasks.base_finetune import BaseFinetuneTask
 from src.utils.metrics import ClassificationMetrics
 import torch
 
 
-class SupervisedClassificationTask(BaseSupervisedTask):
+class FinetuneClassificationTask(BaseFinetuneTask):
 
     def __init__(self, cfg, device, distributed=False, is_main=False):
         super().__init__(cfg, device, distributed, is_main)

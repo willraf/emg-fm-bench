@@ -1,17 +1,10 @@
-task:
-  name: finetune_classification
-  target_field: gesture_id
-  freeze_backbone: true
-  from_scratch: false
-  learning_rate: 3.2812500000000005e-05
-  weight_decay: 0.001
-  warmup_epochs: 5
+
 logging:
   log_interval: 10
   use_wandb: true
   wandb_project: neurorvq_ninaprodb5
 experiment:
-  name: ${data.root_key}/${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${task.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  name: ${data.root_key}/${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${task.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
   random_seed: 50
   plot_examples: true
   resume: false
@@ -20,27 +13,19 @@ experiment:
   base_batch_size: 128
   base_learning_rate: 0.0001
   min_batch_size: 32
-batch_size_finder:
-  min_batch_size: 32
-  max_batch_size: 256
-  base_batch_size: 128
-  base_learning_rate: 0.0001
 
   
-training:
-  patience: 8
-  epochs: 100
-  use_amp: true
-  num_accumulation_steps: 3
+
 data:
   name: hdf5_windowed
   root_key: ninapro_db5
   primary_data_key: emg
   timeseries_keys: null
   hdf5_path: data/ninapro_db5/ninapro_db5.hdf5
-  split_type: inter_subject
+  split_type: intra_session
   num_channels: 16
-  window_length: 1000
+  window_length: 200
+  window_duration: 1.0
   sample_rate: 200
   stride: 50
   jitter: true
@@ -58,26 +43,11 @@ data:
     - ${transforms.band_pass}
     - ${transforms.resample}
     test: ${data.transforms.val}
-  sample_channels:
-  - c1
-  - c3
-  - c5
-  - c7
-  - c9
-  - c11
-  - c13
-  - c15
-  - c2
-  - c4
-  - c6
-  - c8
-  - c10
-  - c12
-  - c14
-  - c16
-  n_classes: 53
+  sample_channels: ['c1', 'c3', 'c5', 'c7', 'c9', 'c11', 'c13', 'c15', 'c2', 'c4', 'c6', 'c8', 'c10', 'c12', 'c14', 'c16']
+  num_gestures: 53   # NinaPro DB5 (1-52 + Rest)
+  num_jntang: 22      # 22 joint angles for regression task
+
 model:
-  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
   sample_rate: 1000
   fm:
     name: neuro_rvq_fm

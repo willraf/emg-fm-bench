@@ -1,0 +1,23 @@
+# @package _global_
+task:
+  name: subject_adversarial_ft
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  warmup_epochs: 10
+  use_amp: True
+  freeze_backbone: False
+  from_scratch: False
+
+
+model:
+  wrapper:
+    pooling_type: chan_concat_time_mean
+    # n_outputs: ${data.num_jntang}
+    n_outputs: ${data.num_gestures}
+
+  discriminator:
+    name: subject_discriminator
+    input_dim: ${model.fm.final_embedding_dim}
+    hidden_dim: 512
+    num_subjects: 7   # 7 Training subjects in the inter-subject split of NinaPro DB5
+    # num_subjects: ${data.num_subjects} 

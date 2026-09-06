@@ -29,6 +29,8 @@ model:
     reg_target_len: 500
     ###
     return_latent: True
+    # Not needed for the model, but needed for subject adversarial training
+    final_embedding_dim: 192
 
   wrapper:
     # Parameters needed to construct the BioFMWrapper

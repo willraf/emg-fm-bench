@@ -281,6 +281,9 @@ class HDF5WindowedDataset(BaseDataset):
         """
         Heuristic-based type conversion for a general-purpose dataset.
         """
+        if isinstance(value, str) and "sub-" in value:
+            value = int(value.split("sub-")[-1])
+
         # Handle NumPy arrays (Signals, coordinates, etc.)
         if isinstance(value, np.ndarray):
             tensor = torch.from_numpy(value)
