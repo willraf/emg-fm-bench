@@ -1,0 +1,15 @@
+# @package _global_
+model:
+  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
+  sample_rate: 200
+  fm:
+    name: identity_model
+    checkpoint: null
+
+  wrapper:
+    # Parameters needed to construct the BioFMWrapper
+    n_outputs: ${data.num_gestures}  # num_gestures for gesture classification, num_jntang for regression etc.
+    pooling_type: chan_concat_time_mean
+    finetune_spacial_embedding: False
+    num_channels: ${data.num_channels}
+    sample_rate: ${model.sample_rate}

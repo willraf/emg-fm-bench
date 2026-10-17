@@ -1,0 +1,16 @@
+data/
+experiments/
+models/
+*.pyc
+__pycache__/
+.env
+venv/
+.DS_Store
+figures/
+.vscode/
+pretrained_models/
+multirun/
+outputs/
+pbs/
+slurm/
+depricated/

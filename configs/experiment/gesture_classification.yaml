@@ -1,0 +1,41 @@
+# @package _global_
+defaults:
+  - override /transforms: transforms
+  - override /dataset: epn612
+  - override /model: physiowave
+  - override /task: gesture_classification
+  - _self_
+
+data:
+  window_length: 200
+  split_type: inter_subject
+  batch_size: 2
+
+experiment:
+  name: gesture_classification/${data.root_key}/${model.fm.name}_${data.window_length}_${data.split_type}_frozen-${task.freeze_backbone}_scratch-${task.from_scratch}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  log_interval: 10
+  # wandb_project: ${data.root_key}
+  random_seed: 50
+  use_wandb: True
+  wandb_project: ${data.root_key}
+
+
+model:
+  wrapper:
+    pooling_type: mean
+
+task:
+  freeze_backbone: False
+  from_scratch: True
+
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      data.split_type: inter_subject, intra_session
+      model: tinymyo, neurorvq, physiowave
+      dataset: ninapro_db5, uci_emg, epn612
+      task.from_scratch: False, True
+      task.freeze_backbone: False, True
+      experiment.random_seed: 2, 50, 100

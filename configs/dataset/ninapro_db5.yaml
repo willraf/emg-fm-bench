@@ -1,0 +1,36 @@
+# @package _global_
+data:
+  name: hdf5_windowed
+  root_key: ninapro_db5
+  primary_data_key: emg
+  timeseries_keys: 
+    - jntang
+  # Resolves $HDF5_ROOT env var, falls back to "data" if not set
+  data_root: ${oc.env:HDF5_ROOT,data}
+  hdf5_path: ${data.data_root}/ninapro_db5/ninapro_db5.hdf5
+  split_type: inter_subject
+  num_channels: 16
+  window_duration: 1.0  # Duration of the window in s
+  stride_duration: 0.25  # Duration of the stride in s
+  sample_rate: 200
+  jitter: True
+  num_workers: 6
+  batch_size: 32
+  transforms:
+    train:
+      - ${transforms.standardise}
+      - ${transforms.band_pass}
+      - ${transforms.resample}
+      - ${transforms.random_scale}
+      - ${transforms.channel_dropout}
+      # - _target_: src.data.transforms.RotationAugmentation
+    val:
+      - ${transforms.standardise}
+      - ${transforms.band_pass}
+      - ${transforms.resample}
+
+    test: ${data.transforms.val}
+  
+  sample_channels: ['c1', 'c3', 'c5', 'c7', 'c9', 'c11', 'c13', 'c15', 'c2', 'c4', 'c6', 'c8', 'c10', 'c12', 'c14', 'c16']
+  num_gestures: 53   # NinaPro DB5 (1-52 + Rest)
+  num_jntang: 22      # 22 joint angles for regression task

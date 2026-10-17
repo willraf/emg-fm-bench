@@ -1,0 +1,61 @@
+# @package _global_
+model:
+  name: tinymyo
+  # Sample rate the model was trained at
+  sample_rate: 2000
+  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
+  fm:
+    name: tiny_myo
+    checkpoint: pretrained_models/TinyMyo/pretraining/TinyMyo/TinyMyo.safetensors
+    # checkpoint: pretrained_models/TinyMyo/UCI_EMG/UCI_EMG.safetensors
+    # checkpoint: pretrained_models/TinyMyo/DB5/DB5.safetensors
+    # img_size: ${data.window_duration * model.sample_rate}
+    img_size: 2000
+    patch_size: 20
+    in_chans: ${data.num_channels}
+    embed_dim: 192
+    n_layer: 8
+    n_head: 3
+    mlp_ratio: 4
+    qkv_bias: True
+    attn_drop: 0.1
+    proj_drop: 0.1
+    drop_path: 0.1
+    # THese dont actually get used
+    task: classification
+    classification_type: ml
+    reduction_type: concat
+    num_classes: 53
+    reg_target_len: 500
+    ###
+    return_latent: True
+
+  wrapper:
+    # Parameters needed to construct the BioFMWrapper
+    n_outputs: ${data.num_gestures}
+    pooling_type: mean
+    finetune_spacial_embedding: False
+    num_channels: ${data.num_channels}
+    sample_rate: ${model.sample_rate}
+    window_duration: ${data.window_duration}
+
+data:
+  # Band pass filter, notch filter, per channel z score normalisation (same as tinymyo paper)
+  transforms:
+    train:
+      - ${transforms.standardise}
+      - ${transforms.band_pass}
+      - ${transforms.notch_filter}
+      - ${transforms.global_z_score_normalise}
+      - ${transforms.resample}
+      - ${transforms.random_scale}
+      - ${transforms.channel_dropout}
+      
+    val:
+      - ${transforms.standardise}
+      - ${transforms.band_pass}
+      - ${transforms.notch_filter}
+      - ${transforms.global_z_score_normalise}
+      - ${transforms.resample}
+
+    test: ${data.transforms.val}

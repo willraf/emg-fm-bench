@@ -1,0 +1,43 @@
+defaults:
+  - _self_
+  - dataset: ninapro_db5
+  - model: neurorvq
+  - transforms: transforms
+  - task: gesture_classification
+
+
+training:
+  patience: 8
+  epochs: 100
+  num_accumulation_steps: 1   # No gradient accumulation by default
+
+
+# These are specifically for the entry point script
+experiment:
+  name: ${data.root_key}/${now:%Y-%m-%d_%H-%M-%S}_${model.fm.name}_${data.root_key}_${data.window_duration}_${data.split_type}_${task.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  save: True
+  resume: False
+  random_seed: 42
+  ddp_debug_mode: False
+  use_wandb: True
+  wandb_project: ${data.root_key}
+  find_batch_size: True
+  plot_examples: True
+
+batch_size_finder:
+  min_batch_size: 32
+  max_batch_size: 256
+  base_batch_size: 128
+  base_learning_rate: 0.0001
+
+# task specific parameters
+task:
+  name: finetune_classification
+  target_field: gesture_id
+  learning_rate: 0.0001
+  weight_decay: 0.001
+  warmup_epochs: 5
+  use_amp: True
+  freeze_backbone: True
+  from_scratch: False
+

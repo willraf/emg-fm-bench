@@ -1,0 +1,64 @@
+# @package _global_
+# https://github.com/ForeverBlue816/PhysioWave/blob/6f7bec7996254e1a03ae929bbbf728fadd942c13/EMG/finetune_emg.sh
+model:
+  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
+  sample_rate: 2000
+
+  fm:
+    name: physio_wave
+    checkpoint: pretrained_models/PhysioWave/emg.pth
+    in_channels: 8
+    max_level: 3
+    wave_kernel_size: 16
+    wavelet_names: ['sym4', 'sym5', 'db6', 'coif3', 'bior4.4']
+    use_separate_channel: True
+    # Patch embedding parameters
+    patch_size: 64
+    embed_dim: 256
+    # Transformer parameters
+    depth: 6
+    num_heads: 8
+    mlp_ratio: 4.0
+    dropout: 0.1
+    rope_dim: null
+    # Position encoding parameters
+    use_pos_embed: True
+    pos_embed_type: '2d'
+    # Masking parameters
+    masking_strategy: 'frequency_guided'
+    importance_ratio: 0.6
+    mask_ratio: 0.15
+    # Task head parameters - no head needed as the wrapper will take care of this
+    task_type: null
+    num_classes: null
+    output_dim: null
+    head_config: null
+    pooling: null
+    # ADAPTATION: Add a flag to control whether to reshape the features before passing to the wrapper
+    reshape_features: True
+
+  wrapper:
+    # Parameters needed to construct the BioFMWrapper
+    n_outputs: ${data.num_gestures}
+    pooling_type: mean
+    finetune_spacial_embedding: False
+    num_channels: ${model.fm.in_channels}
+    sample_rate: ${model.sample_rate}
+    window_duration: ${data.window_duration}
+
+    
+data:
+  # No band pass filter, per channel z score normalisation and resampling to test original method done by physiowave
+  transforms:
+    train:
+      - ${transforms.standardise}
+      - ${transforms.resample}
+      - ${transforms.random_scale}
+      - ${transforms.channel_dropout}
+      
+    val:
+      - ${transforms.standardise}
+      - ${transforms.resample}
+
+    test: ${data.transforms.val}
+

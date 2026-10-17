@@ -1,0 +1,62 @@
+# @package _global_
+transforms:
+  standardise:
+    _target_: src.data.transforms.StandardiseSignal
+    field: emg
+
+  band_pass:
+    _target_: src.data.transforms.BandPassFilter 
+    lowpass: 90 
+    highpass: 20 
+    order: 3 
+    fs: ${data.sample_rate}
+
+  notch_filter:
+    _target_: src.data.transforms.NotchFilter
+    notch_freq: 50.0
+    quality_factor: 30.0
+    fs: ${data.sample_rate}
+    field: emg
+
+  resample:
+    _target_: src.data.transforms.Resample 
+    field: emg
+    # target_fs: ${model.sample_rate:1000}
+    target_fs: ${oc.select:model.sample_rate}
+    orig_fs: ${data.sample_rate}
+
+  encode_stage:
+    _target_: src.data.transforms.EncodeStage
+    field: stage
+
+  pad_length:
+    _target_: src.data.transforms.PadCropToLength
+    field: emg
+    target_length: 1000 
+
+  random_scale:
+    _target_: src.data.transforms.RandomAmplitudeScale
+    field: emg
+    min_scale: 0.9
+    max_scale: 1.1
+
+  channel_dropout:
+    _target_: src.data.transforms.RandomChannelDropout
+    field: emg
+    dropout_prob: 0.05
+
+  per_channel_z_score_normalise:
+    _target_: src.data.transforms.PerChannelZScoreNormalise
+    field: emg
+
+  global_z_score_normalise:
+    _target_: src.data.transforms.GlobalZScoreNormalise
+    field: emg
+
+  min_max_normalise:
+    _target_: src.data.transforms.MinMaxNormalise
+    field: emg
+
+  peak_normalise:
+    _target_: src.data.transforms.PeakNormalise
+    field: emg

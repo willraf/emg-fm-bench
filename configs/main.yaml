@@ -1,0 +1,126 @@
+
+logging:
+  log_interval: 10
+  use_wandb: true
+  wandb_project: neurorvq_ninaprodb5
+experiment:
+  name: ${data.root_key}/${model.fm.name}_${data.root_key}_${data.window_length}_${data.split_type}_${task.freeze_backbone}_${model.wrapper.pooling_type}/seed${experiment.random_seed}
+  random_seed: 50
+  plot_examples: true
+  resume: false
+  save: true
+  find_batch_size: true
+  base_batch_size: 128
+  base_learning_rate: 0.0001
+  min_batch_size: 32
+
+  
+
+data:
+  name: hdf5_windowed
+  root_key: ninapro_db5
+  primary_data_key: emg
+  timeseries_keys: null
+  hdf5_path: data/ninapro_db5/ninapro_db5.hdf5
+  split_type: intra_session
+  num_channels: 16
+  window_length: 200
+  window_duration: 1.0
+  sample_rate: 200
+  stride: 50
+  jitter: true
+  num_workers: 10
+  batch_size: 14
+  transforms:
+    train:
+    - ${transforms.standardise}
+    - ${transforms.band_pass}
+    - ${transforms.resample}
+    - ${transforms.random_scale}
+    - ${transforms.channel_dropout}
+    val:
+    - ${transforms.standardise}
+    - ${transforms.band_pass}
+    - ${transforms.resample}
+    test: ${data.transforms.val}
+  sample_channels: ['c1', 'c3', 'c5', 'c7', 'c9', 'c11', 'c13', 'c15', 'c2', 'c4', 'c6', 'c8', 'c10', 'c12', 'c14', 'c16']
+  num_gestures: 53   # NinaPro DB5 (1-52 + Rest)
+  num_jntang: 22      # 22 joint angles for regression task
+
+model:
+  sample_rate: 1000
+  fm:
+    name: neuro_rvq_fm
+    checkpoint: pretrained_models/NeuroRVQ/foundation_models/NeuroRVQ_EMG_foundation_model_v1.pt
+    max_patches: 256
+    patch_size: 200
+    in_chans: 1
+    out_chans: 8
+    num_classes: 0
+    embed_dim: 200
+    depth: 12
+    num_heads: 10
+    mlp_ratio: 4.0
+    qkv_bias: true
+    qk_norm: null
+    drop_rate: 0.0
+    attn_drop_rate: 0.0
+    drop_path_rate: 0.0
+    init_values: 1.0e-05
+    init_scale: 0.001
+    n_global_electrodes: 16
+    vocab_size: 8192
+    use_as_encoder: true
+    use_for_pretraining: true
+    return_patch_embeddings: true
+    sample_channels: ${data.sample_channels}
+  wrapper:
+    embed_dim: 800
+    n_outputs: ${data.num_gestures}
+    patch_size: ${model.fm.patch_size}
+    num_channels: ${data.num_channels}
+    pooling_type: concat
+    finetune_spacial_embedding: true
+transforms:
+  standardise:
+    _target_: src.data.transforms.StandardiseSignal
+    field: emg
+  band_pass:
+    _target_: src.data.transforms.BandPassFilter
+    lowpass: 90
+    highpass: 20
+    order: 3
+    fs: ${data.sample_rate}
+  resample:
+    _target_: src.data.transforms.Resample
+    field: emg
+    target_fs: ${model.sample_rate}
+    orig_fs: ${data.sample_rate}
+  encode_stage:
+    _target_: src.data.transforms.EncodeStage
+    field: stage
+  pad_length:
+    _target_: src.data.transforms.PadCropToLength
+    field: emg
+    target_length: 1000
+  random_scale:
+    _target_: src.data.transforms.RandomAmplitudeScale
+    field: emg
+    min_scale: 0.9
+    max_scale: 1.1
+  channel_dropout:
+    _target_: src.data.transforms.RandomChannelDropout
+    field: emg
+    dropout_prob: 0.05
+  per_channel_z_score_normalise:
+    _target_: src.data.transforms.PerChannelZScoreNormalise
+    field: emg
+  global_z_score_normalise:
+    _target_: src.data.transforms.GlobalZScoreNormalise
+    field: emg
+  min_max_normalise:
+    _target_: src.data.transforms.MinMaxNormalise
+    field: emg
+  peak_normalise:
+    _target_: src.data.transforms.PeakNormalise
+    field: emg

@@ -1,0 +1,20 @@
+# @package _global_
+model:
+  checkpoint: experiments/${experiment.name}/train/checkpoints/best_model.pt
+  name: cnn
+  input_size: ${data.num_channels}
+  output_size: ${data.num_gestures}
+
+
+data:
+  # No band pass filter, per channel z score normalisation and resampling to test original method done by physiowave
+  transforms:
+    train:
+      - ${transforms.standardise}
+      - ${transforms.random_scale}
+      - ${transforms.channel_dropout}
+      
+    val:
+      - ${transforms.standardise}
+
+    test: ${data.transforms.val}
