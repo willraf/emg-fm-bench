@@ -1,6 +1,6 @@
 # Do sEMG Foundation Models Improve Cross-Subject Generalisation?
 
-Official code repository paper submitted to the NeurIPS 2026 Workshop on **Foundation Models for the Brain and Body**. 
+Code repository for paper submitted to the NeurIPS 2026 Workshop on **Foundation Models for the Brain and Body**. 
 
 [![Workshop](https://img.shields.io/badge/NeurIPS%202026-Brain%20%26%20Body%20Workshop-blue)](https://neural-interfaces26.github.io/)
 
