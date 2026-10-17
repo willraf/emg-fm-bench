@@ -94,7 +94,7 @@ python -m torch.distributed.run   --nproc_per_node=4 -m scripts.main +experiment
 ```bibtex
 @inproceedings{raftery2026semg,
   title={Do sEMG Foundation Models Improve Cross-Subject Generalisation?},
-  author={Raftery, Will and Farina, Dario},
+  author={Raftery, William and Farina, Dario},
   booktitle={NeurIPS 2026 Workshop on Foundation Models for the Brain and Body},
   year={2026}
 }
