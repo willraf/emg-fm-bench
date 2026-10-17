@@ -90,6 +90,15 @@ python -m scripts.main +experiment=gesture_classification
 python -m torch.distributed.run   --nproc_per_node=4 -m scripts.main +experiment=gesture_classification
 ```
 
+## License & Acknowledgments
+
+This repository is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International License](LICENSE).
+
+### Model & Data Attributions
+* **NeuroRVQ:** Code adapted from original implementation under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/).
+* **PhysioWave & TinyMyo:** Implementations included/adapted under their original open-source licenses (MIT / Apache 2.0).
+* **Datasets:** Downloaded and processed via scripts under their respective licenses (e.g., NinaPro DB5, EPN-612, and UCI-EMG under CC BY 4.0).
+
 ## Citation
 ```bibtex
 @inproceedings{raftery2026semg,
